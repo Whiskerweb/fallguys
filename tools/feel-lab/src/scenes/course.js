@@ -67,18 +67,43 @@ export function buildCourse(RAPIER, assets) {
     return slab;
   }
 
+  // ---------- terrain ----------
+  // Une nappe d'herbe sous toute la scène : sans elle, gradins et arbres flottent
+  // au-dessus du vide et la piste n'a plus l'air posée dans un lieu.
+  {
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 380), toonMaterial(0x7bc95f));
+    ground.material.map = dotTexture('#ffffff', '#ececec', [26, 32]);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(0, -1.6, -52);
+    ground.receiveShadow = true;
+    group.add(ground);
+
+    // Collines lointaines : ferment l'horizon et donnent une echelle au parcours.
+    const hillGeo = new THREE.SphereGeometry(1, 14, 10);
+    const hills = [
+      [-72, -150, 34, 0x63b84e], [58, -168, 42, 0x55a843], [8, -196, 52, 0x4d9a3d],
+      [-104, -96, 28, 0x6cc257], [96, -60, 30, 0x63b84e], [-118, -10, 24, 0x55a843],
+    ];
+    for (const [hx, hz, r, color] of hills) {
+      const hill = new THREE.Mesh(hillGeo, toonMaterial(color));
+      hill.position.set(hx, -1.6, hz);
+      hill.scale.set(r, r * 0.42, r);
+      group.add(hill);
+    }
+  }
+
   // ---------- départ ----------
   segment(16, -16, 14, checkerTexture('#ffffff', '#d2d2d2', 6, [6, 12]));
   checkpoints.push(new THREE.Vector3(0, 2.2, 6));
   // Depart : bannière souple et portiques, pas l'arche Meshy — elle porte le mot FINISH
   // et sa taille ecrasait le cadrage juste devant le joueur.
   for (const sx of [-1, 1]) {
-    const post = pill(5.2, 0.42, C.finish);
-    post.position.set(sx * 7.2, 2.4, 2);
+    const post = pill(6.4, 0.42, C.finish);
+    post.position.set(sx * 7.2, 3.0, -2);
     group.add(post);
   }
   const startBanner = banner(14.4, C.finish, true);
-  startBanner.position.set(0, 4.7, 2);
+  startBanner.position.set(0, 6.1, -2);
   group.add(startBanner);
 
   // ---------- zone 1 : bras rotatifs ----------
@@ -258,14 +283,56 @@ export function buildCourse(RAPIER, assets) {
       });
       group.add(tree);
     });
-    for (const [x, z, ry] of [[-19, -30, 0.5], [19, -62, -0.5], [-19, -100, 0.6]]) {
-      const stand = assets.get('grandstand', 13, { outline: 0 });
-      if (!stand) continue;
-      stand.position.set(x, -1.5, z);
-      stand.rotation.y = ry * Math.PI;
-      stand.traverse((c) => { if (c.isMesh) c.castShadow = false; });
-      group.add(stand);
+    for (const [x, z, ry] of [[-20, -30, 0.5], [20, -62, -0.5], [-20, -100, 0.5], [20, -14, -0.5]]) {
+      grandstand(x, z, ry * Math.PI);
     }
+  }
+
+  /**
+   * Gradins procéduraux. Meshy ne produit pas de gradins lisibles (il rend un bâtiment),
+   * et surtout une foule qui bouge vaut bien plus qu'un décor figé : c'est ce qui donne
+   * l'impression d'un plateau de jeu télévisé plutôt que d'un niveau de test.
+   */
+  function grandstand(px, pz, rotY) {
+    const stand = new THREE.Group();
+    stand.position.set(px, -1.5, pz);
+    stand.rotation.y = rotY;
+    group.add(stand);
+
+    const ROWS = 5;
+    const spectators = [];
+    const seatGeo = new THREE.SphereGeometry(0.42, 10, 8);
+    const palette = [0xff5f7e, 0x4fd1c5, 0xffd83d, 0x8b7bff, 0xffa36b, 0x9ede6a, 0xff8bd0, 0x4fa8ff];
+
+    for (let r = 0; r < ROWS; r++) {
+      const h = 0.9 + r * 0.95;
+      const step = roundedBox(13, h, 2.3, r % 2 ? 0x3fa9f5 : 0xffffff, { radius: 0.22, outline: 0.006 });
+      step.position.set(0, h / 2 - 0.5, -r * 2.3);
+      stand.add(step);
+
+      for (let i = 0; i < 9; i++) {
+        const seed = r * 9 + i;
+        const m = new THREE.Mesh(seatGeo, toonMaterial(palette[seed % palette.length]));
+        m.position.set(-5.4 + i * 1.35, h + 0.1, -r * 2.3 + 0.2);
+        stand.add(m);
+        spectators.push({ m, base: h + 0.1, phase: (seed * 0.7) % (Math.PI * 2), speed: 3 + (seed % 5) * 0.5 });
+      }
+    }
+
+    // Fanions sur le haut des gradins
+    for (let i = 0; i < 12; i++) {
+      const flag = new THREE.Mesh(
+        new THREE.ConeGeometry(0.3, 0.62, 3),
+        toonMaterial(palette[i % palette.length])
+      );
+      flag.position.set(-5.5 + i, 0.9 + ROWS * 0.95 + 0.6, -(ROWS - 1) * 2.3);
+      flag.rotation.x = Math.PI;
+      stand.add(flag);
+    }
+
+    animated.push((t) => {
+      for (const s of spectators) s.m.position.y = s.base + Math.abs(Math.sin(t * s.speed + s.phase)) * 0.34;
+    });
   }
 
   return {

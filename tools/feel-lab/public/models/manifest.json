@@ -1,12 +1,12 @@
 [
-  "spinner-arm",
-  "player-blob",
-  "wrecking-ball",
-  "roller-log",
-  "platform-hex",
   "finish-arch",
-  "tree-candy",
   "grandstand",
+  "lobby-island",
   "lobby-podium",
-  "lobby-island"
+  "platform-hex",
+  "player-blob",
+  "roller-log",
+  "spinner-arm",
+  "tree-candy",
+  "wrecking-ball"
 ]

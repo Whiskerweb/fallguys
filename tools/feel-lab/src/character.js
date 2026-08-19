@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { TUNING } from './tuning.js';
 import { toonMaterial, addOutline } from './world.js';
 import { assets } from './assets.js';
+import { cosmetics } from './cosmetics.js';
 
 const RADIUS = 0.45;
 const HALF_HEIGHT = 0.35;          // hauteur totale = 2*HALF_HEIGHT + 2*RADIUS = 1.6 m
@@ -83,14 +84,14 @@ export class Character {
     this.pupils = [];
     if (model) {
       model.traverse((c) => {
-        if (c.isMesh && !c.userData.isOutline && c.material?.color && !c.material.map) c.material.color.setHex(0xff5f7e);
+        if (c.isMesh && !c.userData.isOutline && c.material?.color) c.material.color.setHex(cosmetics.hex);
       });
       this.visual.add(model);
       this.bodyMesh = model;
     } else {
       const bodyMesh = new THREE.Mesh(
         new THREE.CapsuleGeometry(RADIUS, HALF_HEIGHT * 2, 6, 20),
-        toonMaterial(0xff5f7e)
+        toonMaterial(cosmetics.hex)
       );
       bodyMesh.castShadow = true;
       bodyMesh.receiveShadow = true;

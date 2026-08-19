@@ -40,9 +40,24 @@ await page.waitForTimeout(3500);
 await page.screenshot({ path: `${OUT}/1-lobby.png` });
 console.log('1-lobby.png');
 
-// Lancer la course
+// Garde-robe
+await page.click('#btn-wardrobe');
+await page.waitForTimeout(600);
+await page.screenshot({ path: `${OUT}/1b-garde-robe.png` });
+console.log('1b-garde-robe.png');
+const swatches = await page.$$('#wardrobe .swatch');
+if (swatches[3]) { await swatches[3].click(); await page.waitForTimeout(900); }
+await page.screenshot({ path: `${OUT}/1c-skin.png` });
+console.log('1c-skin.png');
+await page.click('#btn-wardrobe');
+await page.waitForTimeout(300);
+
+// Lancer la course : compte a rebours
 await page.keyboard.press('Enter');
-await page.waitForTimeout(3000);
+await page.waitForTimeout(1200);
+await page.screenshot({ path: `${OUT}/2a-decompte.png` });
+console.log('2a-decompte.png');
+await page.waitForTimeout(3200);
 await page.screenshot({ path: `${OUT}/2-depart.png` });
 console.log('2-depart.png');
 

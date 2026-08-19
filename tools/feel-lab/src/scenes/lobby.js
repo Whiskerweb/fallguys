@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { toonMaterial, addOutline } from '../world.js';
+import { cosmetics } from '../cosmetics.js';
 
 /**
  * Écran de lobby : ce n'est pas une zone jouable mais un menu.
@@ -160,19 +161,20 @@ export function buildLobbyScreen(assets) {
     }
   });
 
+  const applySkin = (hex) => {
+    avatar.traverse((c) => {
+      if (c.isMesh && !c.userData.isOutline && c.material?.color) c.material.color.setHex(hex);
+    });
+  };
+  applySkin(cosmetics.hex);
+  cosmetics.onChange(applySkin);
+
   return {
     group,
     cameraPos: CAMERA_POS,
     cameraLook: CAMERA_LOOK,
     avatar,
     update: (elapsed, dt) => { for (const fn of animated) fn(elapsed, dt); },
-    /** Change la couleur du blob exposé — préfigure la garde-robe. */
-    setColor(hex) {
-      avatar.traverse((c) => {
-        if (c.isMesh && !c.userData.isOutline && c.material?.color && !c.material.map) {
-          c.material.color.setHex(hex);
-        }
-      });
-    },
+    setColor: applySkin,
   };
 }

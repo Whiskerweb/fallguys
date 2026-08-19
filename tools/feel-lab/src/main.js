@@ -7,6 +7,7 @@ import { assets } from './assets.js';
 import { buildCourse } from './scenes/course.js';
 import { buildLobbyScreen, LOBBY } from './scenes/lobby.js';
 import { Character } from './character.js';
+import { cosmetics, SKINS } from './cosmetics.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -89,6 +90,24 @@ function buildGui(getWorld) {
   gui.close();
 }
 
+// ---------- garde-robe ----------
+function buildWardrobe() {
+  const panel = el('wardrobe');
+  for (const skin of SKINS) {
+    const b = document.createElement('button');
+    b.className = 'swatch' + (skin.hex === cosmetics.hex ? ' on' : '');
+    b.style.background = '#' + skin.hex.toString(16).padStart(6, '0');
+    b.title = skin.name;
+    b.addEventListener('click', () => {
+      cosmetics.set(skin.hex);
+      for (const other of panel.children) other.classList.remove('on');
+      b.classList.add('on');
+    });
+    panel.appendChild(b);
+  }
+  el('btn-wardrobe').addEventListener('click', () => panel.classList.toggle('hidden'));
+}
+
 // ---------- jeu ----------
 class Game {
   constructor(view, lobby, course) {
@@ -103,6 +122,7 @@ class Game {
     this.best = Number(localStorage.getItem('feel-lab-best')) || null;
     this.finishTimer = 0;
     this.accumulator = 0;
+    this.countdown = 0;
     this.camTarget = new THREE.Vector3();
     this.camLook = new THREE.Vector3();
     this.desired = new THREE.Vector3();
@@ -156,12 +176,17 @@ class Game {
     const p = this.course.spawn;
     this.camTarget.set(p.x, p.y + TUNING.camHeight, p.z + TUNING.camDistance);
     this.view.camera.fov = TUNING.camFov;
-    this.banner('GO !', 900);
+    // Depart bloque : en multijoueur, les 16 joueurs doivent partir au meme instant.
+    // Le prototype respecte deja cette contrainte pour que le feel soit representatif.
+    this.countdown = 3.99;
+    el('countdown').classList.remove('hidden');
   }
 
   restart() {
     this.runTime = 0;
     this.falls = 0;
+    this.countdown = 3.99;
+    el('countdown').classList.remove('hidden');
     this.character.respawn(this.course.spawn);
     el('banner').classList.remove('show');
   }
@@ -189,6 +214,8 @@ class Game {
 
   returnToLobby() {
     el('banner').classList.remove('show');
+    el('countdown').classList.add('hidden');
+    this.countdown = 0;
     this.enterLobby(this.mode === 'finished');
   }
 
@@ -199,6 +226,19 @@ class Game {
 
     this.course.update(elapsed);
     pollInput(dt);
+
+    // Pendant le decompte, la physique tourne (le personnage se pose) mais il ne repond pas.
+    if (this.countdown > 0) {
+      this.countdown -= dt;
+      input.x = 0; input.z = 0; input.jump = false; input.dive = false;
+      jumpEdge = false; diveEdge = false;
+      if (this.countdown > 0) {
+        el('countdown-text').textContent = String(Math.ceil(this.countdown - 0.99) || 'GO !');
+      } else {
+        el('countdown').classList.add('hidden');
+        this.banner('GO !', 800);
+      }
+    }
 
     const world = this.course.world;
     this.accumulator += dt;
@@ -218,7 +258,7 @@ class Game {
       this.character.respawn(this.course.checkpointFor(pos.z));
     }
 
-    if (this.mode === 'racing') {
+    if (this.mode === 'racing' && this.countdown <= 0) {
       this.runTime += dt;
       if (pos.z <= this.course.finishZ) this.finishRace();
     } else if (this.mode === 'finished') {
@@ -266,6 +306,7 @@ async function boot() {
   const lobby = buildLobbyScreen(assets);
   const course = buildCourse(RAPIER, assets);
   buildGui(() => course.world);
+  buildWardrobe();
   game = new Game(view, lobby, course);
   el('loading').style.display = 'none';
 
