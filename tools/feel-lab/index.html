@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Feel Lab — La Course</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; overflow:hidden; background:#7fd4ff; font-family: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif; }
+  canvas { display:block; }
+  #hud {
+    position:fixed; top:18px; left:18px; color:#fff; pointer-events:none;
+    text-shadow: 0 3px 0 rgba(0,0,0,.28); letter-spacing:.3px;
+  }
+  #timer { font-size:52px; font-weight:800; line-height:1; font-variant-numeric: tabular-nums; }
+  #sub { font-size:15px; font-weight:700; opacity:.92; margin-top:6px; }
+  #help {
+    position:fixed; bottom:18px; left:18px; color:#fff; font-size:13px; font-weight:700;
+    opacity:.85; pointer-events:none; text-shadow:0 2px 0 rgba(0,0,0,.28); line-height:1.7;
+  }
+  #banner {
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    pointer-events:none; opacity:0; transition:opacity .25s;
+  }
+  #banner.show { opacity:1; }
+  #banner span {
+    font-size:74px; font-weight:900; color:#fff; letter-spacing:2px;
+    text-shadow: 0 6px 0 rgba(0,0,0,.25), 0 0 40px rgba(255,225,120,.9);
+    transform:rotate(-3deg);
+  }
+  #loading {
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:#7fd4ff; color:#fff; font-size:22px; font-weight:800; z-index:10;
+  }
+</style>
+</head>
+<body>
+<div id="loading">Chargement…</div>
+<div id="hud">
+  <div id="timer">0.00</div>
+  <div id="sub">Chutes : <span id="falls">0</span> &nbsp;·&nbsp; Record : <span id="best">—</span></div>
+</div>
+<div id="help">
+  ZQSD / WASD ou flèches — courir &nbsp;·&nbsp; ESPACE — sauter &nbsp;·&nbsp; MAJ ou CLIC — plonger<br/>
+  R — recommencer &nbsp;·&nbsp; H — masquer les réglages
+</div>
+<div id="banner"><span id="banner-text">ARRIVÉE !</span></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

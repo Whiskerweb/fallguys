@@ -1,0 +1,19 @@
+{
+  "name": "fallguys-feel-lab",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Banc d'essai de game feel — JETABLE. Sert a regler les constantes du personnage avant de les transposer dans Unity.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5273",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.14.0",
+    "lil-gui": "^0.19.2",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10"
+  }
+}

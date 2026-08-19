@@ -41,3 +41,6 @@ dist/
 # Artefacts générés
 tools/meshy-pipeline/out/
 replays/
+
+# Banc d'essai
+tools/feel-lab/dist/
