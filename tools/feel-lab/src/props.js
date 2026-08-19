@@ -247,3 +247,22 @@ export function pennant(poleHeight, width, height, poleColor, color, opts = {}) 
   group.add(cap);
   return group;
 }
+
+/**
+ * Dalle de sol à tranche visible : un plateau coloré posé sur un socle d'une autre
+ * couleur, légèrement plus large. C'est ce qui donne l'épaisseur de matelas du genre —
+ * une dalle monochrome, même épaisse, se lit comme une surface plate.
+ */
+export function slabMesh(w, h, d, topColor, edgeColor, { map = null, radius = 0.5 } = {}) {
+  const group = new THREE.Group();
+
+  const base = roundedBox(w + 0.34, h, d + 0.34, edgeColor, { radius: radius * 0.9, outline: 0.006 });
+  base.position.y = -0.06;
+  group.add(base);
+
+  const top = roundedBox(w, h * 0.72, d, topColor, { radius, map, outline: 0 });
+  top.position.y = h * 0.2;
+  group.add(top);
+
+  return group;
+}

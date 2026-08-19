@@ -3,7 +3,7 @@ import { TUNING } from '../tuning.js';
 import { toonMaterial, addOutline } from '../world.js';
 import {
   roundedBox, pill, rimGlow, banner, inflatableArch, balloon, bollard, bunting,
-  flagPole, pennant, updateFlags,
+  flagPole, pennant, updateFlags, slabMesh,
 } from '../props.js';
 import {
   quiltedVinyl, softChecker, hazardStripes, polkaStagger, grassTufts, scales, inflatedBands,
@@ -23,9 +23,23 @@ import {
  */
 
 const C = {
-  ground: 0xff8ec2, groundAlt: 0xffb6d9, groundHigh: 0x8fe2f5, rail: 0x9d64ff,
-  hazard: 0xffc23d, roller: 0x36dbc9, platform: 0xa974ff, finish: 0x45d97f,
-  bumper: 0xff5f9c, conveyor: 0x6f9dff, hammer: 0xff7250,
+  // Sols FROIDS : ils reculent et laissent les accents chauds ressortir.
+  ground: 0x3aa8ee,        // bleu franc — la piste principale
+  groundAlt: 0x6ec8f7,     // bleu clair — ilots et paliers
+  groundHigh: 0x8f7bf0,    // violet — plateau haut, pour distinguer l'altitude
+  edge: 0xffffff,          // tranche des dalles : blanc, contraste maximal
+
+  // Bordures et obstacles CHAUDS : opposes au sol, donc lisibles instantanement.
+  // C'etait le defaut principal — un sol rose borde de violet ne se lit pas.
+  rail: 0xffc93c,
+  railPost: 0xff9a1f,
+  hazard: 0xff8a3d,
+  bumper: 0xff3d8b,
+  hammer: 0xff5f3d,
+  roller: 0xffd83d,
+  platform: 0xff6fb0,
+  conveyor: 0x9d64ff,
+  finish: 0x2ecc71,
 };
 
 /** Interrupteurs de diagnostic : ?skip=ramps,doors,hammers,bumpers,conveyors,rollers,spinners,pendulums */
@@ -72,7 +86,7 @@ export function buildCourse(RAPIER, assets) {
     const len = Math.abs(zTo - zFrom);
     checkDims(width, len);
     const zc = (zFrom + zTo) / 2;
-    const mesh = roundedBox(width, 1.2, len, color, { radius: 0.5, map, outline: 0.008 });
+    const mesh = slabMesh(width, 1.2, len, color, C.edge, { radius: 0.5, map });
     addBody(mesh, x, y - 0.6, zc, RAPIER.ColliderDesc.cuboid(width / 2, 0.6, len / 2).setFriction(0.62));
     if (glow) {
       const g = rimGlow(width, len);
@@ -93,7 +107,7 @@ export function buildCourse(RAPIER, assets) {
       addBody(rail, x + sx * (width / 2 + 0.2), y + 0.62, zc,
         RAPIER.ColliderDesc.cuboid(0.34, 0.9, len / 2).setFriction(0.3));
       for (let z = zFrom; z >= zTo; z -= 8) {
-        const post = bollard(1.5, 0.26, 0x6a2fd0);
+        const post = bollard(1.5, 0.26, C.railPost);
         post.position.set(x + sx * (width / 2 + 0.2), y - 0.5, z);
         group.add(post);
       }
@@ -301,7 +315,7 @@ export function buildCourse(RAPIER, assets) {
     const len = Math.abs(zTo - zFrom);
     const zc = (zFrom + zTo) / 2;
     const map = inflatedBands({ a: '#5b8cff', b: '#c9dcff', bands: 7, repeat: [2, 6] });
-    const mesh = roundedBox(width, 1.2, len, 0xffffff, { radius: 0.3, map, outline: 0.008 });
+    const mesh = slabMesh(width, 1.2, len, 0xffffff, C.conveyor, { radius: 0.3, map });
     addBody(mesh, x, y - 0.6, zc, RAPIER.ColliderDesc.cuboid(width / 2, 0.6, len / 2).setFriction(0.55));
     conveyors.push({ minX: x - width / 2, maxX: x + width / 2, minZ: Math.min(zFrom, zTo), maxZ: Math.max(zFrom, zTo), y, vx, vz });
     animated.push((t) => { map.offset.y = (t * 0.55) % 1; });
