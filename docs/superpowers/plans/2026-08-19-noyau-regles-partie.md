@@ -52,7 +52,7 @@
 - Consumes: rien.
 - Produces: `readonly record struct Money(long Micros)` avec `Money.Zero`, `Money.FromUnits(decimal)`, `ToUnits()`, opérateurs `+`, `-`, `*` (par `int`), `MultiplyByBasisPoints(int)`, et `IComparable<Money>`.
 
-- [ ] **Step 1: Créer la solution et les projets**
+- [x] **Step 1: Créer la solution et les projets**
 
 ```bash
 cd "/Users/lucasroncey/Desktop/Projets/Projet Saas/Avance/Fallguys"
@@ -65,7 +65,7 @@ dotnet sln add src/Fallguys.Rules/Fallguys.Rules.csproj tests/Fallguys.Rules.Tes
 dotnet add tests/Fallguys.Rules.Tests/Fallguys.Rules.Tests.csproj reference src/Fallguys.Rules/Fallguys.Rules.csproj
 ```
 
-- [ ] **Step 2: Écrire le test qui échoue**
+- [x] **Step 2: Écrire le test qui échoue**
 
 Créer `tests/Fallguys.Rules.Tests/MoneyTests.cs` :
 
@@ -118,7 +118,7 @@ public class MoneyTests
 }
 ```
 
-- [ ] **Step 3: Lancer le test et vérifier qu'il échoue**
+- [x] **Step 3: Lancer le test et vérifier qu'il échoue**
 
 ```bash
 export PATH="$HOME/.dotnet:$PATH"
@@ -127,7 +127,7 @@ dotnet test tests/Fallguys.Rules.Tests/Fallguys.Rules.Tests.csproj
 
 Attendu : échec de compilation, `The type or namespace name 'Money' could not be found`.
 
-- [ ] **Step 4: Implémenter Money**
+- [x] **Step 4: Implémenter Money**
 
 Créer `src/Fallguys.Rules/Money.cs` :
 
@@ -171,7 +171,7 @@ public readonly record struct Money(long Micros) : IComparable<Money>
 }
 ```
 
-- [ ] **Step 5: Lancer les tests et vérifier qu'ils passent**
+- [x] **Step 5: Lancer les tests et vérifier qu'ils passent**
 
 ```bash
 export PATH="$HOME/.dotnet:$PATH"
@@ -180,7 +180,7 @@ dotnet test tests/Fallguys.Rules.Tests/Fallguys.Rules.Tests.csproj
 
 Attendu : 5 tests réussis.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add Fallguys.sln src/Fallguys.Rules tests/Fallguys.Rules.Tests
@@ -205,7 +205,7 @@ git commit -m "feat(rules): type Money en micro-unites entieres"
   - `sealed record StakeContext(StakeTier Tier, Money EntryFee, string Currency)` avec `StakeContext.Free`
   - `sealed record MatchConfiguration(int PlayerCount, IReadOnlyList<int> RoundSurvivors, int RakeBasisPoints, IReadOnlyList<int> FinalistBonusWeights)` avec `MatchConfiguration.Default`, `int RoundCount`, `int RefundThreshold`, `int FinalistCount`, `void Validate()`
 
-- [ ] **Step 1: Écrire le test qui échoue**
+- [x] **Step 1: Écrire le test qui échoue**
 
 Créer `tests/Fallguys.Rules.Tests/MatchConfigurationTests.cs` :
 
@@ -280,7 +280,7 @@ public class MatchConfigurationTests
 }
 ```
 
-- [ ] **Step 2: Lancer le test et vérifier qu'il échoue**
+- [x] **Step 2: Lancer le test et vérifier qu'il échoue**
 
 ```bash
 export PATH="$HOME/.dotnet:$PATH"
@@ -289,7 +289,7 @@ dotnet test tests/Fallguys.Rules.Tests/Fallguys.Rules.Tests.csproj
 
 Attendu : échec de compilation, `MatchConfiguration` introuvable.
 
-- [ ] **Step 3: Implémenter PlayerId et StakeContext**
+- [x] **Step 3: Implémenter PlayerId et StakeContext**
 
 Créer `src/Fallguys.Rules/PlayerId.cs` :
 
@@ -328,7 +328,7 @@ public sealed record StakeContext(StakeTier Tier, Money EntryFee, string Currenc
 }
 ```
 
-- [ ] **Step 4: Implémenter MatchConfiguration**
+- [x] **Step 4: Implémenter MatchConfiguration**
 
 Créer `src/Fallguys.Rules/MatchConfiguration.cs` :
 
@@ -404,7 +404,7 @@ public sealed record MatchConfiguration(
 }
 ```
 
-- [ ] **Step 5: Lancer les tests et vérifier qu'ils passent**
+- [x] **Step 5: Lancer les tests et vérifier qu'ils passent**
 
 ```bash
 export PATH="$HOME/.dotnet:$PATH"
@@ -413,7 +413,7 @@ dotnet test tests/Fallguys.Rules.Tests/Fallguys.Rules.Tests.csproj
 
 Attendu : tous les tests réussis (5 de Task 1 + 8 de Task 2).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Fallguys.Rules tests/Fallguys.Rules.Tests
@@ -437,7 +437,7 @@ git commit -m "feat(rules): identite joueur, palier de mise et configuration de 
 
 Règle métier, exprimée en une phrase : **les survivants de la manche 1 récupèrent leur mise ; ce qui reste après le rake est réparti en bonus entre les finalistes.**
 
-- [ ] **Step 1: Écrire le test qui échoue**
+- [x] **Step 1: Écrire le test qui échoue**
 
 Créer `tests/Fallguys.Rules.Tests/PayoutPolicyTests.cs` :
 
@@ -546,7 +546,7 @@ public class PayoutPolicyTests
 }
 ```
 
-- [ ] **Step 2: Lancer le test et vérifier qu'il échoue**
+- [x] **Step 2: Lancer le test et vérifier qu'il échoue**
 
 ```bash
 export PATH="$HOME/.dotnet:$PATH"
@@ -555,7 +555,7 @@ dotnet test tests/Fallguys.Rules.Tests/Fallguys.Rules.Tests.csproj
 
 Attendu : échec de compilation, `PayoutPolicy` introuvable.
 
-- [ ] **Step 3: Implémenter PayoutTable**
+- [x] **Step 3: Implémenter PayoutTable**
 
 Créer `src/Fallguys.Rules/PayoutTable.cs` :
 
@@ -582,7 +582,7 @@ public sealed record PayoutTable(Money Pot, Money Rake, IReadOnlyList<Money> Pay
 }
 ```
 
-- [ ] **Step 4: Implémenter PayoutPolicy**
+- [x] **Step 4: Implémenter PayoutPolicy**
 
 Créer `src/Fallguys.Rules/PayoutPolicy.cs` :
 
@@ -640,7 +640,7 @@ public static class PayoutPolicy
 }
 ```
 
-- [ ] **Step 5: Lancer les tests et vérifier qu'ils passent**
+- [x] **Step 5: Lancer les tests et vérifier qu'ils passent**
 
 ```bash
 export PATH="$HOME/.dotnet:$PATH"
@@ -649,7 +649,7 @@ dotnet test tests/Fallguys.Rules.Tests/Fallguys.Rules.Tests.csproj
 
 Attendu : tous les tests réussis. Si le test `Reproduit_exactement_la_table_de_reference_du_spec` échoue sur le rang 1, vérifier que le reste de division est bien ajouté au vainqueur (Step 4, point 3).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Fallguys.Rules tests/Fallguys.Rules.Tests
@@ -672,7 +672,7 @@ git commit -m "feat(rules): payouts gradues avec remboursement a la manche 1"
 
 Principe de classement : un joueur éliminé tard se classe devant un joueur éliminé tôt ; à élimination égale, l'ordre d'arrivée de la manche fatale départage.
 
-- [ ] **Step 1: Écrire le test qui échoue**
+- [x] **Step 1: Écrire le test qui échoue**
 
 Créer `tests/Fallguys.Rules.Tests/StandingsTests.cs` :
 
@@ -766,7 +766,7 @@ public class StandingsTests
 }
 ```
 
-- [ ] **Step 2: Lancer le test et vérifier qu'il échoue**
+- [x] **Step 2: Lancer le test et vérifier qu'il échoue**
 
 ```bash
 export PATH="$HOME/.dotnet:$PATH"
@@ -775,7 +775,7 @@ dotnet test tests/Fallguys.Rules.Tests/Fallguys.Rules.Tests.csproj
 
 Attendu : échec de compilation, `Standings` introuvable.
 
-- [ ] **Step 3: Implémenter Standings**
+- [x] **Step 3: Implémenter Standings**
 
 Créer `src/Fallguys.Rules/Standings.cs` :
 
@@ -864,7 +864,7 @@ public sealed class Standings
 }
 ```
 
-- [ ] **Step 4: Lancer les tests et vérifier qu'ils passent**
+- [x] **Step 4: Lancer les tests et vérifier qu'ils passent**
 
 ```bash
 export PATH="$HOME/.dotnet:$PATH"
@@ -873,7 +873,7 @@ dotnet test tests/Fallguys.Rules.Tests/Fallguys.Rules.Tests.csproj
 
 Attendu : tous les tests réussis.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/Fallguys.Rules tests/Fallguys.Rules.Tests
@@ -897,7 +897,7 @@ git commit -m "feat(rules): classement cumule au fil des manches"
   - `sealed record MatchResult(string MatchId, string BuildVersion, string ReplayHash, StakeContext Stake, Money Pot, Money Rake, IReadOnlyList<PlayerPayout> Payouts)`
   - `sealed class MatchStateMachine` avec `MatchStateMachine(string matchId, MatchConfiguration config, StakeContext stake)`, `MatchPhase Phase`, `void Start(IReadOnlyList<PlayerId> entrants)`, `void ApplyRound(RoundOutcome outcome)`, `MatchResult Settle(string buildVersion, string replayHash)`.
 
-- [ ] **Step 1: Écrire le test qui échoue**
+- [x] **Step 1: Écrire le test qui échoue**
 
 Créer `tests/Fallguys.Rules.Tests/MatchStateMachineTests.cs` :
 
@@ -1028,7 +1028,7 @@ public class MatchStateMachineTests
 }
 ```
 
-- [ ] **Step 2: Lancer le test et vérifier qu'il échoue**
+- [x] **Step 2: Lancer le test et vérifier qu'il échoue**
 
 ```bash
 export PATH="$HOME/.dotnet:$PATH"
@@ -1037,7 +1037,7 @@ dotnet test tests/Fallguys.Rules.Tests/Fallguys.Rules.Tests.csproj
 
 Attendu : échec de compilation, `MatchStateMachine` introuvable.
 
-- [ ] **Step 3: Implémenter MatchResult**
+- [x] **Step 3: Implémenter MatchResult**
 
 Créer `src/Fallguys.Rules/MatchResult.cs` :
 
@@ -1069,7 +1069,7 @@ public sealed record MatchResult(
     IReadOnlyList<PlayerPayout> Payouts);
 ```
 
-- [ ] **Step 4: Implémenter MatchStateMachine**
+- [x] **Step 4: Implémenter MatchStateMachine**
 
 Créer `src/Fallguys.Rules/MatchStateMachine.cs` :
 
@@ -1152,7 +1152,7 @@ public sealed class MatchStateMachine
 }
 ```
 
-- [ ] **Step 5: Lancer les tests et vérifier qu'ils passent**
+- [x] **Step 5: Lancer les tests et vérifier qu'ils passent**
 
 ```bash
 export PATH="$HOME/.dotnet:$PATH"
@@ -1161,7 +1161,7 @@ dotnet test tests/Fallguys.Rules.Tests/Fallguys.Rules.Tests.csproj
 
 Attendu : l'ensemble de la suite réussit (Tasks 1 à 5).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Fallguys.Rules tests/Fallguys.Rules.Tests

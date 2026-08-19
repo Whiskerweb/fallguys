@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Fallguys.Rules")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8e472c1bfd5b656cf96c17e5fa324434de76ce5b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+70fa1bb2cdaf9e383ba8f28f336e6ef9948090e3")]
 [assembly: System.Reflection.AssemblyProductAttribute("Fallguys.Rules")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Fallguys.Rules")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
