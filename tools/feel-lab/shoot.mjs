@@ -21,7 +21,7 @@ const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, dev
 
 const logs = [];
 page.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
-page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
+page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}\n${(e.stack ?? '').split('\n').slice(1, 7).join('\n')}`));
 
 await page.goto(URL, { waitUntil: 'domcontentloaded' });
 

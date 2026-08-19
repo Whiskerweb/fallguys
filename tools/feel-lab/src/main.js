@@ -9,6 +9,7 @@ import { buildLobbyScreen, LOBBY } from './scenes/lobby.js';
 import { Character } from './character.js';
 import { cosmetics, SKINS } from './cosmetics.js';
 import { sfx, unlockAudio, audio } from './audio.js';
+import { RIG, RIG_RANGES } from './rig.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -78,6 +79,12 @@ function buildGui(getWorld) {
     }
     if (name !== 'Déplacement' && name !== 'Saut') folder.close();
   }
+  const rigFolder = gui.addFolder('Animation');
+  for (const [k, [min, max]] of Object.entries(RIG_RANGES)) {
+    rigFolder.add(RIG, k, min, max, (max - min) / 200);
+  }
+  rigFolder.close();
+
   const audioFolder = gui.addFolder('Son');
   audioFolder.add(audio, 'enabled').name('sons actifs');
   audioFolder.close();
@@ -267,6 +274,22 @@ class Game {
     }
 
     const pos = this.character.position.clone();
+
+    // Tapis roulants : Rapier n'a pas de surface mobile native. On pousse le joueur
+    // tant qu'il repose sur la zone — plus stable qu'un corps cinematique en translation
+    // infinie, et le decalage de texture rend le mouvement lisible.
+    if (this.character.grounded) {
+      for (const c of this.course.conveyors) {
+        if (pos.x >= c.minX && pos.x <= c.maxX && pos.z >= c.minZ && pos.z <= c.maxZ
+            && Math.abs(pos.y - c.y) < 1.6) {
+          const v = this.character.body.linvel();
+          this.character.body.setLinvel(
+            { x: v.x + c.vx * dt * 6, y: v.y, z: v.z + c.vz * dt * 6 }, true);
+          break;
+        }
+      }
+    }
+
     if (pos.y < this.course.killY) {
       if (this.mode === 'racing') this.falls++;
       this.character.respawn(this.course.checkpointFor(pos.z));

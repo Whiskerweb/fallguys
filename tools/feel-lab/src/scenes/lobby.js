@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { toonMaterial, addOutline } from '../world.js';
 import { cosmetics } from '../cosmetics.js';
+import { createRiggedCharacter } from '../rig.js';
 
 /**
  * Écran de lobby : ce n'est pas une zone jouable mais un menu.
@@ -90,7 +91,10 @@ export function buildLobbyScreen(assets) {
   stage.position.y = 1.28;
   pedestal.add(stage);
 
-  let avatar = assets.getFitted('player-blob', { y: 2.0 }, { groundAlign: true, outline: 0.018 });
+  const riggedAvatar = createRiggedCharacter(assets, LOBBY.avatarHeight);
+  let avatar = riggedAvatar?.model ?? null;
+  const avatarRig = riggedAvatar?.rig ?? null;
+  if (!avatar) avatar = assets.getFitted('player-blob', { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.018 });
   if (!avatar) {
     avatar = new THREE.Group();
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.56, 0.9, 8, 24), toonMaterial(0xff5f7e));
@@ -113,7 +117,9 @@ export function buildLobbyScreen(assets) {
   // Pose d'attente : rotation lente et respiration. Un personnage figé donne un menu mort.
   // L'avant du personnage est +Z, la camera est en +Z : rotation nulle = il nous regarde.
   // LOBBY.avatarYaw rattrape une orientation native differente sur le modele genere.
-  animated.push((t) => {
+  animated.push((t, dt) => {
+    // Pose d'attente : le rig tourne a vitesse nulle, donc uniquement la respiration.
+    if (avatarRig) avatarRig.update(dt ?? 0.016, 0, 8, 'grounded', 0);
     stage.rotation.y = Math.sin(t * 0.32) * 0.85 + LOBBY.avatarYaw;
     const breathe = 1 + Math.sin(t * 1.6) * 0.022;
     avatar.scale.set(2 - breathe, breathe, 2 - breathe).multiplyScalar(avatar.userData.baseScale ?? 1);

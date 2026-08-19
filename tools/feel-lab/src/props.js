@@ -148,3 +148,79 @@ export function banner(width, color, text) {
   group.add(mesh);
   return group;
 }
+
+/**
+ * Tube gonflable courbé — la brique visuelle signature du genre : arches, bordures,
+ * portiques. Un tore partiel plutôt qu'un cylindre : rien ne doit avoir d'arête.
+ */
+export function inflatableArch(width, height, radius, color) {
+  const group = new THREE.Group();
+  const curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-width / 2, 0, 0),
+    new THREE.Vector3(-width / 2 * 0.86, height * 0.66, 0),
+    new THREE.Vector3(0, height, 0),
+    new THREE.Vector3(width / 2 * 0.86, height * 0.66, 0),
+    new THREE.Vector3(width / 2, 0, 0),
+  ]);
+  const geo = new THREE.TubeGeometry(curve, 40, radius, 12, false);
+  const mesh = new THREE.Mesh(geo, toonMaterial(color));
+  mesh.castShadow = true;
+  addOutline(mesh, 0.02);
+  group.add(mesh);
+  return group;
+}
+
+/** Ballon géant de décor : gonflé, mat, posé au sol par une petite embase. */
+export function balloon(radius, color) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(radius, 22, 18), toonMaterial(color));
+  body.scale.y = 1.12;
+  body.position.y = radius * 1.12;
+  body.castShadow = true;
+  addOutline(body, 0.018);
+  group.add(body);
+  const knot = new THREE.Mesh(new THREE.ConeGeometry(radius * 0.22, radius * 0.34, 10), toonMaterial(color));
+  knot.position.y = radius * 0.14;
+  group.add(knot);
+  return group;
+}
+
+/** Plot / borne gonflable, sert de bumper visuel et de repère de couloir. */
+export function bollard(height, radius, color) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(radius, Math.max(0.01, height - radius * 2), 6, 18), toonMaterial(color));
+  body.position.y = height / 2;
+  body.castShadow = true;
+  addOutline(body, 0.026);
+  group.add(body);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(radius * 1.04, radius * 0.16, 10, 22), toonMaterial(0xffffff));
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = height * 0.62;
+  group.add(ring);
+  return group;
+}
+
+/** Fanions tendus entre deux points — habille le ciel au-dessus de la piste. */
+export function bunting(width, count = 14, colors = [0xff5f7e, 0x4fd1c5, 0xffd83d, 0x8b7bff]) {
+  const group = new THREE.Group();
+  const rope = new THREE.Mesh(
+    new THREE.TubeGeometry(
+      new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-width / 2, 0, 0),
+        new THREE.Vector3(0, -width * 0.055, 0),
+        new THREE.Vector3(width / 2, 0, 0),
+      ]), 22, 0.06, 6, false),
+    toonMaterial(0xffffff)
+  );
+  group.add(rope);
+  for (let i = 0; i < count; i++) {
+    const t = i / (count - 1);
+    const x = -width / 2 + t * width;
+    const sag = -Math.sin(t * Math.PI) * width * 0.055;
+    const flag = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.62, 3), toonMaterial(colors[i % colors.length]));
+    flag.position.set(x, sag - 0.32, 0);
+    flag.rotation.x = Math.PI;
+    group.add(flag);
+  }
+  return group;
+}

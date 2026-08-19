@@ -114,9 +114,12 @@ export function createWorld() {
   const camera = new THREE.PerspectiveCamera(TUNING.camFov, innerWidth / innerHeight, 0.1, 600);
   camera.position.set(0, 8, 14);
 
-  scene.add(new THREE.HemisphereLight(0xbfe4ff, 0xffb877, 0.45));
+  scene.add(new THREE.HemisphereLight(0xbfe4ff, 0xffb877, 0.36));
 
-  const sun = new THREE.DirectionalLight(0xfffaf0, 1.28);
+  // Somme des intensites volontairement sous 1.15 : l'ombrage toon ne compresse pas les
+// hautes lumieres, et au-dela toute teinte claire ecrete vers le blanc. Le personnage
+// violet apparaissait entierement blanc a 1.7.
+  const sun = new THREE.DirectionalLight(0xfffaf0, 0.94);
   sun.position.set(26, 42, 18);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);

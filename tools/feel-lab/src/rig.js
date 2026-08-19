@@ -1,0 +1,199 @@
+import * as THREE from 'three';
+
+/**
+ * Animation procédurale du personnage riggé.
+ *
+ * Pourquoi ne pas utiliser le clip de marche fourni par Meshy : c'est une marche humaine
+ * réaliste à cadence fixe. Ici il faut un mouvement cartoon exagéré, dont la cadence suit
+ * la vitesse réelle du personnage et qui bascule instantanément entre course, envol, chute,
+ * culbute et relevé. Piloter les os directement donne ce contrôle, ne coûte aucun fichier
+ * supplémentaire, et met les réglages dans le même panneau que le reste du game feel.
+ *
+ * Le rig est livré en pose T : toutes les poses partent de là, en amenant d'abord les bras
+ * le long du corps (REST), puis en ajoutant le mouvement.
+ */
+
+export const RIG = {
+  armSwing: 0.95,     // amplitude du balancement des bras en course
+  legSwing: 1.05,     // amplitude du balancement des jambes
+  cadence: 1.35,      // pas par mètre parcouru
+  torsoLean: 0.26,    // inclinaison du buste à pleine vitesse
+  bounce: 0.09,       // rebond vertical du bassin par foulée
+  armRest: 1.28,      // angle qui ramène les bras de la pose T au corps
+  headBob: 0.12,
+  blend: 14,          // vitesse de transition entre poses
+};
+
+const BONES = [
+  'Hips', 'Spine', 'Spine01', 'Spine02', 'neck', 'Head', 'head_end',
+  'LeftShoulder', 'LeftArm', 'LeftForeArm', 'LeftHand',
+  'RightShoulder', 'RightArm', 'RightForeArm', 'RightHand',
+  'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase',
+  'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase',
+];
+
+const _e = new THREE.Euler();
+const _q = new THREE.Quaternion();
+
+export class CharacterRig {
+  constructor(root) {
+    this.bones = new Map();
+    this.rest = new Map();
+    root.traverse((o) => {
+      if (o.isBone && BONES.includes(o.name)) {
+        this.bones.set(o.name, o);
+        this.rest.set(o.name, o.quaternion.clone());
+      }
+    });
+    this.ok = this.bones.size >= 12;
+    this.phase = 0;
+    this.hipsBase = this.bones.get('Hips')?.position.y ?? 0;
+    if (!this.ok) console.warn(`[rig] squelette incomplet (${this.bones.size} os trouves)`);
+  }
+
+  /**
+   * Hauteur réelle du personnage, mesurée sur le squelette.
+   * Indispensable : Box3.setFromObject() est faux sur un SkinnedMesh — il mesure la
+   * géométrie en pose de liaison sans appliquer les transformations d'os, et le modèle
+   * Meshy porte une échelle sur son armature. La boîte annonçait 2 cm au lieu de 1,7 m.
+   */
+  measureHeight(root) {
+    root.updateWorldMatrix(true, true);
+    const p = new THREE.Vector3();
+    let lo = Infinity, hi = -Infinity;
+    for (const bone of this.bones.values()) {
+      bone.getWorldPosition(p);
+      lo = Math.min(lo, p.y);
+      hi = Math.max(hi, p.y);
+    }
+    if (!Number.isFinite(lo) || hi <= lo) return 0;
+    // Les os s'arrêtent à la cheville et sous le crâne : ~8 % de marge de part et d'autre.
+    return (hi - lo) * 1.16;
+  }
+
+  /** Applique une rotation locale (radians) par-dessus la pose de repos du bone. */
+  set(name, x, y, z, weight = 1) {
+    const bone = this.bones.get(name);
+    if (!bone) return;
+    const rest = this.rest.get(name);
+    _q.setFromEuler(_e.set(x, y, z));
+    _q.premultiply(rest);
+    bone.quaternion.slerp(_q, weight);
+  }
+
+  reset() {
+    for (const [name, bone] of this.bones) bone.quaternion.copy(this.rest.get(name));
+  }
+
+  /**
+   * @param dt        delta temps
+   * @param speed     vitesse horizontale (m/s)
+   * @param maxSpeed  vitesse de course de référence
+   * @param state     'grounded' | 'airborne' | 'diving' | 'tumbling' | 'gettingUp'
+   * @param vy        vitesse verticale
+   */
+  update(dt, speed, maxSpeed, state, vy) {
+    if (!this.ok) return 0;
+    const R = RIG;
+    const w = Math.min(1, dt * R.blend);
+    const run = Math.min(1, speed / Math.max(0.5, maxSpeed));
+
+    // La cadence suit la distance parcourue : le personnage ne moulinera jamais sur place.
+    this.phase += speed * R.cadence * dt;
+    const s = Math.sin(this.phase * Math.PI * 2);
+    const c = Math.cos(this.phase * Math.PI * 2);
+
+    let bounce = 0;
+
+    if (state === 'tumbling' || state === 'diving') {
+      // Membres relâchés, bras écartés : une chute doit avoir l'air subie.
+      this.set('LeftArm', 0.2, 0, R.armRest * 0.35, w);
+      this.set('RightArm', 0.2, 0, -R.armRest * 0.35, w);
+      this.set('LeftForeArm', -0.7, 0, 0, w);
+      this.set('RightForeArm', -0.7, 0, 0, w);
+      this.set('LeftUpLeg', -0.55, 0, 0.12, w);
+      this.set('RightUpLeg', -0.35, 0, -0.12, w);
+      this.set('LeftLeg', 0.9, 0, 0, w);
+      this.set('RightLeg', 0.65, 0, 0, w);
+      this.set('Spine01', -0.22, 0, 0, w);
+      this.set('Head', -0.3, 0, 0, w);
+    } else if (state === 'airborne') {
+      // En l'air : bras levés, jambes repliées si on monte, écartées si on tombe.
+      const rising = vy > 0 ? 1 : 0;
+      const tuck = rising ? 1 : 0.35;
+      this.set('LeftArm', -0.5 * rising, 0, R.armRest * 0.55, w);
+      this.set('RightArm', -0.5 * rising, 0, -R.armRest * 0.55, w);
+      this.set('LeftForeArm', -0.5, 0, 0, w);
+      this.set('RightForeArm', -0.5, 0, 0, w);
+      this.set('LeftUpLeg', -0.6 * tuck, 0, 0.1, w);
+      this.set('RightUpLeg', -0.6 * tuck, 0, -0.1, w);
+      this.set('LeftLeg', 1.0 * tuck, 0, 0, w);
+      this.set('RightLeg', 1.0 * tuck, 0, 0, w);
+      this.set('Spine01', -0.1, 0, 0, w);
+    } else if (state === 'gettingUp') {
+      this.set('LeftArm', -0.2, 0, R.armRest * 0.8, w);
+      this.set('RightArm', -0.2, 0, -R.armRest * 0.8, w);
+      this.set('LeftUpLeg', -0.3, 0, 0.08, w);
+      this.set('RightUpLeg', -0.3, 0, -0.08, w);
+      this.set('LeftLeg', 0.6, 0, 0, w);
+      this.set('RightLeg', 0.6, 0, 0, w);
+      this.set('Spine01', 0.32, 0, 0, w);
+    } else {
+      // Au sol : cycle de course dont l'amplitude croît avec la vitesse. À l'arrêt il
+      // reste une respiration, pour qu'un personnage immobile ne soit pas une statue.
+      const idle = 1 - run;
+      const breathe = Math.sin(this.phase * 1.6 + performance.now() * 0.0016) * 0.03 * idle;
+
+      this.set('LeftArm', s * R.armSwing * run, 0, R.armRest - 0.1 * run, w);
+      this.set('RightArm', -s * R.armSwing * run, 0, -R.armRest + 0.1 * run, w);
+      this.set('LeftForeArm', -0.35 - 0.45 * run + s * 0.25 * run, 0, 0, w);
+      this.set('RightForeArm', -0.35 - 0.45 * run - s * 0.25 * run, 0, 0, w);
+
+      this.set('LeftUpLeg', -s * R.legSwing * run, 0, 0.06, w);
+      this.set('RightUpLeg', s * R.legSwing * run, 0, -0.06, w);
+      this.set('LeftLeg', Math.max(0, s) * 1.15 * run, 0, 0, w);
+      this.set('RightLeg', Math.max(0, -s) * 1.15 * run, 0, 0, w);
+      this.set('LeftFoot', -0.25 * run, 0, 0, w);
+      this.set('RightFoot', -0.25 * run, 0, 0, w);
+
+      this.set('Spine01', R.torsoLean * run + breathe, 0, 0, w);
+      this.set('Spine02', 0.05 * run, -s * 0.1 * run, 0, w);
+      this.set('Head', -R.torsoLean * 0.7 * run + R.headBob * c * run * 0.3, s * 0.08 * run, 0, w);
+
+      bounce = Math.abs(c) * R.bounce * run;
+    }
+
+    return bounce;
+  }
+}
+
+/**
+ * Crée un personnage riggé à la bonne échelle, pieds à l'origine.
+ * Centralisé ici parce que la mise à l'échelle d'un SkinnedMesh ne peut pas passer par
+ * la boîte englobante (voir measureHeight) : dupliquer cette logique, c'est garantir
+ * qu'un des deux appels finira mal réglé.
+ */
+export function createRiggedCharacter(assets, targetHeight, name = 'player-rigged') {
+  const model = assets.get(name, null, { groundAlign: false, outline: 0 });
+  if (!model) return null;
+  const rig = new CharacterRig(model);
+  if (!rig.ok) return null;
+
+  model.scale.setScalar(1);
+  const native = rig.measureHeight(model);
+  if (native > 0.0001) model.scale.setScalar(targetHeight / native);
+  model.updateWorldMatrix(true, true);
+
+  const foot = rig.bones.get('LeftToeBase') ?? rig.bones.get('LeftFoot');
+  if (foot) {
+    const p = new THREE.Vector3();
+    foot.getWorldPosition(p);
+    model.position.y -= p.y - model.position.y;
+  }
+  return { model, rig };
+}
+
+export const RIG_RANGES = {
+  armSwing: [0, 2], legSwing: [0, 2], cadence: [0.4, 3], torsoLean: [0, 1],
+  bounce: [0, 0.35], armRest: [0, 1.8], headBob: [0, 0.5], blend: [3, 30],
+};

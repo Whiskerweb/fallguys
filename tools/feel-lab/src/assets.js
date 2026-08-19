@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { toonMaterial, addOutline } from './world.js';
 
 /**
@@ -54,7 +55,14 @@ export class AssetLibrary {
       const src = child.material;
       const toon = toonMaterial(src.color ? src.color.getHex() : 0xffffff);
       if (src.map) { toon.map = src.map; toon.map.colorSpace = THREE.SRGBColorSpace; }
-      if (src.emissive) toon.emissive = src.emissive;
+      // Meshy exporte ses personnages avec emissiveFactor [1,1,1] et une emissiveTexture :
+      // le modele brille comme une lampe et ignore totalement l'eclairage de la scene.
+      // On ne reprend l'emissif que s'il est discret ; sinon on le neutralise.
+      if (src.emissive) {
+        const e = src.emissive;
+        const strong = (e.r + e.g + e.b) / 3 > 0.25;
+        if (!strong) toon.emissive = e;
+      }
       toon.side = THREE.FrontSide;
       child.material = toon;
       // Meshy livre normal + roughness/metalness que l'ombrage toon n'exploite pas :
@@ -77,7 +85,11 @@ export class AssetLibrary {
     const src = this.models.get(name);
     if (!src) return null;
 
-    const model = src.clone(true);
+    // Object3D.clone() partage le squelette entre copies : deux personnages animes
+    // se deformeraient ensemble. SkeletonUtils.clone() reconstruit le lien os/mesh.
+    let skinned = false;
+    src.traverse((c) => { if (c.isSkinnedMesh) skinned = true; });
+    const model = skinned ? cloneSkinned(src) : src.clone(true);
     const box = new THREE.Box3().setFromObject(model);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
@@ -93,7 +105,7 @@ export class AssetLibrary {
       holder.scale.setScalar(targetSize / largest);
     }
 
-    if (outline) {
+    if (outline && !skinned) {
       // On collecte AVANT d'ajouter : addOutline insere un mesh enfant, et le traverser
       // pendant le parcours produit une recursion infinie (pile saturee au chargement).
       const meshes = [];

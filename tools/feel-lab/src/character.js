@@ -4,6 +4,7 @@ import { toonMaterial, addOutline } from './world.js';
 import { assets } from './assets.js';
 import { cosmetics } from './cosmetics.js';
 import { sfx } from './audio.js';
+import { createRiggedCharacter } from './rig.js';
 
 const RADIUS = 0.45;
 const HALF_HEIGHT = 0.35;          // hauteur totale = 2*HALF_HEIGHT + 2*RADIUS = 1.6 m
@@ -80,8 +81,18 @@ export class Character {
     this.root.add(this.visual);
     this.container.add(this.root);
 
-    // Le modele Meshy remplace la capsule des qu'il est disponible.
-    const model = assets.getFitted('player-blob', { y: HALF_HEIGHT * 2 + RADIUS * 2 }, { groundAlign: false, outline: 0.02 });
+    // Le personnage rigge est prefere : c'est le seul qui puisse etre anime.
+    // Le blob statique reste en repli, et la capsule en dernier recours.
+    const HEIGHT = HALF_HEIGHT * 2 + RADIUS * 2;
+    const rigged = createRiggedCharacter(assets, HEIGHT);
+    let model = null;
+    if (rigged) {
+      model = rigged.model;
+      this.rig = rigged.rig;
+      model.position.y -= FOOT;          // pieds au bas de la capsule
+    } else {
+      model = assets.getFitted('player-blob', { y: HEIGHT }, { groundAlign: false, outline: 0.02 });
+    }
     this.pupils = [];
     if (model) {
       model.traverse((c) => {
@@ -316,16 +327,24 @@ export class Character {
       this.visual.rotation.set(0, 0, 0);
       this.visual.rotateY(this.yaw);
       this.visual.rotateX(lean);
-      // Balancement de course
-      if (this.grounded && speedH > 0.6) {
+      // Sans squelette, un balancement du corps entier tient lieu de course.
+      if (!this.rig && this.grounded && speedH > 0.6) {
         this.runCycle += dt * (5 + speedH * 1.5);
         this.visual.rotateZ(Math.sin(this.runCycle) * 0.11);
         this.root.position.y += Math.abs(Math.sin(this.runCycle)) * 0.045;
       }
     }
 
-    // Les pupilles regardent dans la direction du mouvement
+    // Une seule lecture de la vitesse : wasm-bindgen refuse les emprunts imbriques.
     const v = this.body.linvel();
+
+    // Animation du squelette : la cadence suit la vitesse reelle du personnage.
+    if (this.rig) {
+      const bounce = this.rig.update(dt, speedH, TUNING.maxSpeed, this.state, v.y);
+      if (!ragdoll) this.root.position.y += bounce;
+    }
+
+    // Les pupilles regardent dans la direction du mouvement
     const look = Math.min(0.05, Math.hypot(v.x, v.z) * 0.006);
     for (const p of this.pupils) p.position.set(0, -look * 0.4, 0.098 + look);
 

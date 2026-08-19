@@ -1,25 +1,35 @@
 import * as THREE from 'three';
 import { TUNING } from '../tuning.js';
-import { toonMaterial } from '../world.js';
-import { roundedBox, pill, rimGlow, banner, stripeTexture, checkerTexture, dotTexture } from '../props.js';
+import { toonMaterial, addOutline } from '../world.js';
+import {
+  roundedBox, pill, rimGlow, banner, stripeTexture, checkerTexture, dotTexture,
+  inflatableArch, balloon, bollard, bunting,
+} from '../props.js';
 
 /**
  * La Course — mini-jeu 1 du spec.
+ *
  * CONTRAINTE LÉGALE : tous les obstacles suivent des cycles temporels FIXES, démarrés au
  * même instant pour tous. Aucun aléatoire ne décide du gagnant.
  *
- * RÈGLE D'ASSETS, apprise en regardant le rendu : Meshy sert au DÉCOR et au PERSONNAGE,
- * jamais aux obstacles. Un modèle généré a une silhouette libre (le premier bras rotatif
- * produit était un tube courbé) alors que son collider reste une primitive : le joueur se
+ * RÈGLE D'ASSETS : Meshy sert au décor et au personnage, jamais aux obstacles. Un modèle
+ * généré a une silhouette libre alors que son collider reste une primitive : le joueur se
  * ferait frapper par une forme qu'il ne voit pas. Dans un jeu où l'on mise, une hitbox qui
  * ne correspond pas au visuel est disqualifiante. Tout ce qui blesse ou porte est donc
  * construit en géométrie procédurale, taillée exactement sur son collider.
  */
 
 const C = {
-  ground: 0xff7ab8, groundAlt: 0xffa8d2, rail: 0x8b4dff,
+  ground: 0xff7ab8, groundAlt: 0xffa8d2, groundHigh: 0x7fd8f0, rail: 0x8b4dff,
   hazard: 0xffb01f, roller: 0x1fc9b8, platform: 0x9b5cff, finish: 0x2ecc71,
+  bumper: 0xff4d8d, conveyor: 0x5b8cff, hammer: 0xff5f3d,
 };
+
+/** Interrupteurs de diagnostic : ?skip=ramps,doors,hammers,bumpers,conveyors,rollers,spinners,pendulums */
+function skipped(kind) {
+  const raw = new URLSearchParams(location.search).get('skip') ?? '';
+  return raw.split(',').includes(kind);
+}
 
 export function buildCourse(RAPIER, assets) {
   const world = new RAPIER.World({ x: 0, y: -TUNING.gravity, z: 0 });
@@ -27,16 +37,25 @@ export function buildCourse(RAPIER, assets) {
   const group = new THREE.Group();
   const animated = [];
   const checkpoints = [];
-  const spawn = new THREE.Vector3(0, 2.2, 6);
-  const finishZ = -118;
+  const conveyors = [];
+  const spawn = new THREE.Vector3(0, 2.4, 12);
+  const finishZ = -140;
 
-  // ---------- helpers ----------
-  function solid(mesh, px, py, pz, hx, hy, hz, friction = 0.6) {
+  // ─────────────────────────── briques ───────────────────────────
+
+  /** Refuse tot les dimensions invalides : un panic wasm ne dit pas d'ou il vient. */
+  function checkDims(...dims) {
+    for (const d of dims) {
+      if (!Number.isFinite(d) || d <= 0) throw new Error(`dimension invalide: ${d}`);
+    }
+  }
+
+  function addBody(mesh, px, py, pz, colliderDesc) {
     mesh.position.set(px, py, pz);
     group.add(mesh);
     const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(px, py, pz));
-    world.createCollider(RAPIER.ColliderDesc.cuboid(hx, hy, hz).setFriction(friction), body);
-    return mesh;
+    world.createCollider(colliderDesc, body);
+    return body;
   }
 
   function kinematic(px, py, pz, colliderDesc) {
@@ -45,113 +64,71 @@ export function buildCourse(RAPIER, assets) {
     return body;
   }
 
-  /** Sol d'un segment : dalle arrondie texturée + liseré + garde-corps en pilules. */
-  function segment(zStart, zEnd, width, map, color = C.ground) {
-    const len = Math.abs(zEnd - zStart);
-    const zc = (zStart + zEnd) / 2;
-    const slab = roundedBox(width, 1.1, len, color, { radius: 0.45, map, outline: 0.008 });
-    solid(slab, 0, -0.55, zc, width / 2, 0.55, len / 2);
-    const glow = rimGlow(width, len);
-    glow.position.set(0, 0.03, zc);
-    group.add(glow);
+  /** Dalle horizontale : sol jouable, avec liseré et bordures gonflables. */
+  function slab(x, y, zFrom, zTo, width, { color = C.ground, map, rails = true, glow = true } = {}) {
+    const len = Math.abs(zTo - zFrom);
+    checkDims(width, len);
+    const zc = (zFrom + zTo) / 2;
+    const mesh = roundedBox(width, 1.2, len, color, { radius: 0.5, map, outline: 0.008 });
+    addBody(mesh, x, y - 0.6, zc, RAPIER.ColliderDesc.cuboid(width / 2, 0.6, len / 2).setFriction(0.62));
+    if (glow) {
+      const g = rimGlow(width, len);
+      g.position.set(x, y + 0.03, zc);
+      group.add(g);
+    }
+    if (rails) addRails(x, y, zFrom, zTo, width);
+    return mesh;
+  }
+
+  /** Bordures gonflables : elles guident l'œil autant qu'elles retiennent le joueur. */
+  function addRails(x, y, zFrom, zTo, width) {
+    const len = Math.abs(zTo - zFrom);
+    const zc = (zFrom + zTo) / 2;
     for (const sx of [-1, 1]) {
-      const rail = pill(len, 0.3, C.rail);
+      const rail = pill(len, 0.34, C.rail);
       rail.rotation.x = Math.PI / 2;
-      solid(rail, sx * (width / 2 + 0.2), 0.62, zc, 0.3, 0.85, len / 2);
-      for (let z = zStart; z >= zEnd; z -= 7) {
-        const post = pill(1.7, 0.22, 0x5b28b8);
-        post.position.set(sx * (width / 2 + 0.2), 0.05, z);
+      addBody(rail, x + sx * (width / 2 + 0.2), y + 0.62, zc,
+        RAPIER.ColliderDesc.cuboid(0.34, 0.9, len / 2).setFriction(0.3));
+      for (let z = zFrom; z >= zTo; z -= 8) {
+        const post = bollard(1.5, 0.26, 0x6a2fd0);
+        post.position.set(x + sx * (width / 2 + 0.2), y - 0.5, z);
         group.add(post);
       }
     }
-    return slab;
   }
 
-  // ---------- terrain ----------
-  // Une nappe d'herbe sous toute la scène : sans elle, gradins et arbres flottent
-  // au-dessus du vide et la piste n'a plus l'air posée dans un lieu.
-  {
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 380), toonMaterial(0x7bc95f));
-    ground.material.map = dotTexture('#ffffff', '#ececec', [26, 32]);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.set(0, -1.6, -52);
-    ground.receiveShadow = true;
-    group.add(ground);
+  /** Rampe inclinée : permet le dénivelé, qui casse la monotonie du couloir plat. */
+  function ramp(x, yFrom, yTo, zFrom, zTo, width, color = C.groundAlt) {
+    if (skipped('ramps')) { slab(x, (yFrom + yTo) / 2, zFrom, zTo, width, { rails: false }); return null; }
+    const dz = Math.abs(zTo - zFrom);
+    const dy = yTo - yFrom;
+    const len = Math.hypot(dz, dy);
+    const angle = Math.atan2(dy, dz);
+    const zc = (zFrom + zTo) / 2;
+    const yc = (yFrom + yTo) / 2;
 
-    // Collines lointaines : ferment l'horizon et donnent une echelle au parcours.
-    const hillGeo = new THREE.SphereGeometry(1, 14, 10);
-    const hills = [
-      [-72, -150, 34, 0x63b84e], [58, -168, 42, 0x55a843], [8, -196, 52, 0x4d9a3d],
-      [-104, -96, 28, 0x6cc257], [96, -60, 30, 0x63b84e], [-118, -10, 24, 0x55a843],
-    ];
-    for (const [hx, hz, r, color] of hills) {
-      const hill = new THREE.Mesh(hillGeo, toonMaterial(color));
-      hill.position.set(hx, -1.6, hz);
-      hill.scale.set(r, r * 0.42, r);
-      group.add(hill);
-    }
+    const mesh = roundedBox(width, 1.2, len, color, {
+      radius: 0.45, map: stripeTexture('#ffffff', '#e0e0e0', 12, [3, 8]), outline: 0.008,
+    });
+    mesh.rotation.x = angle;
+    mesh.position.set(x, yc - 0.6, zc);
+    group.add(mesh);
+
+    const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(x, yc - 0.6, zc));
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angle);
+    world.createCollider(
+      RAPIER.ColliderDesc.cuboid(width / 2, 0.6, len / 2)
+        .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }).setFriction(0.7),
+      body
+    );
+    return mesh;
   }
 
-  // ---------- départ ----------
-  segment(16, -16, 14, checkerTexture('#ffffff', '#d2d2d2', 6, [6, 12]));
-  checkpoints.push(new THREE.Vector3(0, 2.2, 6));
-  // Depart : bannière souple et portiques, pas l'arche Meshy — elle porte le mot FINISH
-  // et sa taille ecrasait le cadrage juste devant le joueur.
-  for (const sx of [-1, 1]) {
-    const post = pill(6.4, 0.42, C.finish);
-    post.position.set(sx * 7.2, 3.0, -2);
-    group.add(post);
-  }
-  const startBanner = banner(14.4, C.finish, true);
-  startBanner.position.set(0, 6.1, -2);
-  group.add(startBanner);
+  // ─────────────────────────── obstacles ───────────────────────────
 
-  // ---------- zone 1 : bras rotatifs ----------
-  segment(-16, -38, 12, dotTexture('#ffffff', '#e2e2e2', [10, 22]));
-  checkpoints.push(new THREE.Vector3(0, 2.2, -17));
-  addSpinner(0, 1.05, -23, 11, 1.0, 0);
-  addSpinner(0, 1.05, -33, 11, -1.25, Math.PI / 2);
-
-  // ---------- zone 2 : pendules ----------
-  segment(-38, -58, 10, dotTexture('#ffffff', '#e6e6e6', [9, 20]));
-  checkpoints.push(new THREE.Vector3(0, 2.2, -39));
-  addPendulum(0, 6.0, -43, 0);
-  addPendulum(0, 6.0, -49, Math.PI * 0.6);
-  addPendulum(0, 6.0, -55, Math.PI * 1.2);
-
-  // ---------- zone 3 : rouleaux ----------
-  segment(-58, -74, 10, stripeTexture('#ffffff', '#dcdcdc', 10, [6, 12]));
-  checkpoints.push(new THREE.Vector3(0, 2.2, -59));
-  addRoller(0, 0.9, -63, 3.4);
-  addRoller(0, 0.9, -67, -3.4);
-  addRoller(0, 0.9, -71, 3.4);
-
-  // ---------- zone 4 : plateformes mobiles ----------
-  checkpoints.push(new THREE.Vector3(0, 2.2, -75));
-  island(0, -76, 9, 5);
-  addMovingPlatform(-79, 5.5, 2.2, 0.45);
-  island(0, -84, 6, 3.6);
-  addMovingPlatform(-88, 5.5, -2.2, 0.62);
-  island(0, -93, 9, 5);
-
-  // ---------- zone 5 : final ----------
-  segment(-96, -120, 11, stripeTexture('#ffc94a', '#ff8a3d', 12, [5, 14]), 0xffffff);
-  checkpoints.push(new THREE.Vector3(0, 2.2, -94));
-  addSpinner(0, 1.05, -104, 10, 1.6, 0);
-  addSpinner(0, 2.45, -112, 9, -2.1, Math.PI / 3);
-
-  const arch = assets.getFitted('finish-arch', { x: 11.5, y: 5.4 });
-  if (arch) { arch.position.set(0, 0, finishZ); group.add(arch); }
-  else {
-    for (const sx of [-1, 1]) { const p = pill(6, 0.7, C.finish); p.position.set(sx * 5.4, 3, finishZ); group.add(p); }
-    const b = banner(11.5, C.finish, true); b.position.set(0, 5.6, finishZ); group.add(b);
-  }
-
-  dressScenery();
-
-  // ---------- constructeurs d'obstacles ----------
-  function addSpinner(x, y, z, length, speed, phase) {
-    // Barreau procédural : ses demi-dimensions sont exactement celles du collider.
+  /** Barreau rotatif. Visuel taillé exactement sur son collider. */
+  function spinner(x, y, z, length, speed, phase) {
+    if (skipped('spinners')) return;
     const visual = roundedBox(length, 0.9, 0.9, 0xffffff, {
       radius: 0.42, map: stripeTexture('#ffb01f', '#ff6a2b', 14, [7, 1]),
     });
@@ -163,9 +140,8 @@ export function buildCourse(RAPIER, assets) {
       cap.castShadow = true;
       visual.add(cap);
     }
-
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 1.5, 18), toonMaterial(C.rail));
-    hub.position.set(x, y - 0.6, z);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 1.6, 18), toonMaterial(C.rail));
+    hub.position.set(x, y - 0.65, z);
     hub.castShadow = true;
     group.add(hub);
 
@@ -178,8 +154,9 @@ export function buildCourse(RAPIER, assets) {
     });
   }
 
-  function addPendulum(x, pivotY, z, phase) {
-    const armLen = 4.2;
+  /** Pendule : boule Meshy sur un collider sphérique — les deux formes coïncident. */
+  function pendulum(x, pivotY, z, phase, armLen = 4.2) {
+    if (skipped('pendulums')) return;
     const pivot = new THREE.Group();
     pivot.position.set(x, pivotY, z);
     group.add(pivot);
@@ -188,28 +165,28 @@ export function buildCourse(RAPIER, assets) {
     rope.position.y = -armLen / 2;
     pivot.add(rope);
 
-    // La boule est une sphère des deux côtés : le modèle généré épouse son collider ball().
     const ball = assets.get('wrecking-ball', 3.0, { groundAlign: false })
       ?? new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 2), toonMaterial(0xff6a2b));
     ball.position.y = -armLen;
     pivot.add(ball);
 
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 10), toonMaterial(C.rail));
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 10), toonMaterial(C.rail));
     pivot.add(cap);
 
     const body = kinematic(x, pivotY, z,
       RAPIER.ColliderDesc.ball(1.5).setTranslation(0, -armLen, 0).setFriction(0.35));
     const q = new THREE.Quaternion(), axis = new THREE.Vector3(0, 0, 1);
     animated.push((t) => {
-      const angle = Math.sin(t * 1.15 + phase) * 0.95;
-      q.setFromAxisAngle(axis, angle);
+      q.setFromAxisAngle(axis, Math.sin(t * 1.15 + phase) * 0.95);
       body.setNextKinematicRotation(q);
       pivot.quaternion.copy(q);
     });
   }
 
-  function addRoller(x, y, z, speed) {
-    const length = 9.5, radius = 0.9;
+  /** Rouleau balayeur. */
+  function roller(x, y, z, speed, length = 9.5) {
+    if (skipped('rollers')) return;
+    const radius = 0.9;
     const geo = new THREE.CylinderGeometry(radius, radius, length, 24);
     geo.rotateZ(Math.PI / 2);
     const visual = new THREE.Mesh(geo, toonMaterial(0xffffff));
@@ -226,8 +203,7 @@ export function buildCourse(RAPIER, assets) {
 
     const body = kinematic(x, y, z,
       RAPIER.ColliderDesc.cylinder(length / 2, radius)
-        .setRotation({ x: 0, y: 0, z: Math.SQRT1_2, w: Math.SQRT1_2 })
-        .setFriction(0.4));
+        .setRotation({ x: 0, y: 0, z: Math.SQRT1_2, w: Math.SQRT1_2 }).setFriction(0.4));
     const q = new THREE.Quaternion(), axis = new THREE.Vector3(1, 0, 0);
     animated.push((t) => {
       q.setFromAxisAngle(axis, t * speed);
@@ -236,45 +212,255 @@ export function buildCourse(RAPIER, assets) {
     });
   }
 
-  function island(x, z, w, d) {
-    const slab = roundedBox(w, 1.1, d, C.groundAlt, { radius: 0.5, map: dotTexture('#ffffff', '#e2e2e2', [4, 4]) });
-    solid(slab, x, -0.55, z, w / 2, 0.55, d / 2);
-    const glow = rimGlow(w, d); glow.position.set(x, 0.03, z); group.add(glow);
+  /**
+   * Bumper gonflable : renvoie le joueur au lieu de le stopper.
+   * La règle de combinaison Max est indispensable — le collider du joueur a une
+   * restitution nulle, et la règle par défaut (moyenne) annulerait le rebond.
+   */
+  function bumper(x, y, z, radius = 1.15, height = 2.2) {
+    if (skipped('bumpers')) return;
+    const visual = bollard(height, radius, C.bumper);
+    visual.position.set(x, y, z);
+    group.add(visual);
+    const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(x, y + height / 2, z));
+    world.createCollider(
+      // Restitution PLAFONNEE A 1. Au-dela, chaque rebond cree de l'energie : les vitesses
+      // divergent, finissent en NaN et font paniquer le moteur physique.
+      RAPIER.ColliderDesc.cylinder(height / 2, radius)
+        .setRestitution(0.92)
+        .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max)
+        .setFriction(0.1),
+      body
+    );
   }
 
-  function addMovingPlatform(z, amplitude, phaseOffset, speed) {
-    const w = 4.4, d = 4.4;
-    const visual = roundedBox(w, 1.0, d, C.platform, { radius: 0.45, emissive: 0x2a1150 });
-    visual.position.set(0, -0.5, z);
-    group.add(visual);
-    const glow = rimGlow(w, d, 0xd8b4fe, 0.06);
-    group.add(glow);
+  /** Marteau battant : pivote dans le plan vertical et balaye la piste. */
+  function hammer(x, pivotY, z, phase, armLen = 3.4) {
+    if (skipped('hammers')) return;
+    const pivot = new THREE.Group();
+    pivot.position.set(x, pivotY, z);
+    group.add(pivot);
 
-    const body = kinematic(0, -0.5, z, RAPIER.ColliderDesc.cuboid(w / 2, 0.5, d / 2).setFriction(0.85));
+    const shaft = pill(armLen, 0.2, 0x4a2f7a, { outline: false });
+    shaft.position.y = -armLen / 2;
+    pivot.add(shaft);
+
+    const head = roundedBox(2.6, 1.5, 1.5, C.hammer, { radius: 0.5 });
+    head.position.y = -armLen;
+    pivot.add(head);
+
+    const body = kinematic(x, pivotY, z,
+      RAPIER.ColliderDesc.cuboid(1.3, 0.75, 0.75).setTranslation(0, -armLen, 0).setFriction(0.4));
+    const q = new THREE.Quaternion(), axis = new THREE.Vector3(1, 0, 0);
     animated.push((t) => {
-      const x = Math.sin(t * speed * Math.PI + phaseOffset) * amplitude;
-      body.setNextKinematicTranslation({ x, y: -0.5, z });
-      visual.position.x = x;
-      glow.position.set(x, 0.06, z);
+      q.setFromAxisAngle(axis, Math.sin(t * 1.5 + phase) * 1.1);
+      body.setNextKinematicRotation(q);
+      pivot.quaternion.copy(q);
     });
   }
 
-  /** Décor purement visuel, hors piste : donne de la profondeur et un sens de la vitesse. */
   /**
-   * Décor hors piste. Sans contour et sans ombre portée : c'est de la profondeur,
-   * pas du gameplay. Un arbre tous les 16 m suffit à donner la sensation de vitesse ;
-   * en mettre quatre fois plus quadruplait le coût pour un gain visuel nul.
+   * Porte battante : panneau qui pivote autour d'un axe vertical.
+   * `dir` (+1/-1) choisit de quel cote du gond part le panneau — surtout PAS une largeur
+   * negative, qui donnerait une demi-dimension negative a Rapier et le ferait paniquer.
    */
-  function dressScenery() {
-    const spots = [];
-    for (let z = 0; z > -122; z -= 16) {
-      spots.push([-13.5 - ((z * 0.31) % 3), z]);
-      spots.push([13.5 + ((z * 0.17) % 4), z - 8]);
+  function swingDoor(x, y, z, width, phase, speed = 1.3, dir = 1) {
+    if (skipped('doors')) return;
+    if (width <= 0) throw new Error(`swingDoor: largeur invalide (${width})`);
+    const side = Math.sign(dir) || 1;
+    const panel = roundedBox(width, 2.6, 0.4, 0xffffff, {
+      radius: 0.18, map: checkerTexture('#ffd83d', '#ff8a3d', 4, [3, 2]),
+    });
+    const holder = new THREE.Group();
+    holder.position.set(x, y + 1.3, z);
+    panel.position.x = (side * width) / 2;
+    holder.add(panel);
+    group.add(holder);
+
+    const body = kinematic(x, y + 1.3, z,
+      RAPIER.ColliderDesc.cuboid(width / 2, 1.3, 0.2)
+        .setTranslation((side * width) / 2, 0, 0).setFriction(0.3));
+    const q = new THREE.Quaternion(), axis = new THREE.Vector3(0, 1, 0);
+    animated.push((t) => {
+      q.setFromAxisAngle(axis, Math.sin(t * speed + phase) * 1.25);
+      body.setNextKinematicRotation(q);
+      holder.quaternion.copy(q);
+    });
+  }
+
+  /**
+   * Tapis roulant : Rapier n'a pas de surface mobile native. On enregistre une zone,
+   * et la boucle de jeu ajoute la vitesse au joueur qui s'y trouve — c'est plus stable
+   * qu'un corps cinématique en translation infinie, et ça se lit bien avec la texture qui défile.
+   */
+  function conveyor(x, y, zFrom, zTo, width, vx, vz) {
+    if (skipped('conveyors')) { slab(x, y, zFrom, zTo, width, { rails: false }); return null; }
+    const len = Math.abs(zTo - zFrom);
+    const zc = (zFrom + zTo) / 2;
+    const map = stripeTexture('#5b8cff', '#c9dcff', 14, [2, 6]);
+    const mesh = roundedBox(width, 1.2, len, 0xffffff, { radius: 0.3, map, outline: 0.008 });
+    addBody(mesh, x, y - 0.6, zc, RAPIER.ColliderDesc.cuboid(width / 2, 0.6, len / 2).setFriction(0.55));
+    conveyors.push({ minX: x - width / 2, maxX: x + width / 2, minZ: Math.min(zFrom, zTo), maxZ: Math.max(zFrom, zTo), y, vx, vz });
+    animated.push((t) => { map.offset.y = (t * 0.55) % 1; });
+    return mesh;
+  }
+
+  /** Plateforme mobile au-dessus du vide. */
+  function movingPlatform(z, amplitude, phase, speed, y = 0) {
+    const w = 4.6, d = 4.6;
+    const visual = roundedBox(w, 1.0, d, C.platform, { radius: 0.45, emissive: 0x2a1150 });
+    visual.position.set(0, y - 0.5, z);
+    group.add(visual);
+    const glow = rimGlow(w, d, 0xd8b4fe, 0.06);
+    group.add(glow);
+    const body = kinematic(0, y - 0.5, z, RAPIER.ColliderDesc.cuboid(w / 2, 0.5, d / 2).setFriction(0.9));
+    animated.push((t) => {
+      const x = Math.sin(t * speed * Math.PI + phase) * amplitude;
+      body.setNextKinematicTranslation({ x, y: y - 0.5, z });
+      visual.position.x = x;
+      glow.position.set(x, y + 0.06, z);
+    });
+  }
+
+  // ─────────────────────────── tracé ───────────────────────────
+  // Sept zones, avec dénivelé et largeurs variables : un couloir plat de bout en bout
+  // se lit comme un test, pas comme un niveau.
+
+  const P = { plain: dotTexture('#ffffff', '#ebebeb', [10, 22]), check: checkerTexture('#ffffff', '#d8d8d8', 6, [6, 12]) };
+
+  // 1 — Départ, large et plat
+  slab(0, 0, 20, -4, 16, { map: P.check });
+  checkpoints.push(new THREE.Vector3(0, 2.4, 12));
+
+  // 2 — Entonnoir à bumpers : premier goulot, premier chaos
+  slab(0, 0, -4, -24, 13, { map: P.plain });
+  checkpoints.push(new THREE.Vector3(0, 2.4, -6));
+  for (const [bx, bz] of [[-3.4, -9], [3.4, -9], [0, -13], [-4.2, -17], [4.2, -17], [-1.8, -21], [1.8, -21]]) {
+    bumper(bx, 0, bz);
+  }
+  swingDoor(-3.2, 0, -14.5, 3.0, 0, 1.3, 1);
+  swingDoor(3.2, 0, -14.5, 3.0, Math.PI, 1.3, -1);
+
+  // 3 — Montée puis plateau des barreaux rotatifs
+  ramp(0, 0, 4, -24, -33, 12);
+  slab(0, 4, -33, -54, 12, { color: C.groundHigh, map: P.plain });
+  checkpoints.push(new THREE.Vector3(0, 6.4, -35));
+  spinner(0, 5.05, -39, 11, 1.0, 0);
+  spinner(0, 5.05, -47, 11, -1.25, Math.PI / 2);
+  hammer(-3.6, 9.2, -52, 0);
+  hammer(3.6, 9.2, -52, Math.PI);
+
+  // 4 — Descente vers le pont étroit
+  ramp(0, 4, 1, -54, -62, 11);
+  slab(0, 1, -62, -84, 7.5, { color: C.ground, map: P.plain });
+  checkpoints.push(new THREE.Vector3(0, 3.4, -64));
+  pendulum(0, 7.0, -68, 0);
+  pendulum(0, 7.0, -74, Math.PI * 0.6);
+  pendulum(0, 7.0, -80, Math.PI * 1.2);
+
+  // 5 — Tapis roulants qui poussent de côté, et rouleaux
+  conveyor(-3, 1, -84, -96, 5.5, 2.6, 0);
+  conveyor(3, 1, -84, -96, 5.5, -2.6, 0);
+  addRails(0, 1, -84, -96, 11.5);
+  checkpoints.push(new THREE.Vector3(0, 3.4, -86));
+  roller(0, 1.9, -88, 3.4, 10.5);
+  roller(0, 1.9, -93, -3.4, 10.5);
+
+  // 6 — Plateformes mobiles au-dessus du vide
+  slab(0, 1, -96, -101, 9, { map: P.plain, rails: false });
+  checkpoints.push(new THREE.Vector3(0, 3.4, -98));
+  movingPlatform(-105, 5.6, 2.2, 0.45, 1);
+  slab(0, 1, -110, -113, 6.5, { map: P.plain, rails: false });
+  movingPlatform(-117, 5.6, -2.2, 0.62, 1);
+  slab(0, 1, -122, -127, 9, { map: P.plain, rails: false });
+
+  // 7 — Dernière ligne : descente, barreau bas, sprint final
+  checkpoints.push(new THREE.Vector3(0, 3.4, -124));
+  ramp(0, 1, 0, -127, -132, 11);
+  slab(0, 0, -132, -148, 12, { map: stripeTexture('#ffc94a', '#ff8a3d', 12, [5, 14]), color: 0xffffff });
+  spinner(0, 1.05, -137, 10, 2.1, 0);
+
+  // ─────────────────────────── habillage ───────────────────────────
+
+  dressStart();
+  dressFinish();
+  dressScenery();
+
+  function dressStart() {
+    for (const sx of [-1, 1]) {
+      const post = pill(6.6, 0.44, C.finish);
+      post.position.set(sx * 8.2, 3.1, 2);
+      group.add(post);
     }
-    spots.forEach(([x, z], i) => {
-      const tree = assets.get('tree-candy', 4.2 + (i % 3) * 0.9, { outline: 0 });
+    const b = banner(16.4, C.finish, true);
+    b.position.set(0, 6.3, 2);
+    group.add(b);
+    const flags = bunting(15, 14);
+    flags.position.set(0, 5.4, -1);
+    group.add(flags);
+  }
+
+  function dressFinish() {
+    const arch = assets.getFitted('finish-arch', { x: 11.5, y: 5.4 });
+    if (arch) { arch.position.set(0, 0, finishZ); group.add(arch); }
+    else {
+      const a = inflatableArch(12, 6, 0.6, C.finish);
+      a.position.set(0, 0, finishZ);
+      group.add(a);
+    }
+    const flags = bunting(13, 12);
+    flags.position.set(0, 6.6, finishZ - 3);
+    group.add(flags);
+  }
+
+  function dressScenery() {
+    // Terrain : sans lui, gradins et arbres flottent au-dessus du vide.
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(340, 420), toonMaterial(0x7bc95f));
+    ground.material.map = dotTexture('#ffffff', '#ececec', [30, 36]);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(0, -3.2, -60);
+    ground.receiveShadow = true;
+    group.add(ground);
+
+    const hillGeo = new THREE.SphereGeometry(1, 14, 10);
+    for (const [hx, hz, r, color] of [
+      [-78, -170, 36, 0x63b84e], [64, -190, 44, 0x55a843], [10, -220, 54, 0x4d9a3d],
+      [-112, -110, 30, 0x6cc257], [104, -70, 32, 0x63b84e], [-124, -6, 26, 0x55a843],
+      [92, -150, 28, 0x6cc257],
+    ]) {
+      const hill = new THREE.Mesh(hillGeo, toonMaterial(color));
+      hill.position.set(hx, -3.2, hz);
+      hill.scale.set(r, r * 0.42, r);
+      group.add(hill);
+    }
+
+    // Arches gonflables au-dessus de la piste : jalonnent le parcours et donnent
+    // un repère de progression sans texte.
+    for (const [az, ay, color] of [[-24, 0, 0x4fd1c5], [-54, 4, 0xffd83d], [-96, 1, 0xff5f7e], [-127, 1, 0x8b7bff]]) {
+      const a = inflatableArch(14, 7, 0.55, color);
+      a.position.set(0, ay, az);
+      group.add(a);
+    }
+
+    // Ballons géants en bord de piste
+    for (const [bx, bz, r, color] of [
+      [-17, -12, 2.6, 0xff5f7e], [17, -40, 3.0, 0x4fd1c5], [-19, -70, 2.4, 0xffd83d],
+      [19, -104, 2.8, 0x8b7bff], [-18, -134, 2.6, 0xff8a3d],
+    ]) {
+      const b = balloon(r, color);
+      b.position.set(bx, -3.2, bz);
+      group.add(b);
+    }
+
+    const treeSpots = [];
+    for (let z = 4; z > -150; z -= 15) {
+      treeSpots.push([-15.5 - ((z * 0.31) % 3), z]);
+      treeSpots.push([15.5 + ((z * 0.17) % 4), z - 7]);
+    }
+    treeSpots.forEach(([x, z], i) => {
+      const tree = assets.get('tree-candy', 4.4 + (i % 3) * 0.9, { outline: 0 });
       if (!tree) return;
-      tree.position.set(x, -1.2, z);
+      tree.position.set(x, -3.2, z);
       tree.rotation.y = i * 1.3;
       tree.traverse((c) => {
         if (!c.isMesh || c.userData.isOutline) return;
@@ -283,19 +469,20 @@ export function buildCourse(RAPIER, assets) {
       });
       group.add(tree);
     });
-    for (const [x, z, ry] of [[-20, -30, 0.5], [20, -62, -0.5], [-20, -100, 0.5], [20, -14, -0.5]]) {
+
+    for (const [x, z, ry] of [[-22, -20, 0.5], [22, -46, -0.5], [-22, -78, 0.5], [22, -112, -0.5], [-22, -140, 0.5]]) {
       grandstand(x, z, ry * Math.PI);
     }
   }
 
   /**
-   * Gradins procéduraux. Meshy ne produit pas de gradins lisibles (il rend un bâtiment),
-   * et surtout une foule qui bouge vaut bien plus qu'un décor figé : c'est ce qui donne
-   * l'impression d'un plateau de jeu télévisé plutôt que d'un niveau de test.
+   * Gradins procéduraux avec foule animée. Meshy ne produit pas de gradins lisibles
+   * (il rend un bâtiment), et une foule qui bouge vaut bien plus qu'un décor figé pour
+   * l'impression de plateau de jeu télévisé.
    */
   function grandstand(px, pz, rotY) {
     const stand = new THREE.Group();
-    stand.position.set(px, -1.5, pz);
+    stand.position.set(px, -3.1, pz);
     stand.rotation.y = rotY;
     group.add(stand);
 
@@ -309,7 +496,6 @@ export function buildCourse(RAPIER, assets) {
       const step = roundedBox(13, h, 2.3, r % 2 ? 0x3fa9f5 : 0xffffff, { radius: 0.22, outline: 0.006 });
       step.position.set(0, h / 2 - 0.5, -r * 2.3);
       stand.add(step);
-
       for (let i = 0; i < 9; i++) {
         const seed = r * 9 + i;
         const m = new THREE.Mesh(seatGeo, toonMaterial(palette[seed % palette.length]));
@@ -318,17 +504,9 @@ export function buildCourse(RAPIER, assets) {
         spectators.push({ m, base: h + 0.1, phase: (seed * 0.7) % (Math.PI * 2), speed: 3 + (seed % 5) * 0.5 });
       }
     }
-
-    // Fanions sur le haut des gradins
-    for (let i = 0; i < 12; i++) {
-      const flag = new THREE.Mesh(
-        new THREE.ConeGeometry(0.3, 0.62, 3),
-        toonMaterial(palette[i % palette.length])
-      );
-      flag.position.set(-5.5 + i, 0.9 + ROWS * 0.95 + 0.6, -(ROWS - 1) * 2.3);
-      flag.rotation.x = Math.PI;
-      stand.add(flag);
-    }
+    const flags = bunting(12.4, 12);
+    flags.position.set(0, 0.9 + ROWS * 0.95 + 1.1, -(ROWS - 1) * 2.3);
+    stand.add(flags);
 
     animated.push((t) => {
       for (const s of spectators) s.m.position.y = s.base + Math.abs(Math.sin(t * s.speed + s.phase)) * 0.34;
@@ -336,7 +514,7 @@ export function buildCourse(RAPIER, assets) {
   }
 
   return {
-    world, group, spawn, finishZ, killY: -9, checkpoints,
+    world, group, spawn, finishZ, killY: -12, checkpoints, conveyors,
     update: (elapsed) => { for (const fn of animated) fn(elapsed); },
     checkpointFor(z) {
       let best = checkpoints[0];
