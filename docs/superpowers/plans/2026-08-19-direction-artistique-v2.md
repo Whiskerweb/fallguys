@@ -46,7 +46,7 @@ C'est le changement le plus important du plan. Sol rose + bordures violettes = d
 - Consumes: rien.
 - Produces: la constante `C` avec les clés `ground`, `groundAlt`, `groundHigh`, `rail`, `railPost`, `hazard`, `roller`, `platform`, `finish`, `bumper`, `conveyor`, `hammer`, `edge`.
 
-- [ ] **Step 1: Remplacer la palette**
+- [x] **Step 1: Remplacer la palette**
 
 ```js
 const C = {
@@ -69,7 +69,7 @@ const C = {
 };
 ```
 
-- [ ] **Step 2: Vérifier**
+- [x] **Step 2: Vérifier**
 
 ```bash
 cd tools/feel-lab && npm run build && node shoot.mjs
@@ -77,7 +77,7 @@ cd tools/feel-lab && npm run build && node shoot.mjs
 
 Regarder `shots/3-course.png` et `shots/4-obstacles.png`. Attendu : la piste est bleue, les rails jaunes se détachent nettement, les bumpers roses ressortent sur le bleu. Si le bleu paraît délavé, ne pas toucher aux lumières — c'est la tâche 8 qui règle le grading.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tools/feel-lab/src/scenes/course.js
@@ -98,7 +98,7 @@ Dans les références, un sol est un matelas de 40 à 50 cm dont la tranche est 
 - Consumes: `roundedBox` de `props.js`, `C.edge` de la tâche 1.
 - Produces: `slabMesh(w, h, d, topColor, edgeColor, { map, radius }) → THREE.Group`
 
-- [ ] **Step 1: Ajouter la primitive**
+- [x] **Step 1: Ajouter la primitive**
 
 Dans `tools/feel-lab/src/props.js`, à la fin du fichier :
 
@@ -123,7 +123,7 @@ export function slabMesh(w, h, d, topColor, edgeColor, { map = null, radius = 0.
 }
 ```
 
-- [ ] **Step 2: Employer la primitive dans `slab`**
+- [x] **Step 2: Employer la primitive dans `slab`**
 
 Dans `tools/feel-lab/src/scenes/course.js`, remplacer le corps de `slab` (la ligne créant `mesh` et son `addBody`) par :
 
@@ -134,7 +134,7 @@ Dans `tools/feel-lab/src/scenes/course.js`, remplacer le corps de `slab` (la lig
 
 Ajouter `slabMesh` à la liste d'imports depuis `../props.js`.
 
-- [ ] **Step 3: Vérifier**
+- [x] **Step 3: Vérifier**
 
 ```bash
 cd tools/feel-lab && npm run build && node shoot.mjs
@@ -142,7 +142,7 @@ cd tools/feel-lab && npm run build && node shoot.mjs
 
 Regarder `shots/2-depart.png`. Attendu : un liseré blanc court le long de la piste au niveau du sol, et l'épaisseur de la dalle se lit sur les bords. Si le liseré n'apparaît pas, le socle est masqué par les rails : réduire l'élargissement de 0,34 à 0,22.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tools/feel-lab/src/props.js tools/feel-lab/src/scenes/course.js
@@ -165,7 +165,7 @@ Les références peignent flèches, cercles concentriques et damiers directement
   - `floorMarkings(kind, { color, repeat }) → THREE.CanvasTexture` avec `kind ∈ {'arrow', 'rings', 'chevrons', 'grid'}`
   - `decal(kind, x, y, z, size, rotation)` dans `course.js`
 
-- [ ] **Step 1: Ajouter les marquages**
+- [x] **Step 1: Ajouter les marquages**
 
 Dans `tools/feel-lab/src/textures.js` :
 
@@ -224,7 +224,7 @@ export function floorMarkings(kind, { color = '#ffffff', alpha = 0.55 } = {}) {
 }
 ```
 
-- [ ] **Step 2: Poser les marquages sur la piste**
+- [x] **Step 2: Poser les marquages sur la piste**
 
 Dans `tools/feel-lab/src/scenes/course.js`, ajouter après la fonction `slab` :
 
@@ -266,7 +266,7 @@ Ajouter `floorMarkings` aux imports depuis `../textures.js`, puis poser les marq
   decal('grid', 0, 0, -145, 9);
 ```
 
-- [ ] **Step 3: Vérifier**
+- [x] **Step 3: Vérifier**
 
 ```bash
 cd tools/feel-lab && npm run build && node shoot.mjs
@@ -274,7 +274,7 @@ cd tools/feel-lab && npm run build && node shoot.mjs
 
 Regarder `shots/2-depart.png` et `shots/3-course.png`. Attendu : flèches et cercles blancs visibles sur la piste bleue, sans scintillement de profondeur. Si un marquage clignote selon l'angle, augmenter `polygonOffsetFactor` à -4.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tools/feel-lab/src/textures.js tools/feel-lab/src/scenes/course.js
@@ -298,7 +298,7 @@ Nos collines sont des demi-sphères vertes aplaties, et le ciel est vide. Les r�
   - `stripedPeak(radius, height, baseColor, bandColor, bands) → THREE.Group` — dans `props.js`
   - `puffyCloud(scale, seed) → THREE.Group` — dans `world.js` (module privé, non exporté)
 
-- [ ] **Step 1: Ajouter les primitives**
+- [x] **Step 1: Ajouter les primitives**
 
 Dans `tools/feel-lab/src/props.js` :
 
@@ -357,7 +357,7 @@ function puffyCloud(scale = 1, seed = 0) {
 }
 ```
 
-- [ ] **Step 2: Remplacer les collines**
+- [x] **Step 2: Remplacer les collines**
 
 Dans `tools/feel-lab/src/scenes/course.js`, remplacer la boucle qui crée les collines (`const hillGeo = ...` et sa boucle) par :
 
@@ -385,7 +385,7 @@ Dans `tools/feel-lab/src/scenes/course.js`, remplacer la boucle qui crée les co
 
 Ajouter `stripedPeak` aux imports depuis `../props.js`.
 
-- [ ] **Step 3: Grossir les nuages**
+- [x] **Step 3: Grossir les nuages**
 
 Dans `tools/feel-lab/src/world.js`, remplacer le corps de `buildClouds` par :
 
@@ -408,7 +408,7 @@ function buildClouds() {
 
 Coller la fonction `puffyCloud` (donnée au Step 1) **dans `world.js`**, juste au-dessus de `buildClouds`, sans l'exporter. Ne pas l'importer depuis `props.js` : ce module importe déjà `world.js`, et l'import inverse créerait un cycle qui casse l'initialisation.
 
-- [ ] **Step 4: Vérifier**
+- [x] **Step 4: Vérifier**
 
 ```bash
 cd tools/feel-lab && npm run build && node shoot.mjs
@@ -416,7 +416,7 @@ cd tools/feel-lab && npm run build && node shoot.mjs
 
 Regarder `shots/3-course.png`. Attendu : montagnes roses striées visibles au-dessus des gradins, gros nuages blancs dans le ciel. Vérifier la console : aucune erreur d'import circulaire (`Cannot access before initialization`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/feel-lab/src/props.js tools/feel-lab/src/world.js tools/feel-lab/src/scenes/course.js
@@ -437,7 +437,7 @@ L'herbe des références porte de longues courbes claires façon carte topograph
 - Consumes: pipeline OpenRouter existant.
 - Produces: `public/textures/grass.png` remplacé.
 
-- [ ] **Step 1: Réécrire le prompt**
+- [x] **Step 1: Réécrire le prompt**
 
 Dans `tools/texture-pipeline/textures.json`, remplacer le `prompt` du slot `grass` par :
 
@@ -445,7 +445,7 @@ Dans `tools/texture-pipeline/textures.json`, remplacer le `prompt` du slot `gras
 Subject: a smooth grassy field seen from directly above, decorated with long flowing contour lines like a topographic map, the lines soft and slightly wavy, widely spaced, drawn in a lighter tone. Near-white background with light grey contour lines so it can be tinted green afterwards. No blades, no flowers, no rocks, no path.
 ```
 
-- [ ] **Step 2: Régénérer**
+- [x] **Step 2: Régénérer**
 
 ```bash
 cd "/Users/lucasroncey/Desktop/Projets/Projet Saas/Avance/Fallguys"
@@ -456,7 +456,7 @@ node ../meshy-pipeline/seamless.mjs raw/grass.png grass 1024 0.55
 
 Attendu : `ecart moyen aux bords` inférieur à 8/255.
 
-- [ ] **Step 3: Aligner le repli procédural**
+- [x] **Step 3: Aligner le repli procédural**
 
 Dans `tools/feel-lab/src/textures.js`, remplacer le corps de dessin de `grassTufts` par des courbes plutôt que des brins :
 
@@ -482,7 +482,7 @@ Dans `tools/feel-lab/src/textures.js`, remplacer le corps de dessin de `grassTuf
     grain(ctx, s, 41, 0.025, 100);
 ```
 
-- [ ] **Step 4: Vérifier**
+- [x] **Step 4: Vérifier**
 
 ```bash
 cd tools/feel-lab && npm run build && node shoot.mjs
@@ -490,7 +490,7 @@ cd tools/feel-lab && npm run build && node shoot.mjs
 
 Regarder `shots/3-course.png`, puis relancer avec `node shoot.mjs "http://127.0.0.1:5273/?noassets"` pour contrôler le repli procédural. Attendu dans les deux cas : de longues courbes claires sur l'herbe, sans couture visible.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/texture-pipeline/textures.json tools/feel-lab/src/textures.js
@@ -510,7 +510,7 @@ Chez nous tout fait la même taille moyenne, donc l'œil n'a pas de point d'accr
 - Consumes: `prop()` et `inflatableArch` existants.
 - Produces: rien de nouveau.
 
-- [ ] **Step 1: Poser trois masses dominantes**
+- [x] **Step 1: Poser trois masses dominantes**
 
 Dans `dressScenery`, après les arches existantes :
 
@@ -525,7 +525,7 @@ Dans `dressScenery`, après les arches existantes :
     prop('windmill', 30, -50, -34, { rot: 0.6 });
 ```
 
-- [ ] **Step 2: Réduire les petits éléments pour creuser l'écart**
+- [x] **Step 2: Réduire les petits éléments pour creuser l'écart**
 
 Dans la même fonction, remplacer les tailles des arches jalons :
 
@@ -537,7 +537,7 @@ Dans la même fonction, remplacer les tailles des arches jalons :
     }
 ```
 
-- [ ] **Step 3: Vérifier**
+- [x] **Step 3: Vérifier**
 
 ```bash
 cd tools/feel-lab && npm run build && node shoot.mjs
@@ -545,7 +545,7 @@ cd tools/feel-lab && npm run build && node shoot.mjs
 
 Regarder `shots/3-course.png`. Attendu : une grande arche rose domine le fond de la piste, un château gonflable et un moulin surdimensionnés encadrent le parcours. Vérifier que la grande arche ne coupe pas la piste : elle doit enjamber la course sans que ses pieds tombent dessus.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tools/feel-lab/src/scenes/course.js
@@ -567,7 +567,7 @@ Sur fond rose, notre personnage bleu-gris disparaissait. Sur fond bleu (tâche 1
 - Consumes: `SKINS` de `cosmetics.js`.
 - Produces: rien de nouveau.
 
-- [ ] **Step 1: Skin par défaut chaud**
+- [x] **Step 1: Skin par défaut chaud**
 
 Dans `tools/feel-lab/src/cosmetics.js`, placer un skin chaud en tête de `SKINS` (c'est lui que prend un nouveau joueur) :
 
@@ -584,7 +584,7 @@ export const SKINS = [
 ];
 ```
 
-- [ ] **Step 2: Cadrage plus serré**
+- [x] **Step 2: Cadrage plus serré**
 
 Dans `tools/feel-lab/src/tuning.js` :
 
@@ -594,7 +594,7 @@ Dans `tools/feel-lab/src/tuning.js` :
   camFov: 54,
 ```
 
-- [ ] **Step 3: Ombre de contact**
+- [x] **Step 3: Ombre de contact**
 
 Dans `tools/feel-lab/src/character.js`, dans le constructeur juste après `this.container.add(this.root);` :
 
@@ -621,7 +621,7 @@ Puis dans `updateVisual`, juste avant `this.dust.update(dt);` :
     this.contactShadow.scale.setScalar(1 + height * 0.06);
 ```
 
-- [ ] **Step 4: Vérifier**
+- [x] **Step 4: Vérifier**
 
 ```bash
 cd tools/feel-lab && npm run build && node shoot.mjs
@@ -629,7 +629,7 @@ cd tools/feel-lab && npm run build && node shoot.mjs
 
 Regarder `shots/2-depart.png`. Attendu : le personnage est orange, occupe visiblement plus de place, et une tache d'ombre le colle au sol. Vider le `localStorage` si le skin reste violet : le harnais démarre avec un profil vierge, donc la capture montrera bien Mandarine.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/feel-lab/src/cosmetics.js tools/feel-lab/src/tuning.js tools/feel-lab/src/character.js
@@ -649,7 +649,7 @@ Les sept tâches précédentes changent la répartition des valeurs dans l'image
 - Consumes: `GRADE` existant.
 - Produces: rien de nouveau.
 
-- [ ] **Step 1: Ciel plus franc**
+- [x] **Step 1: Ciel plus franc**
 
 Dans `tools/feel-lab/src/world.js`, dans `buildSky` :
 
@@ -661,13 +661,13 @@ Dans `tools/feel-lab/src/world.js`, dans `buildSky` :
 
 Et la brume : `scene.fog = new THREE.Fog(0xdff3ff, 210, 500);`
 
-- [ ] **Step 2: Régler le grading**
+- [x] **Step 2: Régler le grading**
 
 ```js
 export const GRADE = { saturation: 1.30, brightness: 1.05, lift: 0.05, contrast: 1.06, warmth: 0.015 };
 ```
 
-- [ ] **Step 3: Vérifier en comparant**
+- [x] **Step 3: Vérifier en comparant**
 
 ```bash
 cd tools/feel-lab && npm run build && node shoot.mjs
@@ -685,7 +685,7 @@ Ouvrir côte à côte `shots/3-course.png` et les captures de référence, et co
 
 Tout point non satisfait renvoie à sa tâche, il ne se rattrape pas au grading.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tools/feel-lab/src/world.js

@@ -81,6 +81,16 @@ export class Character {
     this.root.add(this.visual);
     this.container.add(this.root);
 
+    // Tache d'ombre sous les pieds : une ombre portee douce ne suffit pas a ancrer un
+    // personnage au sol, et sans ancrage il a l'air de flotter.
+    this.contactShadow = new THREE.Mesh(
+      new THREE.CircleGeometry(RADIUS * 1.25, 20),
+      new THREE.MeshBasicMaterial({ color: 0x1a2b45, transparent: true, opacity: 0.28, depthWrite: false })
+    );
+    this.contactShadow.rotation.x = -Math.PI / 2;
+    this.container.add(this.contactShadow);
+    this.lastGroundY = spawn.y - FOOT;
+
     // Le personnage rigge est prefere : c'est le seul qui puisse etre anime.
     // Le blob statique reste en repli, et la capsule en dernier recours.
     const HEIGHT = HALF_HEIGHT * 2 + RADIUS * 2;
@@ -347,6 +357,14 @@ export class Character {
     // Les pupilles regardent dans la direction du mouvement
     const look = Math.min(0.05, Math.hypot(v.x, v.z) * 0.006);
     for (const p of this.pupils) p.position.set(0, -look * 0.4, 0.098 + look);
+
+    // L'ombre reste au sol et s'estompe avec la hauteur de saut.
+    if (this.grounded) this.lastGroundY = t.y - FOOT;
+    const groundY = this.lastGroundY;
+    this.contactShadow.position.set(t.x, groundY + 0.05, t.z);
+    const airHeight = Math.max(0, t.y - FOOT - groundY);
+    this.contactShadow.material.opacity = Math.max(0, 0.3 - airHeight * 0.05);
+    this.contactShadow.scale.setScalar(1 + airHeight * 0.06);
 
     this.dust.update(dt);
   }

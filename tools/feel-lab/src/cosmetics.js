@@ -5,14 +5,15 @@
  * Le personnage du lobby et celui de la course lisent la même source.
  */
 export const SKINS = [
+  // Le premier est le skin par defaut : il doit trancher sur un sol bleu.
+  { name: 'Mandarine', hex: 0xff7a2f },
   { name: 'Fraise', hex: 0xff5f7e },
-  { name: 'Menthe', hex: 0x4fd1c5 },
   { name: 'Citron', hex: 0xffd83d },
+  { name: 'Menthe', hex: 0x4fd1c5 },
   { name: 'Myrtille', hex: 0x8b7bff },
   { name: 'Pêche', hex: 0xffa36b },
   { name: 'Pistache', hex: 0x9ede6a },
   { name: 'Bubblegum', hex: 0xff8bd0 },
-  { name: 'Océan', hex: 0x4fa8ff },
 ];
 
 const KEY = 'tumble-skin';

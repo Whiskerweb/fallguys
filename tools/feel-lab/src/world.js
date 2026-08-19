@@ -47,9 +47,9 @@ function buildSky() {
     side: THREE.BackSide,
     depthWrite: false,
     uniforms: {
-      topColor: { value: new THREE.Color(0x35a3f0) },
-      midColor: { value: new THREE.Color(0x8fdcff) },
-      botColor: { value: new THREE.Color(0xffe9b0) },
+      topColor: { value: new THREE.Color(0x2f95e8) },
+      midColor: { value: new THREE.Color(0x7fd4ff) },
+      botColor: { value: new THREE.Color(0xdff3ff) },
     },
     vertexShader: `
       varying vec3 vPos;
@@ -121,7 +121,7 @@ function mulberry32(a) {
  * saturation poussée, noirs relevés (rien n'est jamais vraiment noir), et une pointe de
  * chaleur. Réglable en direct dans le panneau — c'est un jugement d'œil, pas de calcul.
  */
-export const GRADE = { saturation: 1.34, brightness: 1.08, lift: 0.06, contrast: 1.02, warmth: 0.025 };
+export const GRADE = { saturation: 1.30, brightness: 1.05, lift: 0.05, contrast: 1.06, warmth: 0.015 };
 
 const GradeShader = {
   uniforms: {
@@ -163,7 +163,7 @@ export function createWorld() {
   document.body.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xc8ecff, 190, 460);
+  scene.fog = new THREE.Fog(0xdff3ff, 210, 500);
   const sky = buildSky();
   const clouds = buildClouds();
   scene.add(sky);
