@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Fallguys.Rules.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9b3537f17d1249766e0dc7af159a04ac79bf874c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fb72207de599e81473b3d6c9bfca3b5f616597a1")]
 [assembly: System.Reflection.AssemblyProductAttribute("Fallguys.Rules.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Fallguys.Rules.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
