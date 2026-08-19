@@ -502,10 +502,16 @@ export function buildCourse(RAPIER, assets) {
 
     // Arches gonflables au-dessus de la piste : jalonnent la progression sans texte.
     for (const [az, ay, color] of [[-24, 0, 0x4fd1c5], [-54, 4, 0xffd83d], [-96, 1, 0xff5f7e], [-127, 1, 0x8b7bff]]) {
-      const a = inflatableArch(14, 7, 0.55, color);
+      const a = inflatableArch(13, 6, 0.45, color);
       a.position.set(0, ay, az);
       group.add(a);
     }
+
+    // Trois masses dominantes. Sans elles, tout le decor fait la meme taille et l'oeil
+    // n'a nulle part ou se poser ; elles servent aussi de reperes de distance.
+    const bigArch = inflatableArch(46, 26, 1.9, 0xff3d8b);
+    bigArch.position.set(0, -3.2, -66);
+    group.add(bigArch);
 
     /** Pose un modèle généré : pas de contour, pas d'ombre — c'est du décor, pas du gameplay. */
     function prop(name, size, x, z, { y = -3.2, rot = 0, tint = null, shadow = false } = {}) {
@@ -546,8 +552,8 @@ export function buildCourse(RAPIER, assets) {
     prop('speaker-stack', 6, -17, 10, { rot: 0.5 });
     prop('food-stand', 9, 26, -18, { rot: -0.9 });
     prop('camera-tower', 7, -26, -40, { rot: 1.2 });
-    prop('bounce-castle', 15, 34, -62, { rot: -1.0 });
-    prop('windmill', 16, -40, -96, { rot: 0.5 });
+    prop('bounce-castle', 34, 46, -104, { rot: -0.9 });
+    prop('windmill', 30, -50, -34, { rot: 0.6 });
     prop('windmill', 13, 44, -134, { rot: -0.6 });
     prop('camera-tower', 7, 26, -108, { rot: -1.2 });
     prop('food-stand', 9, -28, -124, { rot: 0.9 });

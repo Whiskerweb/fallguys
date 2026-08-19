@@ -1,21 +1,37 @@
 {
   "common": "Generate a seamless tileable square texture. Flat top-down orthographic view, zero perspective, no cast shadows, perfectly even flat lighting. Saturated candy colours, clean smooth vector-like shapes, playful toy aesthetic. The pattern repeats perfectly: the left edge continues into the right edge and the top edge into the bottom edge. No border, no frame, no vignette, no text, no logo, no watermark. The pattern fills the entire square edge to edge.",
   "slots": [
-    { "name": "ground-quilt",
-      "prompt": "Subject: glossy white vinyl fabric with a quilted diamond pattern, soft rounded padding between the seams, delicate dashed stitching along the diagonals. Almost white with very light grey shading so it can be tinted any colour afterwards." },
-    { "name": "ground-check",
-      "prompt": "Subject: a checkerboard of soft rounded squares, white and very light grey, with gently rounded corners and a faint soft edge between tiles. Almost white so it can be tinted any colour afterwards." },
-    { "name": "ground-scale",
-      "prompt": "Subject: overlapping rounded fish-scale arcs arranged in staggered rows, drawn as thin light grey outlines on a near-white surface, soft and smooth. Almost white so it can be tinted any colour afterwards." },
-    { "name": "ground-polka",
-      "prompt": "Subject: evenly staggered polka dots, soft light grey circles on a near-white surface, generous spacing, perfectly round, slightly soft edges. Almost white so it can be tinted any colour afterwards." },
-    { "name": "hazard-stripes",
-      "prompt": "Subject: bold diagonal warning stripes in warm golden yellow and bright orange, thick bands at 45 degrees, glossy inflatable vinyl look with a soft highlight along each band." },
-    { "name": "grass",
-      "prompt": "Subject: short cartoon grass seen from directly above, tiny soft blades and rounded tufts scattered evenly, near-white with light grey blades so it can be tinted green afterwards, no soil, no flowers, even density everywhere." },
-    { "name": "inflatable-bands",
-      "prompt": "Subject: horizontal inflated vinyl bands alternating turquoise and pale mint, each band bulging with a soft white highlight down its middle and a soft dark crease between bands, like an inflatable pool toy." },
-    { "name": "confetti",
-      "prompt": "Subject: small scattered confetti rectangles in pink, turquoise, yellow and purple on a white surface, tilted at random angles, evenly spread with generous white space between them, flat and crisp." }
+    {
+      "name": "ground-quilt",
+      "prompt": "Subject: glossy white vinyl fabric with a quilted diamond pattern, soft rounded padding between the seams, delicate dashed stitching along the diagonals. Almost white with very light grey shading so it can be tinted any colour afterwards."
+    },
+    {
+      "name": "ground-check",
+      "prompt": "Subject: a checkerboard of soft rounded squares, white and very light grey, with gently rounded corners and a faint soft edge between tiles. Almost white so it can be tinted any colour afterwards."
+    },
+    {
+      "name": "ground-scale",
+      "prompt": "Subject: overlapping rounded fish-scale arcs arranged in staggered rows, drawn as thin light grey outlines on a near-white surface, soft and smooth. Almost white so it can be tinted any colour afterwards."
+    },
+    {
+      "name": "ground-polka",
+      "prompt": "Subject: evenly staggered polka dots, soft light grey circles on a near-white surface, generous spacing, perfectly round, slightly soft edges. Almost white so it can be tinted any colour afterwards."
+    },
+    {
+      "name": "hazard-stripes",
+      "prompt": "Subject: bold diagonal warning stripes in warm golden yellow and bright orange, thick bands at 45 degrees, glossy inflatable vinyl look with a soft highlight along each band."
+    },
+    {
+      "name": "grass",
+      "prompt": "Subject: a smooth grassy field seen from directly above, decorated with long flowing contour lines like a topographic map, the lines soft and slightly wavy, widely spaced, drawn in a lighter tone. Near-white background with light grey contour lines so it can be tinted green afterwards. No blades, no flowers, no rocks, no path."
+    },
+    {
+      "name": "inflatable-bands",
+      "prompt": "Subject: horizontal inflated vinyl bands alternating turquoise and pale mint, each band bulging with a soft white highlight down its middle and a soft dark crease between bands, like an inflatable pool toy."
+    },
+    {
+      "name": "confetti",
+      "prompt": "Subject: small scattered confetti rectangles in pink, turquoise, yellow and purple on a white surface, tilted at random angles, evenly spread with generous white space between them, flat and crisp."
+    }
   ]
 }

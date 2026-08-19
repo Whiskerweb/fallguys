@@ -232,20 +232,23 @@ export function grassTufts({ base = '#ffffff', tuft = '#eaeaea', count = 220, re
   return make(`grass-${base}-${tuft}-${count}`, 512, (ctx, s) => {
     ctx.fillStyle = base;
     ctx.fillRect(0, 0, s, s);
-    const r = rng(5);
     ctx.strokeStyle = tuft;
     ctx.lineCap = 'round';
-    for (let i = 0; i < count; i++) {
-      const x = r() * s, y = r() * s, h = s * (0.018 + r() * 0.028), lean = (r() - 0.5) * h * 0.7;
-      ctx.lineWidth = Math.max(1.5, s / 280);
-      wrap(ctx, s, x, y, h * 2, (px, py) => {
+    ctx.lineWidth = Math.max(2, s / 190);
+    // Sinusoides de periode entiere : elles se raccordent d'un bord a l'autre.
+    for (let i = 0; i < 7; i++) {
+      const yBase = (s / 7) * i;
+      const amp = s * 0.035 * (1 + (i % 3) * 0.4);
+      for (const dy of [-s, 0, s]) {
         ctx.beginPath();
-        ctx.moveTo(px, py);
-        ctx.quadraticCurveTo(px + lean * 0.5, py - h * 0.6, px + lean, py - h);
+        for (let x = 0; x <= s; x += 4) {
+          const y = yBase + dy + Math.sin((x / s) * Math.PI * 4 + i) * amp;
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
         ctx.stroke();
-      });
+      }
     }
-    grain(ctx, s, 41, 0.03, 140);
+    grain(ctx, s, 41, 0.025, 100);
   }, repeat);
 }
 
