@@ -29,6 +29,10 @@ sysinfo.txt
 *.unitypackage
 crashlytics-build.properties
 
+# .NET — artefacts de build (tous projets, pas seulement game/)
+[Bb]in/
+[Oo]bj/
+
 # Node / backend
 node_modules/
 dist/
