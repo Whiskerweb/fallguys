@@ -251,7 +251,7 @@ class Game {
 
     if (this.mode === 'lobby') return;
 
-    this.course.update(elapsed);
+    this.course.update(elapsed, dt, this.character?.position ?? null);
     pollInput(dt);
 
     // Pendant le decompte, la physique tourne (le personnage se pose) mais il ne repond pas.

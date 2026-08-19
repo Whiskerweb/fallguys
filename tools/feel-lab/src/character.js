@@ -4,6 +4,7 @@ import { toonMaterial, addOutline } from './world.js';
 import { assets } from './assets.js';
 import { cosmetics } from './cosmetics.js';
 import { sfx } from './audio.js';
+import { PuffSystem, SparkBurst } from './effects.js';
 import { createRiggedCharacter } from './rig.js';
 
 const RADIUS = 0.45;
@@ -140,6 +141,11 @@ export class Character {
     }
 
     this.dust = new Dust(this.container);
+    // Poussiere de course et eclats d'impact : dans les references, un personnage qui
+    // court souleve en permanence de petits nuages. C'est ce qui donne le poids.
+    this.puffs = new PuffSystem(this.container, { count: 70 });
+    this.sparks = new SparkBurst(this.container, { count: 40 });
+    this.stepAccum = 0;
 
     // --- État ---
     this.state = State.Airborne;
@@ -210,6 +216,8 @@ export class Character {
       this.squashVel -= impact * 5;
       this.dust.burst(this.position.clone().setY(this.position.y - FOOT), 0.5 + impact);
       sfx.land(0.4 + impact);
+      this.puffs.emit(this.position.clone().setY(this.position.y - FOOT),
+        { count: 6, spread: 2.2, rise: 1.4, size: 0.3, life: 0.55 });
       if (this.state === State.Airborne) this.state = State.Grounded;
     }
     if (!this.grounded && this.state === State.Grounded) this.state = State.Airborne;
@@ -283,6 +291,8 @@ export class Character {
     this.body.setAngvel({ x: (Math.random() - 0.5) * spin, y: (Math.random() - 0.5) * spin, z: (Math.random() - 0.5) * spin }, true);
     this.squashVel -= 9;
     this.dust.burst(this.position, 1.2);
+    this.sparks.emit(this.position, 1.2);
+    this.puffs.emit(this.position, { count: 8, spread: 2.6, rise: 2.2, size: 0.34, life: 0.7 });
     sfx.tumble();
   }
 
@@ -366,6 +376,18 @@ export class Character {
     this.contactShadow.material.opacity = Math.max(0, 0.3 - airHeight * 0.05);
     this.contactShadow.scale.setScalar(1 + airHeight * 0.06);
 
+    // Une bouffee tous les 1,4 m parcourus au sol : la cadence suit la vitesse reelle.
+    if (this.grounded && speedH > 2) {
+      this.stepAccum += speedH * dt;
+      if (this.stepAccum > 1.4) {
+        this.stepAccum = 0;
+        this.puffs.emit(this.position.clone().setY(this.position.y - FOOT),
+          { count: 2, spread: 0.7, rise: 0.8, size: 0.19, life: 0.42 });
+      }
+    }
+
+    this.puffs.update(dt);
+    this.sparks.update(dt);
     this.dust.update(dt);
   }
 }

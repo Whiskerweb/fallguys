@@ -173,6 +173,35 @@ export class CharacterRig {
  * la boîte englobante (voir measureHeight) : dupliquer cette logique, c'est garantir
  * qu'un des deux appels finira mal réglé.
  */
+/**
+ * Contour cartoon sur un personnage anime.
+ * Un contour classique (copie agrandie par scale) ne marche pas sur un SkinnedMesh : le
+ * skinning ecrase la mise a l'echelle. On decale donc les sommets le long de leur normale
+ * DANS le vertex shader, avant que le squelette ne s'applique.
+ * Sans lui, un skin de la meme couleur que le sol rend le personnage invisible — et le
+ * joueur doit pouvoir choisir n'importe quelle couleur sans disparaitre.
+ */
+export function addSkinnedOutline(root, thickness = 0.022, color = 0x14203a) {
+  const targets = [];
+  root.traverse((c) => { if (c.isSkinnedMesh && !c.userData.isOutline) targets.push(c); });
+  for (const src of targets) {
+    const mat = new THREE.MeshBasicMaterial({ color, side: THREE.BackSide });
+    mat.onBeforeCompile = (sh) => {
+      sh.uniforms.uThick = { value: thickness };
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nuniform float uThick;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\n  transformed += normal * uThick;');
+    };
+    const outline = new THREE.SkinnedMesh(src.geometry, mat);
+    outline.userData.isOutline = true;
+    outline.castShadow = false;
+    outline.receiveShadow = false;
+    outline.frustumCulled = false;
+    src.parent.add(outline);
+    outline.bind(src.skeleton, src.bindMatrix);
+  }
+}
+
 export function createRiggedCharacter(assets, targetHeight, name = 'player-rigged') {
   const model = assets.get(name, null, { groundAlign: false, outline: 0 });
   if (!model) return null;
@@ -183,6 +212,8 @@ export function createRiggedCharacter(assets, targetHeight, name = 'player-rigge
   const native = rig.measureHeight(model);
   if (native > 0.0001) model.scale.setScalar(targetHeight / native);
   model.updateWorldMatrix(true, true);
+
+  addSkinnedOutline(model);
 
   const foot = rig.bones.get('LeftToeBase') ?? rig.bones.get('LeftFoot');
   if (foot) {

@@ -47,7 +47,8 @@ await page.waitForTimeout(600);
 await page.screenshot({ path: `${OUT}/1b-garde-robe.png` });
 console.log('1b-garde-robe.png');
 const swatches = await page.$$('#wardrobe .swatch');
-if (swatches[3]) { await swatches[3].click(); await page.waitForTimeout(900); }
+// On choisit un skin CHAUD : un skin froid se confondrait avec le sol de depart.
+if (swatches[0]) { await swatches[0].click(); await page.waitForTimeout(900); }
 await page.screenshot({ path: `${OUT}/1c-skin.png` });
 console.log('1c-skin.png');
 await page.click('#btn-wardrobe');

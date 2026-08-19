@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TUNING } from '../tuning.js';
 import { toonMaterial, addOutline } from '../world.js';
+import { ConfettiField, SmokeCannon } from '../effects.js';
 import {
   roundedBox, pill, rimGlow, banner, inflatableArch, balloon, bollard, bunting,
   flagPole, pennant, updateFlags, slabMesh, stripedPeak,
@@ -453,6 +454,26 @@ export function buildCourse(RAPIER, assets) {
   decal('arrow', 0, 0, -136, 4.5);
   decal('grid', 0, 0, -145, 9);
 
+  // ── Effets d'ambiance ──
+  const confetti = new ConfettiField(group, { count: 110, radius: 26, height: 22 });
+  const cannons = [];
+  // Canons a fumee de part et d'autre, cycles FIXES et dephases : le decor respire
+  // sans introduire d'aleatoire, ce que la qualification skill-game interdit.
+  for (const [cx, cz, phase] of [
+    [-11, -20, 0], [11, -20, 1.6], [-9.5, -58, 0.8], [9.5, -58, 2.4],
+    [-11, -100, 0.4], [11, -100, 2.0], [-11, -140, 1.2], [11, -140, 2.8],
+  ]) {
+    // Orientes vers l'exterieur : la fumee habille les cotes sans masquer la piste.
+    const dir = new THREE.Vector3(cx > 0 ? 0.75 : -0.75, 1, 0);
+    const cannon = new SmokeCannon(group, new THREE.Vector3(cx, 1.2, cz), dir, { period: 3.4, phase });
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 1.8, 14), toonMaterial(0xffb3d9));
+    barrel.position.set(cx, 0.4, cz);
+    barrel.rotation.z = cx > 0 ? 0.5 : -0.5;
+    addOutline(barrel, 0.03);
+    group.add(barrel);
+    cannons.push(cannon);
+  }
+
   dressStart();
   dressFinish();
   dressScenery();
@@ -542,35 +563,43 @@ export function buildCourse(RAPIER, assets) {
       return m;
     }
 
-    // ── Végétation : trois essences alternées plutôt qu'un seul arbre répété ──
-    const species = ['tree-round', 'tree-pine', 'tree-candy', 'bush-berry'];
-    const tints = [0x8fd66f, 0x6fc98f, 0x9ede6a, 0x7fd07a];
-    let n = 0;
-    for (let z = 6; z > -156; z -= 11) {
+    // ── Formes gonflables plutot que vegetation ──
+    // Les references n'ont AUCUN element naturaliste : ni ecorce, ni bois, ni pierre.
+    // Nos arbres a tronc brun et notre stand en bois tiraient toute l'image vers le terne.
+    const podColors = [0xff2d8f, 0x2dd9d9, 0xffe14d, 0xb072ff, 0x6ee86e, 0xff8a3d];
+    let v = 0;
+    for (let z = 6; z > -156; z -= 9) {
       for (const side of [-1, 1]) {
-        const kind = species[n % species.length];
-        const isBush = kind === 'bush-berry';
-        prop(kind, isBush ? 2.6 : 4.2 + (n % 3) * 0.9,
-          side * (16 + ((n * 3.7) % 5)), z - (side > 0 ? 5 : 0),
-          { rot: n * 1.31, tint: tints[n % tints.length] });
-        n++;
+        const color = podColors[v % podColors.length];
+        const kind = v % 3;
+        let shape;
+        if (kind === 0) {
+          shape = bollard(3.4 + (v % 3) * 1.2, 1.1, color);
+        } else if (kind === 1) {
+          shape = new THREE.Mesh(new THREE.SphereGeometry(1.6 + (v % 3) * 0.4, 16, 12), toonMaterial(color));
+          shape.position.y = 1.6;
+          shape.scale.y = 1.25;
+          addOutline(shape, 0.02);
+        } else {
+          shape = new THREE.Mesh(new THREE.CapsuleGeometry(0.95, 2.6, 6, 16), toonMaterial(color));
+          shape.position.y = 2.3;
+          addOutline(shape, 0.02);
+        }
+        const holder = new THREE.Group();
+        holder.add(shape);
+        holder.position.set(side * (15 + ((v * 3.7) % 5)), -3.2, z - (side > 0 ? 4 : 0));
+        group.add(holder);
+        v++;
       }
-    }
-    for (const [x, z] of [[-13, -30], [13, -58], [-13, -90], [13, -120], [-13, -145]]) {
-      prop('flower-patch', 2.4, x, z);
     }
 
     // ── Éléments de décor caractéristiques, un par zone ──
     prop('scoreboard', 11, -26, 8, { rot: 0.7 });
     prop('speaker-stack', 6, 17, 10, { rot: -0.5 });
     prop('speaker-stack', 6, -17, 10, { rot: 0.5 });
-    prop('food-stand', 9, 26, -18, { rot: -0.9 });
     prop('camera-tower', 7, -26, -40, { rot: 1.2 });
     prop('bounce-castle', 34, 46, -104, { rot: -0.9 });
-    prop('windmill', 30, -50, -34, { rot: 0.6 });
-    prop('windmill', 13, 44, -134, { rot: -0.6 });
     prop('camera-tower', 7, 26, -108, { rot: -1.2 });
-    prop('food-stand', 9, -28, -124, { rot: 0.9 });
     prop('camera-tower', 7, -24, -146, { rot: 1.4 });
     prop('giant-trophy', 9, 0, finishZ - 12, { y: -3.2, shadow: true });
 
@@ -659,7 +688,12 @@ export function buildCourse(RAPIER, assets) {
 
   return {
     world, group, spawn, finishZ, killY: -12, checkpoints, conveyors,
-    update: (elapsed) => { updateFlags(elapsed); for (const fn of animated) fn(elapsed); },
+    update: (elapsed, dt = 0.016, focus = null) => {
+      updateFlags(elapsed);
+      for (const fn of animated) fn(elapsed);
+      for (const c of cannons) c.update(dt, elapsed);
+      if (focus) confetti.update(dt, elapsed, focus);
+    },
     checkpointFor(z) {
       let best = checkpoints[0];
       for (const cp of checkpoints) if (z <= cp.z + 1) best = cp;
