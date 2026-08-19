@@ -112,6 +112,12 @@
     box-shadow:0 10px 28px rgba(0,0,0,.35);
   }
   #wardrobe.hidden { display:none; }
+  #wardrobe .modelbtn {
+    height:46px; padding:0 16px; border-radius:13px; cursor:pointer;
+    border:3px solid rgba(255,255,255,.28); background:rgba(255,255,255,.1);
+    color:#fff; font-family:inherit; font-weight:900; font-size:14px; white-space:nowrap;
+  }
+  #wardrobe .modelbtn.on { border-color:#fff; background:var(--pink); }
   #wardrobe .swatch {
     width:46px; height:46px; border-radius:13px; cursor:pointer;
     border:3px solid rgba(255,255,255,.28); transition:transform .1s, border-color .1s;
@@ -127,6 +133,43 @@
     text-shadow:0 8px 0 rgba(0,0,0,.28), 0 0 60px rgba(255,220,120,.85);
   }
   #countdown.hidden { display:none; }
+
+  /* ---------- menu de pause ---------- */
+  #pause {
+    position:fixed; inset:0; z-index:35; display:grid; place-items:center;
+    background:rgba(14,7,32,.66); backdrop-filter:blur(4px);
+  }
+  #pause.hidden { display:none; }
+  #pause-inner { display:flex; flex-direction:column; align-items:center; gap:20px; }
+  #pause h2 {
+    color:#fff; font-size:52px; font-weight:900; letter-spacing:3px;
+    text-shadow:0 5px 0 rgba(0,0,0,.3); margin-bottom:6px;
+  }
+  .pbtn {
+    width:400px; height:90px; cursor:pointer; position:relative; overflow:hidden;
+    border:5px solid var(--ink); border-radius:20px;
+    color:#fff; font-family:inherit; font-size:34px; font-weight:900; letter-spacing:1.5px;
+    text-shadow:0 3px 0 rgba(0,0,0,.28);
+    transition:transform .09s, box-shadow .09s, filter .09s;
+  }
+  /* Texture rayée diagonale peinte en CSS : même langage visuel que les rayures du jeu. */
+  .pbtn::before {
+    content:''; position:absolute; inset:0; opacity:.22; pointer-events:none;
+    background:repeating-linear-gradient(45deg,
+      rgba(255,255,255,.9) 0 14px, rgba(255,255,255,0) 14px 32px);
+  }
+  .pbtn span { position:relative; }
+  .pbtn:hover { transform:translateY(-4px); filter:brightness(1.08); }
+  .pbtn:active { transform:translateY(5px); }
+  .pbtn.resume { background:linear-gradient(180deg,#5ce8a0,var(--pink)); background:linear-gradient(180deg,#5ce8a0,#22b06a); box-shadow:0 9px 0 #178450; }
+  .pbtn.resume:hover { box-shadow:0 13px 0 #178450; }
+  .pbtn.resume:active { box-shadow:0 3px 0 #178450; }
+  .pbtn.opts { background:linear-gradient(180deg,#6fd8ff,#1f9ad6); box-shadow:0 9px 0 #16739f; }
+  .pbtn.opts:hover { box-shadow:0 13px 0 #16739f; }
+  .pbtn.opts:active { box-shadow:0 3px 0 #16739f; }
+  .pbtn.quit { background:linear-gradient(180deg,#ff6fa6,#d61f68); box-shadow:0 9px 0 #9c1349; }
+  .pbtn.quit:hover { box-shadow:0 13px 0 #9c1349; }
+  .pbtn.quit:active { box-shadow:0 3px 0 #9c1349; }
 
   /* ---------- panneau Paramètres ---------- */
   #settings {
@@ -282,6 +325,16 @@
   </div>
 </div>
 
+<!-- ===== PAUSE ===== -->
+<div id="pause" class="hidden">
+  <div id="pause-inner">
+    <h2>PAUSE</h2>
+    <button class="pbtn resume" id="pause-resume"><span>REPRENDRE</span></button>
+    <button class="pbtn opts" id="pause-settings"><span>PARAMÈTRES</span></button>
+    <button class="pbtn quit" id="pause-quit"><span>QUITTER LA PARTIE</span></button>
+  </div>
+</div>
+
 <!-- ===== PARAMÈTRES ===== -->
 <div id="settings" class="hidden">
   <div id="settings-panel">
@@ -316,7 +369,7 @@
   </div>
   <div id="help" class="stroke">
     ZQSD / WASD / flèches — courir · ESPACE — sauter · MAJ ou CLIC — plonger<br/>
-    A / E — pivoter la caméra · R — recommencer · ÉCHAP — retour lobby · O — paramètres
+    A / E — pivoter la caméra · R — recommencer · ÉCHAP — pause
   </div>
   <div id="progressbar"><div class="fill" id="progress-fill"></div></div>
   <div id="dist" class="stroke"><span id="dist-text">120 m</span></div>

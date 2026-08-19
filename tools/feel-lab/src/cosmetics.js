@@ -16,11 +16,30 @@ export const SKINS = [
   { name: 'Bubblegum', hex: 0xff8bd0 },
 ];
 
+/**
+ * Modèles de personnage. Le modèle riggé est le défaut parce que c'est le seul qui
+ * porte un squelette, donc le seul réellement animé (course, envol, culbute). Un modèle
+ * sans squelette reste jouable mais n'est anime que par le corps entier : inclinaison,
+ * ecrasement, rotation. C'est indiqué dans la garde-robe plutôt que subi en silence.
+ */
+export const MODELS = [
+  { id: 'player-rigged', name: 'Blob', rigged: true },
+  { id: 'player-custom', name: 'Perso importé', rigged: false },
+];
+
 const KEY = 'tumble-skin';
+const MODEL_KEY = 'tumble-model';
 const listeners = new Set();
 
 export const cosmetics = {
   hex: Number(localStorage.getItem(KEY)) || SKINS[0].hex,
+  model: localStorage.getItem(MODEL_KEY) || MODELS[0].id,
+
+  setModel(id) {
+    this.model = id;
+    localStorage.setItem(MODEL_KEY, id);
+    for (const fn of listeners) fn(this.hex);
+  },
   set(hex) {
     this.hex = hex;
     localStorage.setItem(KEY, String(hex));

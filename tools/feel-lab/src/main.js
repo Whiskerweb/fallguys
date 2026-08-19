@@ -8,7 +8,7 @@ import { loadExternalTextures } from './textures.js';
 import { buildCourse } from './scenes/course.js';
 import { buildLobbyScreen, LOBBY } from './scenes/lobby.js';
 import { Character } from './character.js';
-import { cosmetics, SKINS } from './cosmetics.js';
+import { cosmetics, SKINS, MODELS } from './cosmetics.js';
 import { sfx, unlockAudio, audio } from './audio.js';
 import { RIG, RIG_RANGES } from './rig.js';
 import { settings, ACTIONS, CAMERA_RANGES, CAMERA_LABELS, keyName } from './settings.js';
@@ -49,8 +49,16 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyO') { settingsOpen ? closeSettings() : openSettings(); return; }
   if (settingsOpen) return;
 
+  // Echap en course ouvre le menu de pause plutot que de quitter d'un coup :
+  // abandonner une partie ne doit jamais tenir a une frappe involontaire.
+  if (e.code === 'Escape') {
+    if (game?.mode === 'lobby') return;
+    paused ? closePause() : openPause();
+    return;
+  }
+  if (paused) return;
+
   if (e.code === 'Enter' && game?.mode === 'lobby') game.startRace();
-  if (e.code === 'Escape' && game?.mode !== 'lobby') game.returnToLobby();
   if (settings.matches(e.code, 'restart') && game?.mode === 'racing') game.restart();
   if (e.code === 'KeyH') gui.show(gui._hidden);
   if (e.code === 'KeyP') el('perf').classList.toggle('hidden');
@@ -129,6 +137,31 @@ function buildGui(getWorld) {
     console.log('--- Constantes a transposer dans Unity ---\n' + json);
   } }, 'copier').name('Copier les réglages');
   gui.close();
+}
+
+// ---------- menu de pause ----------
+let paused = false;
+
+function openPause() {
+  if (!game || game.mode === 'lobby') return;
+  paused = true;
+  keys.clear();                 // sinon une touche restee enfoncee reprend a la reprise
+  el('pause').classList.remove('hidden');
+}
+
+function closePause() {
+  paused = false;
+  el('pause').classList.add('hidden');
+}
+
+function wirePause() {
+  el('pause-resume').addEventListener('click', () => { sfx.click(); closePause(); });
+  el('pause-settings').addEventListener('click', () => { sfx.click(); openSettings(); });
+  el('pause-quit').addEventListener('click', () => {
+    sfx.click();
+    closePause();
+    game.returnToLobby();
+  });
 }
 
 // ---------- panneau Paramètres ----------
@@ -212,6 +245,30 @@ function wireSettings() {
 // ---------- garde-robe ----------
 function buildWardrobe() {
   const panel = el('wardrobe');
+  panel.innerHTML = '';
+
+  // Choix du modele : change le personnage lui-meme, pas seulement sa couleur.
+  for (const m of MODELS) {
+    const b = document.createElement('button');
+    b.className = 'modelbtn' + (m.id === cosmetics.model ? ' on' : '');
+    b.textContent = m.name + (m.rigged ? '' : ' (figé)');
+    b.title = m.rigged ? 'Personnage animé par squelette' : 'Sans squelette : animé par le corps entier';
+    b.addEventListener('click', () => {
+      cosmetics.setModel(m.id);
+      sfx.click();
+      buildWardrobe();
+      // Le personnage est reconstruit : en course il faut le recreer sur place.
+      if (game?.mode !== 'lobby' && game?.character) {
+        const at = game.character.position.clone();
+        game.character.dispose();
+        game.character = new Character(RAPIER, game.course.world, game.view.scene, at);
+      }
+    });
+    panel.appendChild(b);
+  }
+  const sep = document.createElement('div');
+  sep.style.cssText = 'width:2px;background:rgba(255,255,255,.18);margin:0 4px;border-radius:1px';
+  panel.appendChild(sep);
   for (const skin of SKINS) {
     const b = document.createElement('button');
     b.className = 'swatch' + (skin.hex === cosmetics.hex ? ' on' : '');
@@ -278,6 +335,7 @@ class Game {
   }
 
   startRace() {
+    closePause();
     this.mode = 'racing';
     this.runTime = 0;
     this.falls = 0;
@@ -347,7 +405,10 @@ class Game {
 
     if (this.mode === 'lobby') return;
 
-    this.course.update(elapsed, dt, this.character?.position ?? null);
+    // En pause : le decor continue de vivre mais la simulation est figee, sinon le
+    // chronometre avance et le personnage glisse pendant que le joueur lit le menu.
+    this.course.update(elapsed, paused ? 0 : dt, this.character?.position ?? null);
+    if (paused) { this.updateCamera(dt, this.character.position.clone()); return; }
     pollInput(dt);
 
     // Pendant le decompte, la physique tourne (le personnage se pose) mais il ne repond pas.
@@ -471,6 +532,7 @@ async function boot() {
   buildGui(() => course.world);
   buildWardrobe();
   wireSettings();
+  wirePause();
   game = new Game(view, lobby, course);
   el('loading').style.display = 'none';
 

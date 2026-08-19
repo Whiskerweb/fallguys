@@ -93,10 +93,12 @@ export function buildLobbyScreen(assets) {
   stage.position.y = 1.28;
   pedestal.add(stage);
 
-  const riggedAvatar = createRiggedCharacter(assets, LOBBY.avatarHeight);
+  const riggedAvatar = cosmetics.model === 'player-rigged'
+    ? createRiggedCharacter(assets, LOBBY.avatarHeight) : null;
   let avatar = riggedAvatar?.model ?? null;
   const avatarRig = riggedAvatar?.rig ?? null;
-  if (!avatar) avatar = assets.getFitted('player-blob', { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.018 });
+  if (!avatar) avatar = assets.getFitted(cosmetics.model, { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.025 })
+    ?? assets.getFitted('player-blob', { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.018 });
   if (!avatar) {
     avatar = new THREE.Group();
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.56, 0.9, 8, 24), toonMaterial(0xff5f7e));

@@ -275,9 +275,8 @@ export function stripedPeak(radius, height, baseColor, capColor, opts = {}) {
   const {
     sharpness = 0.55,     // 0 = dôme très rond, 1 = cône pointu
     capRatio = 0.30,      // part de la hauteur couverte par la calotte
-    bands = 0,            // bandes horizontales optionnelles
-    bandColor = null,
     segments = 22,
+    seed = 0,             // decale les harmoniques : deux sommets ne se ressemblent pas
   } = opts;
 
   const group = new THREE.Group();
@@ -287,12 +286,23 @@ export function stripedPeak(radius, height, baseColor, capColor, opts = {}) {
   const geo = new THREE.SphereGeometry(radius, segments, 16, 0, Math.PI * 2, 0, Math.PI / 2);
   const pos = geo.attributes.position;
   for (let k = 0; k < pos.count; k++) {
-    const y = pos.getY(k);
+    const x0 = pos.getX(k), z0 = pos.getZ(k), y = pos.getY(k);
     const t = Math.max(0, Math.min(1, y / radius));
     const shrink = 1 - Math.pow(t, 1 - sharpness * 0.55) * (0.12 + sharpness * 0.5);
-    pos.setX(k, pos.getX(k) * shrink);
-    pos.setZ(k, pos.getZ(k) * shrink);
-    pos.setY(k, y * (height / radius));
+
+    // Irregularite de silhouette : un profil de revolution parfait se lit comme un cone
+    // de signalisation. Trois harmoniques de faible amplitude suffisent a donner une
+    // montagne, avec des epaulements et des versants inegaux.
+    const ang = Math.atan2(z0, x0);
+    const noise = Math.sin(ang * 3 + seed) * 0.10
+                + Math.sin(ang * 5 - seed * 1.7) * 0.055
+                + Math.sin(ang * 8 + seed * 0.6) * 0.03;
+    const bulge = 1 + noise * (1 - t * 0.55);
+
+    pos.setX(k, x0 * shrink * bulge);
+    pos.setZ(k, z0 * shrink * bulge);
+    // Le sommet lui-meme derive legerement : une cime pile au centre parait fabriquee.
+    pos.setY(k, y * (height / radius) * (1 + Math.sin(ang * 2 + seed) * 0.04 * t));
   }
   geo.computeVertexNormals();
   const body = new THREE.Mesh(geo, toonMaterial(baseColor));
@@ -324,18 +334,6 @@ export function stripedPeak(radius, height, baseColor, capColor, opts = {}) {
   cap.position.y = capBase;
   group.add(cap);
 
-  if (bands > 0 && bandColor !== null) {
-    for (let b = 1; b <= bands; b++) {
-      const t = (b / (bands + 1)) * (1 - capRatio);
-      const r = radius * (1 - Math.pow(t, 1 - sharpness * 0.55) * (0.12 + sharpness * 0.5)) * 1.012;
-      const ring = new THREE.Mesh(
-        new THREE.CylinderGeometry(r * 0.98, r, height * 0.04, segments, 1, true),
-        toonMaterial(bandColor)
-      );
-      ring.position.y = height * t;
-      group.add(ring);
-    }
-  }
   return group;
 }
 
@@ -348,35 +346,49 @@ export function stripedPeak(radius, height, baseColor, capColor, opts = {}) {
 export function mountainRange(groundY) {
   const group = new THREE.Group();
 
-  const LAYERS = [
-    // [distance z, teinte de base, teinte de calotte, échelle, nombre]
-    { z: -335, base: 0xf7dfe8, cap: 0xffffff, scale: 1.4, count: 7, sharp: 0.35, spread: 400 },
-    { z: -248, base: 0xf7bdd0, cap: 0xfff4f8, scale: 1.0, count: 8, sharp: 0.5, spread: 340 },
-    { z: -178, base: 0xf59ab8, cap: 0xffeaf2, scale: 0.72, count: 6, sharp: 0.62, spread: 300 },
+  // La piste va de z=+20 a z=-148 : son centre est vers z=-64. Les montagnes forment
+  // une CEINTURE autour de ce centre, pas une rangee au fond. Deux raisons : elles
+  // masquent le bord du terrain quelle que soit l'orientation de la camera, et un
+  // horizon ferme de tous cotes donne un monde, la ou une rangee donne un fond de scene.
+  const CX = 0, CZ = -64;
+
+  const RINGS = [
+    // rayon, nombre, echelle, teinte de base, teinte de calotte, arrondi
+    { r: 168, n: 11, scale: 0.62, base: 0xf274a2, cap: 0xffeaf2, sharp: 0.62 },
+    { r: 246, n: 14, scale: 0.95, base: 0xf59ab8, cap: 0xfff4f8, sharp: 0.5 },
+    { r: 340, n: 16, scale: 1.45, base: 0xf7dfe8, cap: 0xffffff, sharp: 0.36 },
   ];
-  const TINTS = [null, 0xe8c8f0, 0xffd2c0, 0xc8e8f5];
+  const TINTS = [null, 0xb98ae0, 0xffab8a, 0x7cc8e8, null, 0xe08ab4];
 
-  LAYERS.forEach((layer, li) => {
-    for (let i = 0; i < layer.count; i++) {
-      const t = (i + 0.5) / layer.count;
-      const x = (t - 0.5) * layer.spread + ((i * 37) % 23) - 11;
-      const z = layer.z + ((i * 53) % 46) - 23;
-      const r = (26 + ((i * 17) % 20)) * layer.scale;
-      const h = (46 + ((i * 29) % 34)) * layer.scale;
+  let seed = 1;
+  RINGS.forEach((ring, li) => {
+    for (let i = 0; i < ring.n; i++) {
+      seed = (seed * 9301 + 49297) % 233280;
+      const r1 = seed / 233280;
+      seed = (seed * 9301 + 49297) % 233280;
+      const r2 = seed / 233280;
+      seed = (seed * 9301 + 49297) % 233280;
+      const r3 = seed / 233280;
 
-      // Une montagne sur quatre prend une teinte differente : une chaine monochrome
-      // parait plate meme bien eclairee.
-      const tint = TINTS[(i + li) % TINTS.length];
-      const base = tint ?? layer.base;
+      // Angle irregulier : une repartition parfaitement reguliere se voit immediatement.
+      const ang = (i / ring.n) * Math.PI * 2 + (r1 - 0.5) * (Math.PI / ring.n) * 1.5;
+      const dist = ring.r * (0.82 + r2 * 0.36);
 
-      const peak = stripedPeak(r, h, base, layer.cap, {
-        sharpness: layer.sharp + ((i % 3) - 1) * 0.1,
-        capRatio: 0.22 + ((i % 4) * 0.05),
-        bands: i % 5 === 0 ? 3 : 0,
-        bandColor: 0xffffff,
-        segments: li === 0 ? 16 : 22,     // les plus lointaines sont moins detaillees
+      // Ecart de taille tres large a l'interieur d'un meme anneau : c'est cet ecart,
+      // plus que le nombre, qui fait lire une chaine plutot qu'une palissade.
+      const size = 0.45 + Math.pow(r3, 1.7) * 1.5;
+      const radius = (20 + r1 * 16) * ring.scale * size;
+      const height = (34 + r2 * 44) * ring.scale * size;
+
+      const tint = TINTS[(i * 3 + li) % TINTS.length];
+      const peak = stripedPeak(radius, height, tint ?? ring.base, ring.cap, {
+        sharpness: ring.sharp + (r1 - 0.5) * 0.3,
+        capRatio: 0.10 + r2 * 0.14,
+        segments: li === 2 ? 16 : 20,     // les plus lointaines sont moins detaillees
+        seed: r3 * 12,
       });
-      peak.position.set(x, groundY, z);
+      peak.position.set(CX + Math.cos(ang) * dist, groundY, CZ + Math.sin(ang) * dist);
+      peak.rotation.y = r1 * Math.PI * 2;
       group.add(peak);
     }
   });

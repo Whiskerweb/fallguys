@@ -96,6 +96,26 @@ await page.screenshot({ path: `${OUT}/4-obstacles.png` });
 console.log('4-obstacles.png');
 await page.keyboard.up('KeyW');
 
+// Menu de pause
+await page.keyboard.press('Escape');
+await page.waitForTimeout(700);
+await page.screenshot({ path: `${OUT}/6-pause.png` });
+console.log('6-pause.png');
+const pauseVisible = await page.evaluate(() => !document.getElementById('pause').classList.contains('hidden'));
+console.log('menu de pause visible :', pauseVisible);
+await page.click('#pause-quit');
+await page.waitForTimeout(1200);
+
+// Modele importe : on le selectionne et on relance une course
+await page.click('#btn-wardrobe');
+await page.waitForTimeout(400);
+const modelBtns = await page.$$('#wardrobe .modelbtn');
+if (modelBtns[1]) { await modelBtns[1].click(); await page.waitForTimeout(1200); }
+await page.screenshot({ path: `${OUT}/7-modele-importe.png` });
+console.log('7-modele-importe.png · modele =', await page.evaluate(() => localStorage.getItem('tumble-model')));
+await page.click('#btn-wardrobe');
+await page.waitForTimeout(200);
+
 // Retour au lobby : verifie que la bascule inverse fonctionne aussi
 await page.keyboard.press('Escape');
 await page.waitForTimeout(2500);

@@ -95,14 +95,20 @@ export class Character {
     // Le personnage rigge est prefere : c'est le seul qui puisse etre anime.
     // Le blob statique reste en repli, et la capsule en dernier recours.
     const HEIGHT = HALF_HEIGHT * 2 + RADIUS * 2;
-    const rigged = createRiggedCharacter(assets, HEIGHT);
+    // Modèle choisi dans la garde-robe. Le riggé passe par la fabrique (mise à
+    // l'échelle depuis les os) ; un modèle sans squelette est simplement ajusté à la
+    // hauteur de la capsule et animé par le corps entier.
+    const wanted = cosmetics.model;
+    const rigged = wanted === 'player-rigged' ? createRiggedCharacter(assets, HEIGHT) : null;
     let model = null;
     if (rigged) {
       model = rigged.model;
       this.rig = rigged.rig;
       model.position.y -= FOOT;          // pieds au bas de la capsule
     } else {
-      model = assets.getFitted('player-blob', { y: HEIGHT }, { groundAlign: false, outline: 0.02 });
+      model = assets.getFitted(wanted, { y: HEIGHT }, { groundAlign: true, outline: 0.03 })
+           ?? assets.getFitted('player-blob', { y: HEIGHT }, { groundAlign: true, outline: 0.02 });
+      if (model) model.position.y -= FOOT;
     }
     this.pupils = [];
     if (model) {
