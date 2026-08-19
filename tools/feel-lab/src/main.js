@@ -12,6 +12,7 @@ import { cosmetics, SKINS, MODELS } from './cosmetics.js';
 import { sfx, unlockAudio, audio } from './audio.js';
 import { RIG, RIG_RANGES } from './rig.js';
 import { settings, ACTIONS, CAMERA_RANGES, CAMERA_LABELS, keyName } from './settings.js';
+import { applyIcons, buildSkinsScreen, buildCollabsScreen, buildShopScreen, wireTabs } from './lobbyui.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -229,11 +230,19 @@ function closeSettings() {
   el('settings').classList.add('hidden');
 }
 
+/** Reconstruit avatar et personnage apres un changement dans l'ecran Personnages. */
+function onCosmeticChange() {
+  game?.lobby?.rebuildAvatar?.();
+  if (game && game.mode !== 'lobby' && game.character) {
+    const at = game.character.position.clone();
+    game.character.dispose();
+    game.character = new Character(RAPIER, game.course.world, game.view.scene, at);
+  }
+}
+
 function wireWardrobeButton() {
-  // Enregistre UNE fois. Il vivait dans buildWardrobe(), qui se rappelle a chaque
-  // changement de modele : les ecouteurs s'accumulaient et le bouton finissait par
-  // basculer deux fois, donc par ne plus rien ouvrir.
-  el('btn-wardrobe').addEventListener('click', () => el('wardrobe').classList.toggle('hidden'));
+  // La barre flottante de garde-robe est remplacee par l'ecran Personnages, plus complet.
+  el('wardrobe').classList.add('hidden');
 }
 
 function wireSettings() {
@@ -542,6 +551,16 @@ async function boot() {
   buildWardrobe();
   wireWardrobeButton();
   wireSettings();
+  await applyIcons();
+  buildSkinsScreen(onCosmeticChange);
+  buildCollabsScreen();
+  buildShopScreen();
+  const tabs = wireTabs((tab) => {
+    if (tab === 'skins-changed') onCosmeticChange();
+  });
+  // Quitter un onglet revient toujours a Jouer : le lobby ne doit jamais rester
+  // bloque sur un ecran secondaire quand une course demarre.
+  el('play').addEventListener('click', () => tabs.show('play'));
   wirePause();
   game = new Game(view, lobby, course);
   el('loading').style.display = 'none';

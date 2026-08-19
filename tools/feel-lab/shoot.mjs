@@ -44,6 +44,16 @@ await page.waitForTimeout(3500);
 await page.screenshot({ path: `${OUT}/1-lobby.png` });
 console.log('1-lobby.png');
 
+// Onglets du lobby
+for (const tab of ['skins', 'collabs', 'shop']) {
+  await page.click(`.navbtn[data-tab="${tab}"]`);
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: `${OUT}/1-tab-${tab}.png` });
+  console.log(`1-tab-${tab}.png`);
+}
+await page.click('.navbtn[data-tab="play"]');
+await page.waitForTimeout(500);
+
 // Garde-robe
 await page.click('#btn-wardrobe');
 await page.waitForTimeout(600);

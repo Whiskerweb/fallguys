@@ -135,6 +135,70 @@
   }
   #countdown.hidden { display:none; }
 
+  /* ---------- onglets du lobby ---------- */
+  .navbtn img, .wallet img { width:26px; height:26px; object-fit:contain; display:block; }
+  .navbtn.active { background:var(--pink); box-shadow:0 4px 0 var(--pink-dark); }
+  .navbtn.active::after {
+    content:''; position:absolute; left:50%; bottom:-9px; transform:translateX(-50%);
+    width:22px; height:4px; border-radius:2px; background:#fff;
+  }
+  .navbtn { position:relative; }
+
+  /* Écrans : un seul visible à la fois, celui de l'onglet actif. */
+  .screen {
+    position:absolute; inset:62px 0 0; display:none; overflow-y:auto; padding:26px 44px 40px;
+    /* Voile sombre : sans lui la scene 3D transparait derriere les cartes et rend la
+       grille illisible. L'ecran doit se lire comme une page, pas comme une surimpression. */
+    background:linear-gradient(180deg, rgba(14,7,32,.88), rgba(14,7,32,.94));
+    backdrop-filter:blur(6px);
+  }
+  .screen.on { display:block; }
+  .screen h1 {
+    color:#fff; font-size:34px; font-weight:900; letter-spacing:2px; margin-bottom:4px;
+    text-shadow:0 3px 0 rgba(0,0,0,.28);
+  }
+  .screen .sub { color:rgba(255,255,255,.62); font-weight:800; font-size:14px; margin-bottom:22px; }
+
+  /* Grille de skins, façon vitrine de jeu : cartes égales, état visible d'un coup d'œil. */
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(168px, 1fr)); gap:16px; }
+  .card {
+    position:relative; border-radius:18px; cursor:pointer; overflow:hidden;
+    background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.05));
+    border:3px solid rgba(255,255,255,.16); padding:14px 12px 12px;
+    transition:transform .1s, border-color .1s, background .1s;
+  }
+  .card:hover { transform:translateY(-4px); border-color:rgba(255,255,255,.42); }
+  .card.on { border-color:#fff; background:linear-gradient(180deg, rgba(255,61,139,.5), rgba(255,61,139,.2)); }
+  .card .thumb {
+    height:104px; border-radius:13px; margin-bottom:11px; display:grid; place-items:center;
+    background:radial-gradient(circle at 50% 38%, rgba(255,255,255,.3), rgba(0,0,0,.22));
+  }
+  .card .thumb .blob { width:56px; height:74px; border-radius:28px 28px 24px 24px; border:4px solid var(--ink); }
+  .card .name { color:#fff; font-weight:900; font-size:15px; }
+  .card .tag { color:rgba(255,255,255,.55); font-weight:800; font-size:11.5px; letter-spacing:1.2px; margin-top:3px; }
+  .card .badge {
+    position:absolute; top:10px; right:10px; padding:3px 9px; border-radius:8px;
+    font-size:10.5px; font-weight:900; letter-spacing:.8px;
+  }
+  .badge.equipped { background:#2ecc71; color:#06331a; }
+  .badge.locked { background:rgba(0,0,0,.45); color:rgba(255,255,255,.6); }
+  .card.locked { opacity:.55; }
+
+  /* Listes (collabs, boutique) */
+  .row {
+    display:flex; align-items:center; gap:16px; padding:14px 18px; margin-bottom:12px;
+    border-radius:16px; background:rgba(255,255,255,.07); border:2px solid rgba(255,255,255,.1);
+  }
+  .row .icon { width:52px; height:52px; border-radius:14px; display:grid; place-items:center; flex:none; font-size:24px; }
+  .row .body { flex:1; }
+  .row .title { color:#fff; font-weight:900; font-size:17px; }
+  .row .desc { color:rgba(255,255,255,.6); font-weight:700; font-size:13px; margin-top:2px; }
+  .row .price {
+    padding:9px 18px; border-radius:12px; background:var(--cyan); box-shadow:0 4px 0 var(--cyan-dark);
+    color:#fff; font-weight:900; font-size:15px; white-space:nowrap;
+  }
+  .row .price.soon { background:rgba(255,255,255,.12); box-shadow:none; color:rgba(255,255,255,.5); }
+
   /* ---------- menu de pause ---------- */
   #pause {
     position:fixed; inset:0; z-index:35; display:grid; place-items:center;
@@ -287,14 +351,14 @@
   <div id="topbar">
     <div class="title stroke">LOBBY</div>
     <div class="spacer"></div>
-    <button class="navbtn primary" title="Jouer">▶</button>
-    <button class="navbtn" id="btn-wardrobe" title="Garde-robe">👕</button>
-    <button class="navbtn" title="Collabs">🤝</button>
-    <button class="navbtn" title="Boutique">🛒</button>
-    <button class="navbtn" id="btn-settings" title="Paramètres">⚙</button>
+    <button class="navbtn primary active" data-tab="play" title="Jouer"></button>
+    <button class="navbtn" data-tab="skins" id="btn-wardrobe" title="Personnages"></button>
+    <button class="navbtn" data-tab="collabs" title="Collaborations"></button>
+    <button class="navbtn" data-tab="shop" title="Boutique"></button>
+    <button class="navbtn" id="btn-settings" title="Paramètres"></button>
     <div class="spacer"></div>
-    <div class="wallet"><span class="ic">👑</span><span id="crowns">0</span></div>
-    <div class="wallet cash"><span class="ic">◎</span><span id="balance">12.40</span></div>
+    <div class="wallet"><span class="ic" id="ic-crown">👑</span><span id="crowns">0</span></div>
+    <div class="wallet cash"><span class="ic" id="ic-coin">◎</span><span id="balance">12.40</span></div>
   </div>
 
   <div id="leftpanel">
@@ -318,6 +382,27 @@
   </div>
 
   <div id="wardrobe" class="hidden"></div>
+
+  <div class="screen" id="screen-skins">
+    <h1>PERSONNAGES</h1>
+    <div class="sub">Choisis ton avatar. Les personnages de collaboration arrivent en édition limitée.</div>
+    <div class="grid" id="skins-grid"></div>
+    <h1 style="margin-top:30px">COULEURS</h1>
+    <div class="sub">Teinte appliquée au personnage équipé.</div>
+    <div class="grid" id="colors-grid"></div>
+  </div>
+
+  <div class="screen" id="screen-collabs">
+    <h1>COLLABORATIONS</h1>
+    <div class="sub">Chaque collaboration amène sa communauté. Les skins sont en édition limitée et ne reviennent pas.</div>
+    <div id="collabs-list"></div>
+  </div>
+
+  <div class="screen" id="screen-shop">
+    <h1>BOUTIQUE</h1>
+    <div class="sub">Les cosmétiques premium réduisent ta commission sur les gains. C'est leur utilité — pas de la spéculation.</div>
+    <div id="shop-list"></div>
+  </div>
 
   <div id="result-card">
     <h2 id="result-title">COURSE TERMINÉE</h2>

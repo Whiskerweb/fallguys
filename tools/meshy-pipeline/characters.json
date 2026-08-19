@@ -19,12 +19,12 @@
     {
       "name": "char-shiba",
       "polycount": 11000,
-      "prompt": "A cheerful shiba inu dog mascot: warm orange and cream fur, pointed triangular ears, curled tail, wide happy smile, tiny black nose"
+      "prompt": "An anthropomorphic shiba inu character with a HUMAN-LIKE body: human torso, human arms with hands, human legs standing upright on two feet, only the head is a dog head with pointed triangular ears and a happy smile, warm orange and cream fur, small green jacket"
     },
     {
       "name": "char-frog",
       "polycount": 11000,
-      "prompt": "A smug green frog mascot: bright grass green skin, huge round eyes with tiny pupils, wide flat smiling mouth, small red shirt collar"
+      "prompt": "An anthropomorphic frog character with a HUMAN-LIKE body: human torso, human arms with hands, human legs standing upright on two feet, only the head is a frog head with huge round eyes and a wide flat smiling mouth, bright grass green skin, small red shirt"
     },
     {
       "name": "char-bull",

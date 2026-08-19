@@ -1,11 +1,36 @@
 {
   "char-tycoon": {
-    "preview": "01a01b51-02b7-7753-bda8-4b55e76c79cc"
+    "preview": "01a01b51-02b7-7753-bda8-4b55e76c79cc",
+    "refine": "01a01b51-e855-7efc-9f4e-236a94e4c426",
+    "rig": "01a01b52-ee48-7f47-ac8a-d0a839293b4e",
+    "done": true
   },
   "char-engineer": {
-    "preview": "01a01b51-02b7-7ebb-a25c-6e03da1fd3a3"
+    "preview": "01a01b51-02b7-7ebb-a25c-6e03da1fd3a3",
+    "refine": "01a01b51-e7d4-73bb-b486-c92c66899af4",
+    "rig": "01a01b52-c8fc-73ec-96d3-d2c05bd57ea9",
+    "done": true
   },
   "char-penguin": {
-    "preview": "01a01b51-02b6-7752-81b5-0d8612baae44"
+    "preview": "01a01b51-02b6-7752-81b5-0d8612baae44",
+    "refine": "01a01b51-e8fe-7b3a-9573-f769f9bc0f41",
+    "rig": "01a01b52-ee25-73f9-a730-14ef8cc622c5",
+    "done": true
+  },
+  "char-bull": {
+    "preview": "01a01b53-eb2e-7827-8961-2c72110888eb",
+    "refine": "01a01b54-d128-7491-9a01-34b20313795e",
+    "rig": "01a01b55-d960-703a-bff7-526ee39ca18c",
+    "done": true
+  },
+  "char-shiba": {
+    "preview": "01a01b6d-231e-727e-9a60-55c89b516193",
+    "refine": "01a01b6d-e5b0-7b4a-9439-f0bee17ef8f9",
+    "rig": "01a01b6e-dbed-7b8e-8fd0-dfe930d0189b",
+    "done": true
+  },
+  "char-frog": {
+    "preview": "01a01b6d-2323-7cbc-9c50-63ca9ef0f67c",
+    "refine": "01a01b6e-0afd-7b61-b63f-1cb57f285806"
   }
 }
