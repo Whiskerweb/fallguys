@@ -1,0 +1,11 @@
+/Users/lucasroncey/Desktop/Projets/Projet Saas/Avance/Fallguys/src/Fallguys.Rules/bin/Debug/net9.0/Fallguys.Rules.deps.json
+/Users/lucasroncey/Desktop/Projets/Projet Saas/Avance/Fallguys/src/Fallguys.Rules/bin/Debug/net9.0/Fallguys.Rules.dll
+/Users/lucasroncey/Desktop/Projets/Projet Saas/Avance/Fallguys/src/Fallguys.Rules/bin/Debug/net9.0/Fallguys.Rules.pdb
+/Users/lucasroncey/Desktop/Projets/Projet Saas/Avance/Fallguys/src/Fallguys.Rules/obj/Debug/net9.0/Fallguys.Rules.GeneratedMSBuildEditorConfig.editorconfig
+/Users/lucasroncey/Desktop/Projets/Projet Saas/Avance/Fallguys/src/Fallguys.Rules/obj/Debug/net9.0/Fallguys.Rules.AssemblyInfoInputs.cache
+/Users/lucasroncey/Desktop/Projets/Projet Saas/Avance/Fallguys/src/Fallguys.Rules/obj/Debug/net9.0/Fallguys.Rules.AssemblyInfo.cs
+/Users/lucasroncey/Desktop/Projets/Projet Saas/Avance/Fallguys/src/Fallguys.Rules/obj/Debug/net9.0/Fallguys.Rules.csproj.CoreCompileInputs.cache
+/Users/lucasroncey/Desktop/Projets/Projet Saas/Avance/Fallguys/src/Fallguys.Rules/obj/Debug/net9.0/Fallguys.Rules.dll
+/Users/lucasroncey/Desktop/Projets/Projet Saas/Avance/Fallguys/src/Fallguys.Rules/obj/Debug/net9.0/refint/Fallguys.Rules.dll
+/Users/lucasroncey/Desktop/Projets/Projet Saas/Avance/Fallguys/src/Fallguys.Rules/obj/Debug/net9.0/Fallguys.Rules.pdb
+/Users/lucasroncey/Desktop/Projets/Projet Saas/Avance/Fallguys/src/Fallguys.Rules/obj/Debug/net9.0/ref/Fallguys.Rules.dll
