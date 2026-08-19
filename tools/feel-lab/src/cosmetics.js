@@ -24,6 +24,15 @@ export const SKINS = [
  */
 export const MODELS = [
   { id: 'player-rigged', name: 'Blob', rigged: true },
+  // Personnages de la galerie crypto. Meme charte graphique, memes proportions,
+  // memes grands yeux : ce sont des variantes d'une seule famille, pas six styles.
+  // Tous rigges, donc animes par le squelette comme le blob.
+  { id: 'char-tycoon', name: 'Le Magnat', rigged: true },
+  { id: 'char-engineer', name: "L'Ingénieur", rigged: true },
+  { id: 'char-penguin', name: 'Le Pingouin', rigged: true },
+  { id: 'char-shiba', name: 'Le Shiba', rigged: true },
+  { id: 'char-frog', name: 'La Grenouille', rigged: true },
+  { id: 'char-bull', name: 'Le Taureau', rigged: true },
   { id: 'player-custom', name: 'Perso importé', rigged: false },
 ];
 

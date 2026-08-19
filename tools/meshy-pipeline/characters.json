@@ -1,0 +1,35 @@
+{
+  "charte": "cute chubby cartoon mascot character standing in a wide T-pose, both arms fully stretched straight out horizontally to the sides, legs straight and clearly apart, rounded bean shaped body, huge glossy expressive eyes, short thick separated arms and stubby legs, glossy vinyl toy material, saturated colours, simple clean humanoid silhouette, symmetrical, full body, no props, no text, no logo",
+  "characters": [
+    {
+      "name": "char-tycoon",
+      "polycount": 11000,
+      "prompt": "A boastful business tycoon mascot: voluminous swept-back golden blond hair, deep navy blue suit jacket, long bright red necktie, slight orange tan, confident smirk"
+    },
+    {
+      "name": "char-engineer",
+      "polycount": 11000,
+      "prompt": "A deadpan tech entrepreneur mascot: short dark brown hair, black bomber jacket over a dark t-shirt, flat unimpressed expression, small rocket badge on the chest"
+    },
+    {
+      "name": "char-penguin",
+      "polycount": 11000,
+      "prompt": "A round pudgy penguin mascot: white belly, sky blue back and head, small orange beak and orange webbed feet, rosy cheeks, wearing a tiny knitted scarf"
+    },
+    {
+      "name": "char-shiba",
+      "polycount": 11000,
+      "prompt": "A cheerful shiba inu dog mascot: warm orange and cream fur, pointed triangular ears, curled tail, wide happy smile, tiny black nose"
+    },
+    {
+      "name": "char-frog",
+      "polycount": 11000,
+      "prompt": "A smug green frog mascot: bright grass green skin, huge round eyes with tiny pupils, wide flat smiling mouth, small red shirt collar"
+    },
+    {
+      "name": "char-bull",
+      "polycount": 11000,
+      "prompt": "A triumphant golden bull mascot: shiny metallic gold body, short curved horns, small ring in the nose, determined grin, tiny green cape"
+    }
+  ]
+}

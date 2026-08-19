@@ -254,8 +254,9 @@ function buildWardrobe() {
   const panel = el('wardrobe');
   panel.innerHTML = '';
 
-  // Choix du modele : change le personnage lui-meme, pas seulement sa couleur.
-  for (const m of MODELS) {
+  // Choix du modele. On n'affiche que les personnages REELLEMENT charges : la galerie
+  // se remplit au fur et a mesure des generations, sans qu'un bouton mort n'apparaisse.
+  for (const m of MODELS.filter((m) => assets.has(m.id))) {
     const b = document.createElement('button');
     b.className = 'modelbtn' + (m.id === cosmetics.model ? ' on' : '');
     b.textContent = m.name + (m.rigged ? '' : ' (figé)');
