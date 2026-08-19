@@ -32,11 +32,11 @@ export const TUNING = {
   squashDamping: 15,      // amortissement
 
   // --- Caméra ---
-  camDistance: 6.2,
-  camHeight: 2.7,
+  camDistance: 11.5,
+  camHeight: 4.6,
   camLag: 7.5,            // plus haut = caméra plus collée
   camLookAhead: 1.5,      // anticipation sur la vélocité
-  camFov: 54,
+  camFov: 50,
 };
 
 export const TUNING_RANGES = {

@@ -8,7 +8,10 @@ import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
 
 let URL = process.argv[2] ?? 'http://127.0.0.1:5273/';
-if (!URL.includes('lowfx')) URL += (URL.includes('?') ? '&' : '?') + 'lowfx';
+// FULLFX=1 capture avec bloom et ombres : lent en rendu logiciel, mais c'est la seule
+// facon de voir ce que le joueur voit reellement. Le mode allege masquait un bug de
+// post-traitement pendant plusieurs iterations.
+if (!process.env.FULLFX && !URL.includes('lowfx')) URL += (URL.includes('?') ? '&' : '?') + 'lowfx';
 const OUT = 'shots';
 await fs.mkdir(OUT, { recursive: true });
 

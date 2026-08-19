@@ -131,7 +131,7 @@ function mulberry32(a) {
  * saturation poussée, noirs relevés (rien n'est jamais vraiment noir), et une pointe de
  * chaleur. Réglable en direct dans le panneau — c'est un jugement d'œil, pas de calcul.
  */
-export const GRADE = { saturation: 1.32, brightness: 1.07, lift: 0.045, contrast: 1.04, warmth: 0.0 };
+export const GRADE = { saturation: 1.14, brightness: 1.0, lift: 0.02, contrast: 1.0, warmth: 0.0 };
 
 const GradeShader = {
   uniforms: {
@@ -182,12 +182,18 @@ export function createWorld() {
   const camera = new THREE.PerspectiveCamera(TUNING.camFov, innerWidth / innerHeight, 0.1, 600);
   camera.position.set(0, 8, 14);
 
-  scene.add(new THREE.HemisphereLight(0xd6efff, 0xffd0a0, 0.46));
+  // INTENSITES CALIBREES SUR MESURE DE PIXELS. Depuis three.js r155 l'eclairage est
+  // physiquement correct : le BRDF lambertien divise l'irradiance par PI. Une somme
+  // d'intensites de 1,2 ne rendait donc que ~38 % de la couleur — le sol turquoise
+  // #2DD9D9 sortait a #0F898A. La somme doit approcher PI (~3,14) pour rendre la
+  // couleur pleine sur une face eclairee.
+  scene.add(new THREE.AmbientLight(0xbfe9ff, 0.90));
+  scene.add(new THREE.HemisphereLight(0x9fe4ff, 0xffe8b0, 0.70));
 
   // Somme des intensites volontairement sous 1.15 : l'ombrage toon ne compresse pas les
 // hautes lumieres, et au-dela toute teinte claire ecrete vers le blanc. Le personnage
 // violet apparaissait entierement blanc a 1.7.
-  const sun = new THREE.DirectionalLight(0xfffdf6, 0.72);
+  const sun = new THREE.DirectionalLight(0xfff6e0, 1.60);
   sun.position.set(26, 42, 18);
   sun.castShadow = !lowFx;
   sun.shadow.mapSize.set(2048, 2048);
@@ -206,9 +212,12 @@ export function createWorld() {
   if (!lowFx) {
     composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.26, 0.7, 0.9));
   }
+  // ORDRE CRITIQUE : OutputPass convertit d'abord en sRGB, la correction vient ensuite.
+  // Corriger avant la conversion revient a travailler sur des valeurs lineaires, ou 0,5
+  // correspond a un gris deja tres clair — le contraste y ecrase tous les tons moyens.
+  composer.addPass(new OutputPass());
   const gradePass = new ShaderPass(GradeShader);
   composer.addPass(gradePass);
-  composer.addPass(new OutputPass());
 
   addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight;

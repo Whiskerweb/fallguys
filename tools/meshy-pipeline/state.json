@@ -110,15 +110,43 @@
     "done": true
   },
   "teardrop-marker-beacon": {
-    "previewId": "01a01a5d-5e6c-7743-8ba4-99118dff513b"
+    "previewId": "01a01a5d-5e6c-7743-8ba4-99118dff513b",
+    "refineId": "01a01a5e-0f34-7eee-8d2d-abeaba97349b",
+    "done": true
   },
   "inflatable-windmill-drum": {
-    "previewId": "01a01a5d-5dd0-7ec8-ab96-e7eab2f5a338"
+    "previewId": "01a01a5d-5dd0-7ec8-ab96-e7eab2f5a338",
+    "refineId": "01a01a5e-3150-7ef8-bffb-c721aad6d04e",
+    "done": true
   },
   "inflatable-prize-kiosk": {
-    "previewId": "01a01a5d-5dce-7741-aaa4-fb6e303cef9d"
+    "previewId": "01a01a5d-5dce-7741-aaa4-fb6e303cef9d",
+    "refineId": "01a01a5e-74e7-7f09-93ac-8fa044bcb761",
+    "done": true
   },
   "bumper-wall-segment": {
-    "previewId": "01a01a5d-611e-7f9f-a28a-6e624ca9c0a4"
+    "previewId": "01a01a5d-611e-7f9f-a28a-6e624ca9c0a4",
+    "refineId": "01a01a5e-5211-71b0-b3e7-b9d741270818",
+    "done": true
+  },
+  "pennant-flag-mast": {
+    "previewId": "01a01a5e-e010-7f16-8c7c-59c3f7221178",
+    "refineId": "01a01a5f-d312-77f0-9363-ebfb07eb4c23",
+    "done": true
+  },
+  "hot-air-balloon-float": {
+    "previewId": "01a01a5f-21d7-77ba-9944-92ccd01afde2",
+    "refineId": "01a01a60-2f67-7800-a1a2-bb9fecfc00d9",
+    "done": true
+  },
+  "pastel-background-dome": {
+    "previewId": "01a01a5f-626e-7018-b33f-d4f786db03cd",
+    "refineId": "01a01a60-50be-7044-9cb0-a5d83c8226c0",
+    "done": true
+  },
+  "confetti-cannon-turret": {
+    "previewId": "01a01a5f-d8a7-724b-a7fb-004ba5b02170",
+    "refineId": "01a01a60-d9f7-728c-85fc-760a460dfd3a",
+    "done": true
   }
 }

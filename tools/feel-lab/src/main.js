@@ -333,7 +333,9 @@ class Game {
     this.desired.set(pos.x * 0.5 + offX, pos.y + TUNING.camHeight, pos.z + offZ);
     this.camTarget.lerp(this.desired, 1 - Math.exp(-TUNING.camLag * dt));
     this.view.camera.position.copy(this.camTarget);
-    this.camLook.set(pos.x * 0.7 + v.x * TUNING.camLookAhead * 0.08, pos.y + 0.9, pos.z + v.z * TUNING.camLookAhead * 0.08);
+    // La cible est NETTEMENT au-dessus du joueur : sinon une camera haute plonge et
+    // l'horizon disparait. Or c'est le fond — montagnes, nuages — qu'on regarde en courant.
+    this.camLook.set(pos.x * 0.7 + v.x * TUNING.camLookAhead * 0.08, pos.y + 3.4, pos.z + v.z * TUNING.camLookAhead * 0.08);
     this.view.camera.lookAt(this.camLook);
 
     const speed = Math.hypot(v.x, v.z);

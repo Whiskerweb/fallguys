@@ -447,13 +447,9 @@ export function buildCourse(RAPIER, assets) {
   decal('grid', 0, 0, 12, 9);
   decal('arrow', 0, 0, -8, 4.5);
   decal('rings', 0, 0, -19, 6);
-  decal('chevrons', 0, 4, -38, 5.5);
   decal('arrow', 0, 4, -50, 4.5);
-  decal('rings', 0, 1, -66, 5);
   decal('chevrons', 0, 1, -78, 5);
-  decal('arrow', 0, 1, -90, 4.5);
   decal('rings', 0, 1, -99, 5.5);
-  decal('arrow', 0, 0, -136, 4.5);
   decal('grid', 0, 0, -145, 9);
 
   // ── Effets d'ambiance ──
@@ -462,8 +458,7 @@ export function buildCourse(RAPIER, assets) {
   // Canons a fumee de part et d'autre, cycles FIXES et dephases : le decor respire
   // sans introduire d'aleatoire, ce que la qualification skill-game interdit.
   for (const [cx, cz, phase] of [
-    [-11, -20, 0], [11, -20, 1.6], [-9.5, -58, 0.8], [9.5, -58, 2.4],
-    [-11, -100, 0.4], [11, -100, 2.0], [-11, -140, 1.2], [11, -140, 2.8],
+    [-11, -30, 0], [11, -30, 1.7], [-11, -110, 0.85], [11, -110, 2.55],
   ]) {
     // Orientes vers l'exterieur : la fumee habille les cotes sans masquer la piste.
     const dir = new THREE.Vector3(cx > 0 ? 0.75 : -0.75, 1, 0);
@@ -570,7 +565,7 @@ export function buildCourse(RAPIER, assets) {
     // Nos arbres a tronc brun et notre stand en bois tiraient toute l'image vers le terne.
     const podColors = [0xff2d8f, 0x2dd9d9, 0xffe14d, 0xb072ff, 0x6ee86e, 0xff8a3d];
     let v = 0;
-    for (let z = 6; z > -156; z -= 9) {
+    for (let z = 6; z > -156; z -= 24) {
       for (const side of [-1, 1]) {
         const color = podColors[v % podColors.length];
         const kind = v % 3;
@@ -618,7 +613,7 @@ export function buildCourse(RAPIER, assets) {
     // ── Drapeaux : mâts alternés le long de la piste, oriflammes aux zones clés ──
     const flagColors = [0xff5f7e, 0x4fd1c5, 0xffd83d, 0x8b7bff, 0xff8a3d, 0x4ade80];
     let f = 0;
-    for (let z = 4; z > -150; z -= 16) {
+    for (let z = 4; z > -150; z -= 34) {
       for (const side of [-1, 1]) {
         const pole = flagPole(6.8 + (f % 3) * 0.7, 2.1, 1.15, 0xf0f0f5, flagColors[f % flagColors.length]);
         pole.position.set(side * 15.2, -3.2, z);
@@ -629,7 +624,7 @@ export function buildCourse(RAPIER, assets) {
         f++;
       }
     }
-    for (const [x, z] of [[-13.5, -22], [13.5, -52], [-13.5, -84], [13.5, -114], [-13.5, -142]]) {
+    for (const [x, z] of [[-14, -52], [14, -112]]) {
       const pen = pennant(8.8, 2.6, 0.9, 0xe8e8ef, flagColors[(f++) % flagColors.length]);
       pen.position.set(x, -3.2, z);
       group.add(pen);
@@ -637,15 +632,14 @@ export function buildCourse(RAPIER, assets) {
 
     // Ballons géants en bord de piste
     for (const [bx, bz, r, color] of [
-      [-24, -12, 2.2, 0xff5f7e], [24, -40, 2.4, 0x4fd1c5], [-26, -70, 2.0, 0xffd83d],
-      [26, -104, 2.3, 0x8b7bff], [-25, -134, 2.2, 0xff8a3d],
+      [-34, -46, 3.2, 0xff5f7e], [36, -108, 3.4, 0x4fd1c5],
     ]) {
       const b = balloon(r, color);
       b.position.set(bx, -3.2, bz);
       group.add(b);
     }
 
-    for (const [x, z, ry] of [[-22, -20, 0.5], [22, -46, -0.5], [-22, -78, 0.5], [22, -112, -0.5], [-22, -140, 0.5]]) {
+    for (const [x, z, ry] of [[-30, -44, 0.5], [30, -104, -0.5]]) {
       grandstand(x, z, ry * Math.PI);
     }
   }

@@ -130,7 +130,7 @@ export function buildLobbyScreen(assets) {
   avatar.userData.baseScale = avatar.scale.x || 1;
 
   // ---------- éclairage de studio ----------
-  const key = new THREE.DirectionalLight(0xffffff, 2.1);
+  const key = new THREE.DirectionalLight(0xffffff, 3.2);
   key.position.set(4.5, 6.5, 7);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
@@ -141,11 +141,11 @@ export function buildLobbyScreen(assets) {
   key.target = pedestal;
   group.add(key);
 
-  const fill = new THREE.PointLight(0x8fd8ff, 26, 22);
+  const fill = new THREE.PointLight(0x8fd8ff, 60, 22);
   fill.position.set(-4.5, 3.2, 5);
   group.add(fill);
 
-  const rim = new THREE.PointLight(0xffd6a0, 30, 20);
+  const rim = new THREE.PointLight(0xffd6a0, 70, 20);
   rim.position.set(1.1, 4.2, -4.5);
   group.add(rim);
 
