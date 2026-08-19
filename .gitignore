@@ -1,0 +1,39 @@
+# Secrets — jamais versionnés
+.env
+.env.*
+!.env.example
+
+# Unity
+game/[Ll]ibrary/
+game/[Tt]emp/
+game/[Oo]bj/
+game/[Bb]uild/
+game/[Bb]uilds/
+game/[Ll]ogs/
+game/[Uu]ser[Ss]ettings/
+game/[Mm]emoryCaptures/
+game/[Rr]ecordings/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.booproj
+*.pidb
+*.svd
+*.pdb
+*.mdb
+sysinfo.txt
+*.apk
+*.aab
+*.unitypackage
+crashlytics-build.properties
+
+# Node / backend
+node_modules/
+dist/
+*.log
+
+# Artefacts générés
+tools/meshy-pipeline/out/
+replays/
