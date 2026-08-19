@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { TUNING } from '../tuning.js';
 import { toonMaterial, addOutline } from '../world.js';
 import { ConfettiField, SmokeCannon } from '../effects.js';
+import { createTerrain } from '../terrain.js';
 import {
   roundedBox, pill, rimGlow, banner, inflatableArch, balloon, bollard, bunting,
-  flagPole, pennant, updateFlags, slabMesh, mountainRange,
+  flagPole, pennant, updateFlags, slabMesh,
 } from '../props.js';
 import {
   quiltedVinyl, softChecker, hazardStripes, polkaStagger, grassTufts, scales, inflatedBands,
@@ -69,6 +70,9 @@ export function buildCourse(RAPIER, assets) {
  * posee au sol enferme le regard et oblige a encombrer les bords pour meubler.
  */
 const GROUND_Y = -15;
+
+/** Hauteur du relief sous un point : renseignee des que le terrain est construit. */
+let terrainHeightAt = () => 0;
 
 const spawn = new THREE.Vector3(0, 2.4, 12);
   const finishZ = -140;
@@ -504,33 +508,20 @@ const spawn = new THREE.Vector3(0, 2.4, 12);
    * l'horizon, plus quelques arbres pour donner l'echelle du vide.
    */
   function dressScenery() {
-    // Terrain, loin en contrebas
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(420, 520), toonMaterial(0x8ede6d));
-    ground.material.map = grassTufts({ repeat: [34, 44] });
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.set(0, GROUND_Y, -60);
-    ground.receiveShadow = true;
-    group.add(ground);
-
-    // Montagnes : trois plans etages, teintes et profils varies, calottes ondulees.
-    // C'est l'element principal du decor — c'est lui qu'on regarde en courant.
-    const range = mountainRange(GROUND_Y);
-    group.add(range);
-
-    // Collines basses : transition douce entre le terrain et les montagnes.
-    const mound = new THREE.SphereGeometry(1, 14, 10);
-    for (const [hx, hz, r] of [[-52, -60, 22], [56, -110, 26], [-60, -160, 20], [48, -20, 18]]) {
-      const m = new THREE.Mesh(mound, toonMaterial(0x7fd45e));
-      m.position.set(hx, GROUND_Y, hz);
-      m.scale.set(r, r * 0.3, r);
-      group.add(m);
-    }
+    // Terrain en RELIEF : un seul maillage dont les cretes et falaises emergent.
+    // Les montagnes ne sont plus des objets poses sur un plan — on voyait le joint,
+    // et le sol restait visiblement plat entre elles.
+    const terrain = createTerrain({ groundY: GROUND_Y, size: 1300, segments: 220 });
+    group.add(terrain.mesh);
+    terrainHeightAt = terrain.heightAt;
 
     /** Pose un modele genere : ni contour ni ombre, c'est du decor lointain. */
-    function prop(name, size, x, z, { y = GROUND_Y, rot = 0, tint = null, shadow = false } = {}) {
+    function prop(name, size, x, z, { y = null, rot = 0, tint = null, shadow = false } = {}) {
       const m = assets.get(name, size, { outline: 0 });
       if (!m) return null;
-      m.position.set(x, y, z);
+      // Pose sur le relief : avec un sol ondule, une hauteur fixe fait flotter la moitie
+      // des objets et enterre l'autre.
+      m.position.set(x, y ?? (GROUND_Y + terrainHeightAt(x, z)), z);
       m.rotation.y = rot;
       m.traverse((c) => {
         if (!c.isMesh || c.userData.isOutline) return;
@@ -553,7 +544,7 @@ const spawn = new THREE.Vector3(0, 2.4, 12);
     // Deux ballons tres loin, pour habiller l'espace entre sol et montagnes.
     for (const [bx, bz, r, color] of [[-46, -46, 4.2, 0xff5f7e], [50, -112, 4.6, 0x4fd1c5]]) {
       const b = balloon(r, color);
-      b.position.set(bx, GROUND_Y, bz);
+      b.position.set(bx, GROUND_Y + terrainHeightAt(bx, bz), bz);
       group.add(b);
     }
 
