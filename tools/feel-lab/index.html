@@ -23,7 +23,7 @@
   #lobby-ui > * { pointer-events:auto; }
 
   #topbar {
-    position:absolute; top:0; left:0; right:0; height:62px;
+    position:absolute; top:0; left:0; right:0; height:74px;
     background:linear-gradient(180deg, rgba(18,8,38,.94), rgba(18,8,38,.82));
     display:flex; align-items:center; gap:14px; padding:0 20px;
   }
@@ -31,9 +31,9 @@
   #topbar .spacer { flex:1; }
 
   .navbtn {
-    width:58px; height:38px; border:none; border-radius:11px; cursor:pointer;
-    background:var(--cyan); box-shadow:0 4px 0 var(--cyan-dark);
-    display:grid; place-items:center; font-size:19px; transition:transform .08s, box-shadow .08s;
+    width:72px; height:52px; border:none; border-radius:14px; cursor:pointer;
+    background:var(--cyan); box-shadow:0 5px 0 var(--cyan-dark);
+    display:grid; place-items:center; font-size:24px; transition:transform .08s, box-shadow .08s;
   }
   .navbtn:hover { transform:translateY(-2px); box-shadow:0 6px 0 var(--cyan-dark); }
   .navbtn:active { transform:translateY(3px); box-shadow:0 1px 0 var(--cyan-dark); }
@@ -41,14 +41,14 @@
   .navbtn.primary:hover { box-shadow:0 6px 0 var(--pink-dark); }
 
   .wallet {
-    display:flex; align-items:center; gap:9px; height:38px; padding:0 16px 0 12px;
+    display:flex; align-items:center; gap:9px; height:46px; padding:0 18px 0 12px;
     border-radius:11px; background:rgba(255,255,255,.1); border:2px solid rgba(255,255,255,.18);
     color:#fff; font-weight:800; font-size:16px; font-variant-numeric:tabular-nums;
   }
   .wallet .ic { font-size:17px; }
   .wallet.cash { background:rgba(74,222,128,.18); border-color:rgba(74,222,128,.45); color:#c9f7d8; }
 
-  #leftpanel { position:absolute; top:96px; left:44px; width:330px; }
+  #leftpanel { position:absolute; top:106px; left:44px; width:330px; }
   #logo {
     font-size:74px; font-weight:900; line-height:.86; letter-spacing:-1px;
     color:var(--cyan); -webkit-text-stroke:5px var(--ink);
@@ -106,7 +106,7 @@
   #entry-badge b { color:#4ade80; }
 
   #wardrobe {
-    position:absolute; top:78px; left:50%; transform:translateX(-50%);
+    position:absolute; top:90px; left:50%; transform:translateX(-50%);
     display:flex; flex-wrap:wrap; justify-content:center; max-width:min(1100px, 92vw);
     gap:10px; padding:16px 20px; border-radius:18px;
     background:rgba(18,8,38,.92); border:3px solid rgba(255,255,255,.16);
@@ -136,7 +136,10 @@
   #countdown.hidden { display:none; }
 
   /* ---------- onglets du lobby ---------- */
-  .navbtn img, .wallet img { width:26px; height:26px; object-fit:contain; display:block; }
+  /* Les icones debordent volontairement du bouton : elles doivent le remplir, pas
+     flotter au centre d'un carre de couleur. */
+  .navbtn img { width:44px; height:44px; object-fit:contain; display:block; }
+  .wallet img { width:30px; height:30px; object-fit:contain; display:block; }
   .navbtn.active { background:var(--pink); box-shadow:0 4px 0 var(--pink-dark); }
   .navbtn.active::after {
     content:''; position:absolute; left:50%; bottom:-9px; transform:translateX(-50%);
@@ -147,11 +150,61 @@
   /* Écrans : un seul visible à la fois, celui de l'onglet actif. */
   .screen {
     position:absolute; inset:62px 0 0; display:none; overflow-y:auto; padding:26px 44px 40px;
-    /* Voile sombre : sans lui la scene 3D transparait derriere les cartes et rend la
-       grille illisible. L'ecran doit se lire comme une page, pas comme une surimpression. */
     background:linear-gradient(180deg, rgba(14,7,32,.88), rgba(14,7,32,.94));
     backdrop-filter:blur(6px);
   }
+
+  /* La vitrine des personnages ne masque QUE la moitié droite : le modèle 3D reste
+     visible à gauche, comme dans un casier de jeu. C'est le modèle qu'on regarde en
+     choisissant, pas une vignette. */
+  #screen-skins {
+    inset:74px 0 0 auto; width:min(56vw, 880px); padding:24px 40px 32px 34px;
+    background:linear-gradient(90deg, rgba(14,7,32,0), rgba(14,7,32,.9) 8%, rgba(14,7,32,.96));
+    backdrop-filter:blur(7px);
+  }
+
+  /* Grille compacte : des vignettes carrées, six par ligne, comme un casier. */
+  .tiles { display:grid; grid-template-columns:repeat(6, 1fr); gap:11px; }
+  .tile {
+    position:relative; aspect-ratio:1; border-radius:14px; cursor:pointer; overflow:hidden;
+    border:3px solid rgba(255,255,255,.14);
+    background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.05));
+    transition:transform .1s, border-color .1s;
+  }
+  .tile:hover { transform:translateY(-3px); border-color:rgba(255,255,255,.5); }
+  .tile.on { border-color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,.28); }
+  .tile img { width:100%; height:100%; object-fit:contain; padding:6px; }
+  .tile .fallback {
+    position:absolute; inset:0; display:grid; place-items:center;
+    color:#fff; font-weight:900; font-size:26px; opacity:.85;
+  }
+  .tile.locked { opacity:.42; }
+  .tile .lock {
+    position:absolute; right:6px; bottom:6px; padding:2px 7px; border-radius:7px;
+    background:rgba(0,0,0,.6); color:rgba(255,255,255,.75); font-size:9.5px; font-weight:900;
+  }
+
+  /* Fiche du personnage sélectionné, en bas à gauche comme dans la référence. */
+  #skin-info {
+    position:absolute; left:52px; bottom:56px; max-width:min(38vw, 520px); z-index:12;
+    pointer-events:none;
+  }
+  #skin-info .rarity {
+    display:inline-block; padding:4px 12px; border-radius:8px; margin-bottom:10px;
+    font-size:12px; font-weight:900; letter-spacing:2px; color:#fff;
+  }
+  #skin-info h2 {
+    color:#fff; font-size:44px; font-weight:900; letter-spacing:1px; line-height:1;
+    text-shadow:0 4px 0 rgba(0,0,0,.35);
+  }
+  #skin-info .desc { color:rgba(255,255,255,.82); font-weight:700; font-size:15px; margin-top:12px; line-height:1.5; }
+  #skin-info .meta { color:rgba(255,255,255,.5); font-weight:800; font-size:13px; margin-top:12px; }
+  #skin-info .chips { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  #skin-info .chip {
+    padding:5px 12px; border-radius:9px; background:rgba(255,255,255,.13);
+    color:rgba(255,255,255,.85); font-size:12px; font-weight:800;
+  }
+  #skin-info.hidden { display:none; }
   .screen.on { display:block; }
   .screen h1 {
     color:#fff; font-size:34px; font-weight:900; letter-spacing:2px; margin-bottom:4px;
@@ -337,7 +390,7 @@
     text-shadow:0 7px 0 rgba(0,0,0,.25), 0 0 46px rgba(255,225,120,.9);
   }
 
-  .lil-gui.root { top:70px !important; z-index:30 !important; }
+  .lil-gui.root { top:82px !important; z-index:30 !important; }
 
   #loading { position:fixed; inset:0; display:grid; place-items:center; background:#f5a623;
     color:#fff; font-size:23px; font-weight:900; z-index:20; text-shadow:0 3px 0 rgba(0,0,0,.2); }
@@ -384,12 +437,17 @@
   <div id="wardrobe" class="hidden"></div>
 
   <div class="screen" id="screen-skins">
-    <h1>PERSONNAGES</h1>
-    <div class="sub">Choisis ton avatar. Les personnages de collaboration arrivent en édition limitée.</div>
-    <div class="grid" id="skins-grid"></div>
-    <h1 style="margin-top:30px">COULEURS</h1>
-    <div class="sub">Teinte appliquée au personnage équipé.</div>
-    <div class="grid" id="colors-grid"></div>
+    <h1>PERSONNAGE</h1>
+    <div class="sub">Ton avatar en course. Les personnages de collaboration sont en édition limitée.</div>
+    <div class="tiles" id="skins-grid"></div>
+  </div>
+
+  <div id="skin-info" class="hidden">
+    <div class="rarity" id="skin-rarity">RARE</div>
+    <h2 id="skin-name">Blob</h2>
+    <div class="desc" id="skin-desc"></div>
+    <div class="meta" id="skin-meta"></div>
+    <div class="chips" id="skin-chips"></div>
   </div>
 
   <div class="screen" id="screen-collabs">

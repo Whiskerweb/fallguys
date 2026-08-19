@@ -23,18 +23,56 @@ export const SKINS = [
  * ecrasement, rotation. C'est indiqué dans la garde-robe plutôt que subi en silence.
  */
 export const MODELS = [
-  { id: 'player-rigged', name: 'Blob', rigged: true },
+  {
+    id: 'player-rigged', name: 'Blob', rigged: true, rarity: 'commun', accent: 0xff5f7e,
+    desc: "Le personnage d'origine. Rond, souple, increvable — il rebondit sur tout ce qu'il croise.",
+    season: 'Disponible depuis : Saison 1',
+  },
   // Personnages de la galerie crypto. Meme charte graphique, memes proportions,
   // memes grands yeux : ce sont des variantes d'une seule famille, pas six styles.
   // Tous rigges, donc animes par le squelette comme le blob.
-  { id: 'char-tycoon', name: 'Le Magnat', rigged: true },
-  { id: 'char-engineer', name: "L'Ingénieur", rigged: true },
-  { id: 'char-penguin', name: 'Le Pingouin', rigged: true },
-  { id: 'char-shiba', name: 'Le Shiba', rigged: true },
-  { id: 'char-frog', name: 'La Grenouille', rigged: true },
-  { id: 'char-bull', name: 'Le Taureau', rigged: true },
-  { id: 'player-custom', name: 'Perso importé', rigged: false },
+  {
+    id: 'char-tycoon', name: 'Le Magnat', rigged: true, rarity: 'épique', accent: 0xffc93c,
+    desc: "Il annonce la victoire avant le départ. Chevelure indomptable, cravate plus longue que la piste.",
+    season: 'Disponible depuis : Saison 1',
+  },
+  {
+    id: 'char-engineer', name: "L'Ingénieur", rigged: true, rarity: 'épique', accent: 0x31c7f0,
+    desc: "Il a calculé la trajectoire optimale. Il tombera quand même dans le premier trou.",
+    season: 'Disponible depuis : Saison 1',
+  },
+  {
+    id: 'char-penguin', name: 'Le Pingouin', rigged: true, rarity: 'légendaire', accent: 0x4fa8ff,
+    desc: "Édition Glacier — collaboration. Glisse mieux que les autres, tombe aussi bien.",
+    season: 'Édition limitée · 3 000 exemplaires',
+  },
+  {
+    id: 'char-shiba', name: 'Le Shiba', rigged: true, rarity: 'légendaire', accent: 0xffa63d,
+    desc: "Édition Meme — collaboration. Court vite, comprend rien, gagne quand même.",
+    season: 'Édition limitée',
+  },
+  {
+    id: 'char-frog', name: 'La Grenouille', rigged: true, rarity: 'légendaire', accent: 0x6ee86e,
+    desc: "Édition Marais — collaboration. Saute plus haut dans sa tête que dans le jeu.",
+    season: 'Édition limitée',
+  },
+  {
+    id: 'char-bull', name: 'Le Taureau', rigged: true, rarity: 'épique', accent: 0xffd83d,
+    desc: "Il ne connaît qu'une direction : devant. Les obstacles sont un détail administratif.",
+    season: 'Disponible depuis : Saison 1',
+  },
+  {
+    id: 'player-custom', name: 'Perso importé', rigged: false, rarity: 'commun', accent: 0xff7a2f,
+    desc: "Modèle importé depuis un fichier. Sans squelette : il glisse au lieu de courir.",
+    season: 'Importé localement',
+  },
 ];
+
+export const RARITY = {
+  commun: { label: 'COMMUN', color: '#7f8fa6' },
+  épique: { label: 'ÉPIQUE', color: '#a855f7' },
+  légendaire: { label: 'LÉGENDAIRE', color: '#f5a623' },
+};
 
 const KEY = 'tumble-skin';
 const MODEL_KEY = 'tumble-model';

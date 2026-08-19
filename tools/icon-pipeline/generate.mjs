@@ -38,26 +38,56 @@ async function generate(model, prompt) {
   return { buffer: Buffer.from((images[0].image_url?.url ?? '').replace(/^data:[^,]+,/, ''), 'base64') };
 }
 
-/** Retire le fond vert et adoucit le liseré laissé par l'anticrénelage. */
+/**
+ * Detoure l'icone. Le fond n'est PAS suppose vert : certains modeles rendent sur un
+ * fond de leur choix malgre la consigne. On echantillonne donc les quatre coins ; s'ils
+ * concordent, cette couleur est le fond et on la retire par distance colorimetrique.
+ * Un remplissage par diffusion depuis les bords evite d'effacer une zone interieure
+ * qui aurait la meme couleur que le fond.
+ */
 async function cutout(srcPath, dstPath, size = 256) {
   const img = await Jimp.read(srcPath);
   img.resize({ w: size, h: size });
   const w = img.bitmap.width, h = img.bitmap.height, d = img.bitmap.data;
+  const at = (x, y) => (y * w + x) * 4;
 
-  for (let i = 0; i < d.length; i += 4) {
-    const r = d[i], g = d[i + 1], b = d[i + 2];
-    // Vert dominant et franc : c'est le fond.
-    const greenness = g - Math.max(r, b);
-    if (greenness > 55) {
-      d[i + 3] = 0;
-    } else if (greenness > 22) {
-      // Bord anticrenelé : semi-transparent, et on retire la teinte verte résiduelle
-      // sinon les contours gardent un halo vert très visible sur fond sombre.
-      d[i + 3] = Math.round(255 * (1 - (greenness - 22) / 33));
-      d[i + 1] = Math.round((r + b) / 2);
+  // Couleur de fond = mediane des quatre coins.
+  const corners = [[2, 2], [w - 3, 2], [2, h - 3], [w - 3, h - 3]].map(([x, y]) => {
+    const i = at(x, y); return [d[i], d[i + 1], d[i + 2]];
+  });
+  const bg = [0, 1, 2].map((c) => Math.round(corners.reduce((s, k) => s + k[c], 0) / corners.length));
+  const spread = Math.max(...corners.map((k) => Math.hypot(k[0] - bg[0], k[1] - bg[1], k[2] - bg[2])));
+  if (spread > 60) { await img.write(dstPath); return { removed: 0, note: 'coins discordants' }; }
+
+  const dist = (i) => Math.hypot(d[i] - bg[0], d[i + 1] - bg[1], d[i + 2] - bg[2]);
+  const NEAR = 62, FAR = 108;
+
+  // Diffusion depuis les bords : seul le fond CONNECTE au bord est retire.
+  const seen = new Uint8Array(w * h);
+  const stack = [];
+  for (let x = 0; x < w; x++) { stack.push([x, 0], [x, h - 1]); }
+  for (let y = 0; y < h; y++) { stack.push([0, y], [w - 1, y]); }
+  let removed = 0;
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    if (x < 0 || y < 0 || x >= w || y >= h) continue;
+    const k = y * w + x;
+    if (seen[k]) continue;
+    const i = k * 4;
+    const dd = dist(i);
+    if (dd > FAR) continue;
+    seen[k] = 1;
+    if (dd <= NEAR) { d[i + 3] = 0; removed++; }
+    else {
+      // Bord anticrenele : opacite progressive, et on neutralise la teinte du fond
+      // qui laisserait un lisere colore sur les contours.
+      d[i + 3] = Math.round(255 * ((dd - NEAR) / (FAR - NEAR)));
+      for (let c = 0; c < 3; c++) d[i + c] = Math.round(d[i + c] * 0.55 + 128 * 0.45);
     }
+    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
   }
   await img.write(dstPath);
+  return { removed, bg };
 }
 
 async function main() {
@@ -76,8 +106,8 @@ async function main() {
       if (out.error) { log(`  ${icon.name} via ${model} : ${out.error}`); continue; }
       const raw = path.join(RAW, `${icon.name}.png`);
       await fs.writeFile(raw, out.buffer);
-      await cutout(raw, path.join(OUT, `${icon.name}.png`));
-      log(`OK ${icon.name} (${model.split('/')[1]})`);
+      const cut = await cutout(raw, path.join(OUT, `${icon.name}.png`));
+      log(`OK ${icon.name} (${model.split('/')[1]}) — fond retire : ${cut.removed ?? 0} px${cut.note ? ' · ' + cut.note : ''}`);
       done.push(icon.name);
       ok = true;
       break;

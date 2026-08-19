@@ -8,5 +8,13 @@
   "icon-coin",
   "icon-profile",
   "icon-trophy",
-  "icon-friends"
+  "icon-friends",
+  "port-player-rigged",
+  "port-char-tycoon",
+  "port-char-engineer",
+  "port-char-penguin",
+  "port-char-shiba",
+  "port-char-bull",
+  "port-char-frog",
+  "port-player-custom"
 ]

@@ -1,15 +1,77 @@
 {
   "charte": "A single centered game UI icon, front view, on a PURE FLAT CHROMA GREEN background (#00FF00) with nothing else in the image. The icon is made of glossy inflatable vinyl with thick rounded shapes, a bold dark navy outline around every form, soft top highlight, saturated candy colours, chunky toy aesthetic, no gradient background, no shadow on the background, no text, no letters, no watermark, no border, fills about 80 percent of the frame.",
   "icons": [
-    { "name": "icon-play",     "prompt": "A chunky rounded PLAY triangle pointing right, hot pink vinyl with a white glossy highlight" },
-    { "name": "icon-skins",    "prompt": "A rounded clothing hanger with a small folded t-shirt below it, turquoise and white vinyl" },
-    { "name": "icon-collabs",  "prompt": "Two chunky rounded cartoon hands doing a friendly fist bump, one golden yellow one turquoise" },
-    { "name": "icon-shop",     "prompt": "A chubby rounded shopping cart seen at three quarter angle, mint green vinyl with white wheels" },
-    { "name": "icon-settings", "prompt": "A thick rounded six-tooth gear wheel with a round hole in the middle, lavender purple vinyl" },
-    { "name": "icon-crown",    "prompt": "A chunky rounded five point crown with three round gems on the band, golden yellow vinyl" },
-    { "name": "icon-coin",     "prompt": "A thick round coin seen face on with a soft rounded rim and a smooth blank centre, mint green and white vinyl" },
-    { "name": "icon-profile",  "prompt": "A simple rounded bean shaped character bust with two big glossy eyes, coral pink vinyl" },
-    { "name": "icon-trophy",   "prompt": "A fat rounded trophy cup with two chunky handles on a thick base, golden yellow vinyl" },
-    { "name": "icon-friends",  "prompt": "Two overlapping rounded bean shaped character busts side by side, one turquoise one coral pink" }
+    {
+      "name": "icon-play",
+      "prompt": "A chunky rounded PLAY triangle pointing right, hot pink vinyl with a white glossy highlight"
+    },
+    {
+      "name": "icon-skins",
+      "prompt": "A rounded clothing hanger with a small folded t-shirt below it, turquoise and white vinyl"
+    },
+    {
+      "name": "icon-collabs",
+      "prompt": "Two chunky rounded cartoon hands doing a friendly fist bump, one golden yellow one turquoise"
+    },
+    {
+      "name": "icon-shop",
+      "prompt": "A chubby rounded shopping cart seen at three quarter angle, mint green vinyl with white wheels"
+    },
+    {
+      "name": "icon-settings",
+      "prompt": "A thick rounded six-tooth gear wheel with a round hole in the middle, lavender purple vinyl"
+    },
+    {
+      "name": "icon-crown",
+      "prompt": "A chunky rounded five point crown with three round gems on the band, golden yellow vinyl"
+    },
+    {
+      "name": "icon-coin",
+      "prompt": "A thick round coin seen face on with a soft rounded rim and a smooth blank centre, mint green and white vinyl"
+    },
+    {
+      "name": "icon-profile",
+      "prompt": "A simple rounded bean shaped character bust with two big glossy eyes, coral pink vinyl"
+    },
+    {
+      "name": "icon-trophy",
+      "prompt": "A fat rounded trophy cup with two chunky handles on a thick base, golden yellow vinyl"
+    },
+    {
+      "name": "icon-friends",
+      "prompt": "Two overlapping rounded bean shaped character busts side by side, one turquoise one coral pink"
+    },
+    {
+      "name": "port-player-rigged",
+      "prompt": "A friendly bean shaped blob mascot bust facing forward, coral pink vinyl body, two huge glossy eyes with tiny highlights, rosy cheeks, small smile"
+    },
+    {
+      "name": "port-char-tycoon",
+      "prompt": "A cartoon mascot bust facing forward with voluminous swept-back golden blond hair, navy blue suit collar and a long bright red necktie, confident smirk, big glossy eyes"
+    },
+    {
+      "name": "port-char-engineer",
+      "prompt": "A cartoon mascot bust facing forward with short dark brown hair, black bomber jacket collar over a dark t-shirt, flat unimpressed expression, big glossy eyes"
+    },
+    {
+      "name": "port-char-penguin",
+      "prompt": "A round penguin mascot bust facing forward, white belly and sky blue head, small orange beak, rosy cheeks, tiny knitted scarf, big glossy eyes"
+    },
+    {
+      "name": "port-char-shiba",
+      "prompt": "A shiba inu mascot bust facing forward, warm orange and cream fur, pointed triangular ears, wide happy smile, tiny black nose, big glossy eyes"
+    },
+    {
+      "name": "port-char-bull",
+      "prompt": "A golden bull mascot bust facing forward, shiny metallic gold head, short curved horns, small nose ring, determined grin, big glossy eyes"
+    },
+    {
+      "name": "port-char-frog",
+      "prompt": "A green frog mascot bust facing forward, bright grass green skin, huge round eyes with tiny pupils, wide flat smiling mouth, small red collar"
+    },
+    {
+      "name": "port-player-custom",
+      "prompt": "A smooth featureless bean shaped mascot bust facing forward, warm orange vinyl, two big glossy eyes, neutral expression"
+    }
   ]
 }

@@ -11,7 +11,7 @@ import { createRiggedCharacter } from '../rig.js';
  */
 
 /** Reglages du lobby, exposes dans le panneau pour ajustement en direct. */
-export const LOBBY = { avatarYaw: 0, avatarHeight: 2.0, cameraFov: 42 };
+export const LOBBY = { avatarYaw: 0, avatarHeight: 2.0, cameraFov: 42, showcase: false };
 
 const CAMERA_POS = new THREE.Vector3(1.1, 2.35, 6.6);
 const CAMERA_LOOK = new THREE.Vector3(1.1, 1.75, 0);
@@ -199,9 +199,18 @@ export function buildLobbyScreen(assets) {
     applySkin(cosmetics.hex);
   }
 
+  /**
+   * Deux cadrages : centre pour le lobby, decale a gauche pour la vitrine — le
+   * catalogue occupe alors la moitie droite de l'ecran.
+   */
+  function setShowcase(on) {
+    LOBBY.showcase = on;
+  }
+
   return {
     group,
     rebuildAvatar,
+    setShowcase,
     cameraPos: CAMERA_POS,
     cameraLook: CAMERA_LOOK,
     avatar,

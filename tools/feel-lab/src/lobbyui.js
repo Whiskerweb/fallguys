@@ -1,4 +1,4 @@
-import { cosmetics, SKINS, MODELS } from './cosmetics.js';
+import { cosmetics, MODELS, RARITY } from './cosmetics.js';
 import { assets } from './assets.js';
 import { sfx } from './audio.js';
 
@@ -47,67 +47,82 @@ export async function applyIcons() {
   return applied;
 }
 
-/** Grille de personnages : ceux qui sont chargés sont équipables, les autres verrouillés. */
+/** Vitrine : vignettes carrées à droite, fiche du personnage sélectionné à gauche. */
 export function buildSkinsScreen(onChange) {
   const grid = el('skins-grid');
   grid.innerHTML = '';
+
   for (const m of MODELS) {
     const available = assets.has(m.id);
-    const card = document.createElement('div');
-    card.className = 'card' + (m.id === cosmetics.model ? ' on' : '') + (available ? '' : ' locked');
+    const tile = document.createElement('div');
+    tile.className = 'tile' + (m.id === cosmetics.model ? ' on' : '') + (available ? '' : ' locked');
+    tile.title = m.name;
 
-    const badge = document.createElement('div');
-    if (m.id === cosmetics.model) { badge.className = 'badge equipped'; badge.textContent = 'ÉQUIPÉ'; }
-    else if (!available) { badge.className = 'badge locked'; badge.textContent = 'BIENTÔT'; }
-    if (badge.className) card.appendChild(badge);
+    // Vignette peinte si elle existe, sinon une pastille à la couleur du personnage :
+    // une case vide serait moins lisible qu'un repère colorié.
+    const img = document.createElement('img');
+    img.src = `/icons/port-${m.id}.png`;
+    img.alt = m.name;
+    img.onerror = () => {
+      img.remove();
+      const fb = document.createElement('div');
+      fb.className = 'fallback';
+      fb.textContent = m.name.replace(/^(Le |La |L')/, '').slice(0, 2).toUpperCase();
+      fb.style.background = hex(m.accent ?? 0x888888);
+      tile.appendChild(fb);
+    };
+    tile.appendChild(img);
 
-    const thumb = document.createElement('div');
-    thumb.className = 'thumb';
-    const blob = document.createElement('div');
-    blob.className = 'blob';
-    blob.style.background = hex(cosmetics.hex);
-    thumb.appendChild(blob);
+    if (!available) {
+      const lock = document.createElement('div');
+      lock.className = 'lock';
+      lock.textContent = 'BIENTÔT';
+      tile.appendChild(lock);
+    }
 
-    const name = document.createElement('div');
-    name.className = 'name';
-    name.textContent = m.name;
-    const tag = document.createElement('div');
-    tag.className = 'tag';
-    tag.textContent = m.rigged ? 'ANIMÉ' : 'STATIQUE';
-
-    card.append(thumb, name, tag);
+    tile.addEventListener('mouseenter', () => showInfo(m, available));
     if (available) {
-      card.addEventListener('click', () => {
+      tile.addEventListener('click', () => {
         cosmetics.setModel(m.id);
         sfx.click();
         buildSkinsScreen(onChange);
+        showInfo(m, true);
         onChange?.();
       });
     }
-    grid.appendChild(card);
+    grid.appendChild(tile);
   }
 
-  const colors = el('colors-grid');
-  colors.innerHTML = '';
-  for (const skin of SKINS) {
-    const card = document.createElement('div');
-    card.className = 'card' + (skin.hex === cosmetics.hex ? ' on' : '');
-    const thumb = document.createElement('div');
-    thumb.className = 'thumb';
-    thumb.style.background = hex(skin.hex);
-    const name = document.createElement('div');
-    name.className = 'name';
-    name.textContent = skin.name;
-    card.append(thumb, name);
-    card.addEventListener('click', () => {
-      cosmetics.set(skin.hex);
-      sfx.click();
-      buildSkinsScreen(onChange);
-      onChange?.();
-    });
-    colors.appendChild(card);
+  const current = MODELS.find((m) => m.id === cosmetics.model) ?? MODELS[0];
+  showInfo(current, assets.has(current.id));
+}
+
+/** Fiche descriptive, à gauche sous le personnage. */
+function showInfo(m, available) {
+  const box = el('skin-info');
+  box.classList.remove('hidden');
+  const r = RARITY[m.rarity] ?? RARITY.commun;
+  const rar = el('skin-rarity');
+  rar.textContent = r.label;
+  rar.style.background = r.color;
+  el('skin-name').textContent = m.name;
+  el('skin-desc').textContent = m.desc ?? '';
+  el('skin-meta').textContent = m.season ?? '';
+
+  const chips = el('skin-chips');
+  chips.innerHTML = '';
+  for (const label of [
+    m.rigged ? 'Animé par squelette' : 'Sans animation',
+    available ? (m.id === cosmetics.model ? 'Équipé' : 'Disponible') : 'Bientôt disponible',
+  ]) {
+    const c = document.createElement('div');
+    c.className = 'chip';
+    c.textContent = label;
+    chips.appendChild(c);
   }
 }
+
+export function hideSkinInfo() { el('skin-info')?.classList.add('hidden'); }
 
 const COLLABS = [
   { icon: '🐧', color: '#4fa8ff', title: 'Pingouin — Édition Glacier', desc: 'Skin exclusif, 3 000 exemplaires. Retiré définitivement à la fin de la saison.', state: 'Actif' },
@@ -158,6 +173,7 @@ export function wireTabs(onTab) {
   function show(tab) {
     for (const b of buttons) b.classList.toggle('active', b.dataset.tab === tab);
     for (const [name, node] of Object.entries(screens)) node.classList.toggle('on', name === tab);
+    el('skin-info')?.classList.toggle('hidden', tab !== 'skins');
     // Les panneaux du bas n'ont de sens que sur l'onglet Jouer.
     for (const id of ['playzone', 'entry-badge', 'leftpanel', 'playername']) {
       const n = el(id);

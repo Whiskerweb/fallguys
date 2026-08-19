@@ -328,6 +328,17 @@ class Game {
     this.enterLobby(false);
   }
 
+  /** Recadre le lobby : centre, ou decale a gauche quand la vitrine est ouverte. */
+  applyLobbyFraming() {
+    // Decalage POSITIF : pour qu'un objet apparaisse a gauche de l'ecran, la camera
+    // doit viser a sa droite. Le signe inverse le faisait sortir du champ.
+    const shift = LOBBY.showcase ? 4.6 : 0;
+    this.view.camera.position.set(
+      this.lobby.cameraPos.x + shift, this.lobby.cameraPos.y, this.lobby.cameraPos.z);
+    this.view.camera.lookAt(
+      this.lobby.cameraLook.x + shift, this.lobby.cameraLook.y, this.lobby.cameraLook.z);
+  }
+
   enterLobby(showResult) {
     this.mode = 'lobby';
     this.character?.dispose();
@@ -344,7 +355,7 @@ class Game {
     this.view.camera.position.copy(this.lobby.cameraPos);
     this.view.camera.fov = LOBBY.cameraFov;
     this.view.camera.updateProjectionMatrix();
-    this.view.camera.lookAt(this.lobby.cameraLook);
+    this.applyLobbyFraming();
     if (showResult) {
       el('result-card').classList.add('show');
       clearTimeout(this._resultTimer);
@@ -556,7 +567,9 @@ async function boot() {
   buildCollabsScreen();
   buildShopScreen();
   const tabs = wireTabs((tab) => {
-    if (tab === 'skins-changed') onCosmeticChange();
+    if (tab === 'skins-changed') { onCosmeticChange(); return; }
+    LOBBY.showcase = tab === 'skins';
+    if (game?.mode === 'lobby') game.applyLobbyFraming();
   });
   // Quitter un onglet revient toujours a Jouer : le lobby ne doit jamais rester
   // bloque sur un ecran secondaire quand une course demarre.
