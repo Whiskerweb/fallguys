@@ -11,6 +11,7 @@ import { Character } from './character.js';
 import { cosmetics, SKINS } from './cosmetics.js';
 import { sfx, unlockAudio, audio } from './audio.js';
 import { RIG, RIG_RANGES } from './rig.js';
+import { settings, ACTIONS, CAMERA_RANGES, CAMERA_LABELS, keyName } from './settings.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -31,12 +32,26 @@ let jumpEdge = false, diveEdge = false, camYaw = 0;
 addEventListener('keydown', (e) => {
   unlockAudio();
   if (e.repeat) return;
+  // Capture d'une touche en cours de remappage : elle est absorbee entierement.
+  if (listeningFor) {
+    e.preventDefault();
+    if (e.code !== 'Escape') settings.bind(listeningFor, e.code);
+    listeningFor = null;
+    buildKeybinds();
+    return;
+  }
+
   keys.add(e.code);
-  if (e.code === 'Space') { jumpEdge = true; e.preventDefault(); }
-  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') diveEdge = true;
+  if (settings.matches(e.code, 'jump')) { jumpEdge = true; e.preventDefault(); }
+  if (settings.matches(e.code, 'dive')) diveEdge = true;
+
+  if (e.code === 'Escape' && settingsOpen) { closeSettings(); return; }
+  if (e.code === 'KeyO') { settingsOpen ? closeSettings() : openSettings(); return; }
+  if (settingsOpen) return;
+
   if (e.code === 'Enter' && game?.mode === 'lobby') game.startRace();
   if (e.code === 'Escape' && game?.mode !== 'lobby') game.returnToLobby();
-  if (e.code === 'KeyR' && game?.mode === 'racing') game.restart();
+  if (settings.matches(e.code, 'restart') && game?.mode === 'racing') game.restart();
   if (e.code === 'KeyH') gui.show(gui._hidden);
   if (e.code === 'KeyP') el('perf').classList.toggle('hidden');
 });
@@ -46,16 +61,18 @@ addEventListener('contextmenu', (e) => e.preventDefault());
 addEventListener('blur', () => keys.clear());
 
 function pollInput(dt) {
-  const fwd = keys.has('KeyW') || keys.has('ArrowUp');
-  const back = keys.has('KeyS') || keys.has('ArrowDown');
-  const left = keys.has('KeyA') || keys.has('ArrowLeft');
-  const right = keys.has('KeyD') || keys.has('ArrowRight');
+  // Panneau ouvert : le jeu ne doit pas repondre, sinon remapper une touche la declenche.
+  if (settingsOpen) { input.x = 0; input.z = 0; input.jump = false; input.dive = false; return; }
+  const fwd = settings.isDown(keys, 'forward');
+  const back = settings.isDown(keys, 'back');
+  const left = settings.isDown(keys, 'left');
+  const right = settings.isDown(keys, 'right');
   input.x = (right ? 1 : 0) - (left ? 1 : 0);
   input.z = (back ? 1 : 0) - (fwd ? 1 : 0);
   input.jump = jumpEdge;
   input.dive = diveEdge;
-  if (keys.has('KeyQ')) camYaw += 1.9 * dt;
-  if (keys.has('KeyE')) camYaw -= 1.9 * dt;
+  if (settings.isDown(keys, 'camLeft')) camYaw += 1.9 * dt;
+  if (settings.isDown(keys, 'camRight')) camYaw -= 1.9 * dt;
 }
 
 // ---------- réglages ----------
@@ -112,6 +129,84 @@ function buildGui(getWorld) {
     console.log('--- Constantes a transposer dans Unity ---\n' + json);
   } }, 'copier').name('Copier les réglages');
   gui.close();
+}
+
+// ---------- panneau Paramètres ----------
+let settingsOpen = false;
+let listeningFor = null;
+
+function buildKeybinds() {
+  const box = el('keybinds');
+  box.innerHTML = '';
+  for (const action of ACTIONS) {
+    const row = document.createElement('div');
+    row.className = 'srow';
+    const label = document.createElement('label');
+    label.textContent = action.label;
+    const btn = document.createElement('button');
+    btn.className = 'keybtn' + (listeningFor === action.id ? ' listening' : '');
+    btn.textContent = listeningFor === action.id
+      ? 'appuie…'
+      : (settings.keys[action.id] ?? []).map(keyName).join(' / ');
+    btn.addEventListener('click', () => { listeningFor = action.id; buildKeybinds(); });
+    row.append(label, btn);
+    box.appendChild(row);
+  }
+}
+
+function buildCamSettings() {
+  const box = el('camsettings');
+  box.innerHTML = '';
+  for (const [key, [min, max, step]] of Object.entries(CAMERA_RANGES)) {
+    const row = document.createElement('div');
+    row.className = 'srow';
+    const label = document.createElement('label');
+    label.textContent = CAMERA_LABELS[key];
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = min; range.max = max; range.step = step;
+    range.value = settings.camera[key];
+    const val = document.createElement('span');
+    val.className = 'val';
+    val.textContent = Number(settings.camera[key]).toFixed(step < 1 ? 1 : 0);
+    range.addEventListener('input', () => {
+      const v = Number(range.value);
+      settings.setCamera(key, v);
+      val.textContent = v.toFixed(step < 1 ? 1 : 0);
+      // Effet immediat : regler une camera sans voir le resultat n'a aucun sens.
+      if (game) game.applyCameraSettings();
+    });
+    row.append(label, range, val);
+    box.appendChild(row);
+  }
+}
+
+function openSettings() {
+  settingsOpen = true;
+  listeningFor = null;
+  buildKeybinds();
+  buildCamSettings();
+  el('settings').classList.remove('hidden');
+  keys.clear();
+}
+
+function closeSettings() {
+  settingsOpen = false;
+  listeningFor = null;
+  el('settings').classList.add('hidden');
+}
+
+function wireSettings() {
+  el('btn-settings').addEventListener('click', openSettings);
+  el('settings-close').addEventListener('click', closeSettings);
+  el('settings-ok').addEventListener('click', closeSettings);
+  el('reset-keys').addEventListener('click', () => { settings.resetKeys(); buildKeybinds(); });
+  el('reset-cam').addEventListener('click', () => {
+    settings.resetCamera();
+    buildCamSettings();
+    if (game) game.applyCameraSettings();
+  });
+  el('settings').addEventListener('click', (e) => { if (e.target.id === 'settings') closeSettings(); });
 }
 
 // ---------- garde-robe ----------
@@ -201,7 +296,7 @@ class Game {
     this.character = new Character(RAPIER, this.course.world, this.view.scene, this.course.spawn);
     const p = this.course.spawn;
     this.camTarget.set(p.x, p.y + TUNING.camHeight, p.z + TUNING.camDistance);
-    this.view.camera.fov = TUNING.camFov;
+    this.view.camera.fov = settings.camera.fov;
     // Depart bloque : en multijoueur, les 16 joueurs doivent partir au meme instant.
     // Le prototype respecte deja cette contrainte pour que le feel soit representatif.
     this.countdown = 3.99;
@@ -326,20 +421,29 @@ class Game {
     this.updateCamera(dt, pos);
   }
 
+  /** Répercute les réglages joueur sur la caméra, immédiatement. */
+  applyCameraSettings() {
+    if (this.mode !== 'lobby') {
+      this.view.camera.fov = settings.camera.fov;
+      this.view.camera.updateProjectionMatrix();
+    }
+  }
+
   updateCamera(dt, pos) {
+    const cam = settings.camera;
     const v = this.character.body.linvel();
-    const offX = Math.sin(camYaw) * TUNING.camDistance;
-    const offZ = Math.cos(camYaw) * TUNING.camDistance;
-    this.desired.set(pos.x * 0.5 + offX, pos.y + TUNING.camHeight, pos.z + offZ);
-    this.camTarget.lerp(this.desired, 1 - Math.exp(-TUNING.camLag * dt));
+    const offX = Math.sin(camYaw) * cam.distance;
+    const offZ = Math.cos(camYaw) * cam.distance;
+    this.desired.set(pos.x * 0.5 + offX, pos.y + cam.height, pos.z + offZ);
+    this.camTarget.lerp(this.desired, 1 - Math.exp(-cam.smoothing * dt));
     this.view.camera.position.copy(this.camTarget);
     // La cible est NETTEMENT au-dessus du joueur : sinon une camera haute plonge et
     // l'horizon disparait. Or c'est le fond — montagnes, nuages — qu'on regarde en courant.
-    this.camLook.set(pos.x * 0.7 + v.x * TUNING.camLookAhead * 0.08, pos.y + 3.4, pos.z + v.z * TUNING.camLookAhead * 0.08);
+    this.camLook.set(pos.x * 0.7 + v.x * TUNING.camLookAhead * 0.08, pos.y + cam.lookHeight, pos.z + v.z * TUNING.camLookAhead * 0.08);
     this.view.camera.lookAt(this.camLook);
 
     const speed = Math.hypot(v.x, v.z);
-    const targetFov = TUNING.camFov + Math.min(9, speed * 0.85);
+    const targetFov = cam.fov + Math.min(9, speed * 0.85);
     this.view.camera.fov += (targetFov - this.view.camera.fov) * Math.min(1, dt * 5);
     this.view.camera.updateProjectionMatrix();
     this.view.followShadow(pos);
@@ -366,6 +470,7 @@ async function boot() {
   const course = buildCourse(RAPIER, assets);
   buildGui(() => course.world);
   buildWardrobe();
+  wireSettings();
   game = new Game(view, lobby, course);
   el('loading').style.display = 'none';
 

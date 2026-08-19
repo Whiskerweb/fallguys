@@ -57,6 +57,26 @@ console.log('1c-skin.png');
 await page.click('#btn-wardrobe');
 await page.waitForTimeout(300);
 
+// Panneau Parametres : ouverture, remappage d'une touche, fermeture
+await page.click('#btn-settings');
+await page.waitForTimeout(600);
+await page.screenshot({ path: `${OUT}/1d-parametres.png` });
+console.log('1d-parametres.png');
+const keyButtons = await page.$$('#keybinds .keybtn');
+if (keyButtons[4]) {                       // action "Sauter"
+  await keyButtons[4].click();
+  await page.waitForTimeout(300);
+  await page.keyboard.press('KeyJ');       // remappe sur J
+  await page.waitForTimeout(300);
+}
+const remapped = await page.evaluate(() =>
+  JSON.parse(localStorage.getItem('tumble-keys') || '{}').jump);
+console.log('remappage de "sauter" ->', JSON.stringify(remapped));
+await page.click('#reset-keys');
+await page.waitForTimeout(200);
+await page.click('#settings-ok');
+await page.waitForTimeout(300);
+
 // Lancer la course : compte a rebours
 await page.keyboard.press('Enter');
 await page.waitForTimeout(1200);

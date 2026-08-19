@@ -128,6 +128,54 @@
   }
   #countdown.hidden { display:none; }
 
+  /* ---------- panneau Paramètres ---------- */
+  #settings {
+    position:fixed; inset:0; z-index:40; display:grid; place-items:center;
+    background:rgba(12,6,28,.72); backdrop-filter:blur(3px);
+  }
+  #settings.hidden { display:none; }
+  #settings-panel {
+    width:min(760px, 92vw); max-height:86vh; overflow-y:auto;
+    background:linear-gradient(180deg,#2a1550,#1b0e38);
+    border:4px solid rgba(255,255,255,.16); border-radius:22px;
+    box-shadow:0 18px 50px rgba(0,0,0,.5); padding:26px 30px 30px;
+  }
+  #settings h2 { color:#fff; font-size:30px; font-weight:900; letter-spacing:1px; }
+  #settings h3 {
+    color:var(--yellow); font-size:14px; font-weight:900; letter-spacing:2.5px;
+    margin:26px 0 12px; text-transform:uppercase;
+  }
+  #settings .head { display:flex; align-items:center; gap:14px; }
+  #settings .head .spacer { flex:1; }
+  .srow {
+    display:flex; align-items:center; gap:14px; padding:7px 0;
+    border-bottom:1px solid rgba(255,255,255,.07);
+  }
+  .srow label { flex:1; color:#e9e2ff; font-weight:800; font-size:15px; }
+  .keybtn {
+    min-width:104px; height:38px; padding:0 15px; cursor:pointer;
+    border:3px solid rgba(255,255,255,.2); border-radius:11px;
+    background:rgba(255,255,255,.08); color:#fff; font-weight:900; font-size:14px;
+    font-family:inherit; transition:background .12s, border-color .12s;
+  }
+  .keybtn:hover { background:rgba(255,255,255,.16); }
+  .keybtn.listening { background:var(--pink); border-color:#fff; animation:pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity:.62; } }
+  .srow input[type=range] { flex:1.4; accent-color:var(--pink); }
+  .srow .val {
+    min-width:56px; text-align:right; color:var(--cyan); font-weight:900;
+    font-size:14px; font-variant-numeric:tabular-nums;
+  }
+  .sbtn {
+    height:42px; padding:0 22px; cursor:pointer; border:none; border-radius:12px;
+    background:var(--cyan); box-shadow:0 4px 0 var(--cyan-dark);
+    color:#fff; font-weight:900; font-size:15px; font-family:inherit;
+  }
+  .sbtn.primary { background:var(--pink); box-shadow:0 4px 0 var(--pink-dark); }
+  .sbtn:active { transform:translateY(3px); box-shadow:none; }
+  #settings .hint { color:rgba(255,255,255,.5); font-size:12.5px; font-weight:700; margin-top:9px; }
+  #settings .actions { display:flex; gap:12px; margin-top:26px; }
+
   #result-card {
     position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-2deg);
     padding:30px 56px; border-radius:24px; text-align:center;
@@ -199,7 +247,7 @@
     <button class="navbtn" id="btn-wardrobe" title="Garde-robe">👕</button>
     <button class="navbtn" title="Collabs">🤝</button>
     <button class="navbtn" title="Boutique">🛒</button>
-    <button class="navbtn" title="Réglages">⚙</button>
+    <button class="navbtn" id="btn-settings" title="Paramètres">⚙</button>
     <div class="spacer"></div>
     <div class="wallet"><span class="ic">👑</span><span id="crowns">0</span></div>
     <div class="wallet cash"><span class="ic">◎</span><span id="balance">12.40</span></div>
@@ -234,6 +282,32 @@
   </div>
 </div>
 
+<!-- ===== PARAMÈTRES ===== -->
+<div id="settings" class="hidden">
+  <div id="settings-panel">
+    <div class="head">
+      <h2>Paramètres</h2>
+      <div class="spacer"></div>
+      <button class="sbtn" id="settings-close">Fermer</button>
+    </div>
+
+    <h3>Commandes</h3>
+    <div id="keybinds"></div>
+    <div class="hint">Clique sur une touche puis appuie sur la nouvelle. Les touches sont repérées par leur POSITION sur le clavier : le réglage vaut pour AZERTY comme pour QWERTY.</div>
+
+    <h3>Caméra</h3>
+    <div id="camsettings"></div>
+    <div class="hint">« Inclinaison » règle la hauteur du point visé : la baisser fait plonger la caméra vers le sol, la monter dégage l'horizon.</div>
+
+    <div class="actions">
+      <button class="sbtn" id="reset-keys">Commandes par défaut</button>
+      <button class="sbtn" id="reset-cam">Caméra par défaut</button>
+      <div style="flex:1"></div>
+      <button class="sbtn primary" id="settings-ok">Terminé</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== COURSE ===== -->
 <div id="race-ui" class="hidden">
   <div id="hud">
@@ -242,7 +316,7 @@
   </div>
   <div id="help" class="stroke">
     ZQSD / WASD / flèches — courir · ESPACE — sauter · MAJ ou CLIC — plonger<br/>
-    A / E — pivoter la caméra · R — recommencer · ÉCHAP — retour lobby · H — réglages
+    A / E — pivoter la caméra · R — recommencer · ÉCHAP — retour lobby · O — paramètres
   </div>
   <div id="progressbar"><div class="fill" id="progress-fill"></div></div>
   <div id="dist" class="stroke"><span id="dist-text">120 m</span></div>

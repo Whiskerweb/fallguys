@@ -464,41 +464,6 @@ const spawn = new THREE.Vector3(0, 2.4, 12);
   // ── Effets d'ambiance ──
   const confetti = new ConfettiField(group, { count: 110, radius: 26, height: 22 });
   const cannons = [];
-  // Canons a fumee de part et d'autre, cycles FIXES et dephases : le decor respire
-  // sans introduire d'aleatoire, ce que la qualification skill-game interdit.
-  for (const [cx, cz, phase] of [
-    [-11, -30, 0], [11, -30, 1.7], [-11, -110, 0.85], [11, -110, 2.55],
-  ]) {
-    // Orientes vers l'exterieur : la fumee habille les cotes sans masquer la piste.
-    const dir = new THREE.Vector3(cx > 0 ? 0.75 : -0.75, 1, 0);
-    const cannon = new SmokeCannon(group, new THREE.Vector3(cx, 1.2, cz), dir, { period: 3.4, phase });
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 1.8, 14), toonMaterial(0xffb3d9));
-    barrel.position.set(cx, 0.4, cz);
-    barrel.rotation.z = cx > 0 ? 0.5 : -0.5;
-    addOutline(barrel, 0.03);
-    group.add(barrel);
-    cannons.push(cannon);
-  }
-
-  // Piliers : sans eux la piste flotte sans explication. Ils donnent aussi l'echelle
-  // de la hauteur, qui est l'effet recherche.
-  for (let z = 14; z > -150; z -= 13) {
-    for (const sx of [-1, 1]) {
-      const h = 13.5;
-      const pillar = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.85, 1.15, h, 14),
-        toonMaterial(sx > 0 ? 0xff8ac0 : 0x9d7bff)
-      );
-      pillar.position.set(sx * 4.2, GROUND_Y + h / 2, z);
-      pillar.castShadow = true;
-      addOutline(pillar, 0.012);
-      group.add(pillar);
-
-      const foot = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.8, 0.9, 14), toonMaterial(0x7b5ad6));
-      foot.position.set(sx * 4.2, GROUND_Y + 0.45, z);
-      group.add(foot);
-    }
-  }
 
   dressStart();
   dressFinish();
@@ -531,17 +496,23 @@ const spawn = new THREE.Vector3(0, 2.4, 12);
     group.add(flags);
   }
 
+  /**
+   * Décor volontairement MINIMAL.
+   * La piste vole au-dessus du vide : ce qu'on regarde en courant, ce sont les montagnes,
+   * les nuages et le ciel. Tout objet pose au sol encombre l'image sans etre jamais
+   * regarde, et coute des triangles pour rien. On ne garde donc que ce qui compose
+   * l'horizon, plus quelques arbres pour donner l'echelle du vide.
+   */
   function dressScenery() {
-    // Terrain : sans lui, gradins et décors flottent au-dessus du vide.
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(340, 460), toonMaterial(0x8ede6d));
-    ground.material.map = grassTufts({ repeat: [30, 40] });
+    // Terrain, loin en contrebas
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(420, 520), toonMaterial(0x8ede6d));
+    ground.material.map = grassTufts({ repeat: [34, 44] });
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(0, GROUND_Y, -60);
     ground.receiveShadow = true;
     group.add(ground);
 
-    // Montagnes hautes et striees : elles ferment l'horizon et donnent l'echelle.
-    // Une colline unie de meme taille parait deux fois plus petite.
+    // Montagnes : l'element principal du decor, etagees en profondeur.
     for (const [hx, hz, r, h] of [
       [-86, -186, 40, 54], [70, -206, 48, 66], [12, -244, 58, 78],
       [-124, -120, 34, 44], [112, -78, 36, 48], [-136, -12, 30, 40],
@@ -552,7 +523,7 @@ const spawn = new THREE.Vector3(0, 2.4, 12);
       group.add(peak);
     }
 
-    // Collines vertes basses au premier plan : transition avec l'herbe.
+    // Collines basses : transition douce entre le terrain et les montagnes.
     const mound = new THREE.SphereGeometry(1, 14, 10);
     for (const [hx, hz, r] of [[-52, -60, 22], [56, -110, 26], [-60, -160, 20], [48, -20, 18]]) {
       const m = new THREE.Mesh(mound, toonMaterial(0x7fd45e));
@@ -561,20 +532,7 @@ const spawn = new THREE.Vector3(0, 2.4, 12);
       group.add(m);
     }
 
-    // Arches gonflables au-dessus de la piste : jalonnent la progression sans texte.
-    for (const [az, ay, color] of [[-24, 0, 0x4fd1c5], [-54, 4, 0xffd83d], [-96, 1, 0xff5f7e], [-127, 1, 0x8b7bff]]) {
-      const a = inflatableArch(13, 6, 0.45, color);
-      a.position.set(0, ay, az);
-      group.add(a);
-    }
-
-    // Trois masses dominantes. Sans elles, tout le decor fait la meme taille et l'oeil
-    // n'a nulle part ou se poser ; elles servent aussi de reperes de distance.
-    const bigArch = inflatableArch(46, 26, 1.9, 0xff3d8b);
-    bigArch.position.set(0, GROUND_Y, -66);
-    group.add(bigArch);
-
-    /** Pose un modèle généré : pas de contour, pas d'ombre — c'est du décor, pas du gameplay. */
+    /** Pose un modele genere : ni contour ni ombre, c'est du decor lointain. */
     function prop(name, size, x, z, { y = GROUND_Y, rot = 0, tint = null, shadow = false } = {}) {
       const m = assets.get(name, size, { outline: 0 });
       if (!m) return null;
@@ -589,155 +547,43 @@ const spawn = new THREE.Vector3(0, 2.4, 12);
       return m;
     }
 
-    // ── Formes gonflables plutot que vegetation ──
-    // Les references n'ont AUCUN element naturaliste : ni ecorce, ni bois, ni pierre.
-    // Nos arbres a tronc brun et notre stand en bois tiraient toute l'image vers le terne.
-    const podColors = [0xff2d8f, 0x2dd9d9, 0xffe14d, 0xb072ff, 0x6ee86e, 0xff8a3d];
-    let v = 0;
-    for (let z = 6; z > -156; z -= 24) {
-      for (const side of [-1, 1]) {
-        const color = podColors[v % podColors.length];
-        const kind = v % 3;
-        let shape;
-        if (kind === 0) {
-          shape = bollard(3.4 + (v % 3) * 1.2, 1.1, color);
-        } else if (kind === 1) {
-          shape = new THREE.Mesh(new THREE.SphereGeometry(1.6 + (v % 3) * 0.4, 16, 12), toonMaterial(color));
-          shape.position.y = 1.6;
-          shape.scale.y = 1.25;
-          addOutline(shape, 0.02);
-        } else {
-          shape = new THREE.Mesh(new THREE.CapsuleGeometry(0.95, 2.6, 6, 16), toonMaterial(color));
-          shape.position.y = 2.3;
-          addOutline(shape, 0.02);
-        }
-        const holder = new THREE.Group();
-        holder.add(shape);
-        holder.position.set(side * (26 + ((v * 3.7) % 9)), GROUND_Y, z - (side > 0 ? 4 : 0));
-        group.add(holder);
-        v++;
-      }
-    }
+    // Quelques arbres seulement, largement espaces : ils donnent l'echelle du vide
+    // sans encombrer. Le terrain des references est presque nu.
+    const treeSpots = [[-32, -8], [38, -34], [-42, -62], [35, -88], [-36, -118], [40, -142]];
+    treeSpots.forEach(([tx, tz], i) => {
+      const t = prop(i % 2 ? 'tree-round' : 'tree-pine', 8 + (i % 3) * 1.8, tx, tz,
+        { rot: i * 1.7, tint: i % 2 ? 0x86e06a : 0x6ed49a });
+      if (t) t.traverse((c) => { if (c.isMesh) c.castShadow = false; });
+    });
 
-    // ── Éléments de décor caractéristiques, un par zone ──
-    prop('scoreboard', 11, -26, 8, { rot: 0.7 });
-    prop('speaker-stack', 6, 17, 10, { rot: -0.5 });
-    prop('speaker-stack', 6, -17, 10, { rot: 0.5 });
-    prop('camera-tower', 7, -26, -40, { rot: 1.2 });
-    prop('bounce-castle', 34, 46, -104, { rot: -0.9 });
-    prop('camera-tower', 7, 26, -108, { rot: -1.2 });
-    prop('camera-tower', 7, -24, -146, { rot: 1.4 });
-    prop('giant-trophy', 9, 0, finishZ - 12, { y: GROUND_Y, shadow: true });
-
-    // ── Dirigeable : dérive lentement au-dessus du parcours ──
-    const blimp = prop('blimp', 22, -30, -70, { y: 34, rot: 0.3 });
-    if (blimp) {
-      animated.push((t) => {
-        blimp.position.x = -30 + Math.sin(t * 0.045) * 26;
-        blimp.position.y = 34 + Math.sin(t * 0.22) * 1.4;
-        blimp.rotation.y = 0.3 + Math.sin(t * 0.045) * 0.25;
-      });
-    }
-
-    // ── Drapeaux : mâts alternés le long de la piste, oriflammes aux zones clés ──
-    const flagColors = [0xff5f7e, 0x4fd1c5, 0xffd83d, 0x8b7bff, 0xff8a3d, 0x4ade80];
-    let f = 0;
-    for (let z = 4; z > -150; z -= 34) {
-      for (const side of [-1, 1]) {
-        const pole = flagPole(6.8 + (f % 3) * 0.7, 2.1, 1.15, 0xf0f0f5, flagColors[f % flagColors.length]);
-        pole.position.set(side * 15.2, GROUND_Y, z);
-        // Tous les drapeaux flottent vers l'arrivee : un vent coherent, et ils ne
-        // font plus face au joueur comme des panneaux publicitaires.
-        pole.rotation.y = Math.PI / 2;
-        group.add(pole);
-        f++;
-      }
-    }
-    for (const [x, z] of [[-14, -52], [14, -112]]) {
-      const pen = pennant(8.8, 2.6, 0.9, 0xe8e8ef, flagColors[(f++) % flagColors.length]);
-      pen.position.set(x, GROUND_Y, z);
-      group.add(pen);
-    }
-
-    // Ballons géants en bord de piste
-    for (const [bx, bz, r, color] of [
-      [-34, -46, 3.2, 0xff5f7e], [36, -108, 3.4, 0x4fd1c5],
-    ]) {
+    // Deux ballons tres loin, pour habiller l'espace entre sol et montagnes.
+    for (const [bx, bz, r, color] of [[-46, -46, 4.2, 0xff5f7e], [50, -112, 4.6, 0x4fd1c5]]) {
       const b = balloon(r, color);
       b.position.set(bx, GROUND_Y, bz);
       group.add(b);
     }
 
-    // Quelques arbres seulement, en contrebas et bien espaces : dans les references le
-    // terrain est presque nu, l'interet est dans les montagnes et le ciel.
-    const treeSpots = [[-30, -8], [34, -34], [-38, -62], [31, -88], [-33, -118], [36, -142]];
-    treeSpots.forEach(([tx, tz], i) => {
-      const t = assets.get(i % 2 ? 'tree-round' : 'tree-pine', 7 + (i % 3) * 1.6, { outline: 0 });
-      if (!t) return;
-      t.position.set(tx, GROUND_Y, tz);
-      t.rotation.y = i * 1.7;
-      t.traverse((c) => {
-        if (!c.isMesh || c.userData.isOutline) return;
-        c.castShadow = false;
-        if (c.material?.color) c.material.color.setHex(i % 2 ? 0x86e06a : 0x6ed49a);
+    // Trophee d'arrivee : le seul objet qui merite d'etre au sol, il marque le but.
+    prop('giant-trophy', 11, 0, finishZ - 14, { shadow: true });
+
+    // Dirigeable : le seul element mobile du ciel, il derive lentement.
+    const blimp = prop('blimp', 24, -34, -76, { y: 30, rot: 0.3 });
+    if (blimp) {
+      animated.push((t) => {
+        blimp.position.x = -34 + Math.sin(t * 0.045) * 30;
+        blimp.position.y = 30 + Math.sin(t * 0.22) * 1.4;
+        blimp.rotation.y = 0.3 + Math.sin(t * 0.045) * 0.25;
       });
-      group.add(t);
-    });
+    }
 
-    for (const [x, z, ry] of [[-30, -44, 0.5], [30, -104, -0.5]]) {
-      grandstand(x, z, ry * Math.PI);
+    // Arches gonflables AU-DESSUS de la piste : elles jalonnent la progression et sont
+    // les seules structures conservees, parce qu'elles sont dans le champ de course.
+    for (const [az, ay, color] of [[-24, 0, 0x4fd1c5], [-54, 4, 0xffd83d], [-96, 1, 0xff5f7e], [-127, 1, 0x8b7bff]]) {
+      const a = inflatableArch(13, 6, 0.45, color);
+      a.position.set(0, ay, az);
+      group.add(a);
     }
   }
-
-  /**
-   * Gradins procéduraux avec foule animée. Meshy ne produit pas de gradins lisibles
-   * (il rend un bâtiment), et une foule qui bouge vaut bien plus qu'un décor figé pour
-   * l'impression de plateau de jeu télévisé.
-   */
-  function grandstand(px, pz, rotY) {
-    const stand = new THREE.Group();
-    stand.position.set(px, -3.1, pz);
-    stand.rotation.y = rotY;
-    group.add(stand);
-
-    const ROWS = 5;
-    const spectators = [];
-    const seatGeo = new THREE.SphereGeometry(0.42, 10, 8);
-    const palette = [0xff5f7e, 0x4fd1c5, 0xffd83d, 0x8b7bff, 0xffa36b, 0x9ede6a, 0xff8bd0, 0x4fa8ff];
-
-    for (let r = 0; r < ROWS; r++) {
-      const h = 0.9 + r * 0.95;
-      const step = roundedBox(13, h, 2.3, r % 2 ? 0x3fa9f5 : 0xffffff, { radius: 0.22, outline: 0.006 });
-      step.position.set(0, h / 2 - 0.5, -r * 2.3);
-      stand.add(step);
-      for (let i = 0; i < 9; i++) {
-        const seed = r * 9 + i;
-        const m = new THREE.Mesh(seatGeo, toonMaterial(palette[seed % palette.length]));
-        m.position.set(-5.4 + i * 1.35, h + 0.1, -r * 2.3 + 0.2);
-        stand.add(m);
-        spectators.push({ m, base: h + 0.1, phase: (seed * 0.7) % (Math.PI * 2), speed: 3 + (seed % 5) * 0.5 });
-      }
-    }
-    const flags = bunting(12.4, 12);
-    flags.position.set(0, 0.9 + ROWS * 0.95 + 1.1, -(ROWS - 1) * 2.3);
-    stand.add(flags);
-
-    animated.push((t) => {
-      for (const s of spectators) s.m.position.y = s.base + Math.abs(Math.sin(t * s.speed + s.phase)) * 0.34;
-    });
-  }
-
-  // Respiration des gonflables : 1,2 % d'amplitude suffit a faire vivre une scene entiere.
-  const breathing = [];
-  group.traverse((o) => {
-    if (o.isMesh && !o.userData.isOutline && o.geometry?.type === 'CapsuleGeometry') breathing.push(o);
-  });
-  animated.push((t) => {
-    for (let i = 0; i < breathing.length; i++) {
-      const k = 1 + Math.sin(t * 1.1 + i * 0.7) * 0.012;
-      breathing[i].scale.set(k, breathing[i].scale.y, k);
-    }
-  });
 
   return {
     world, group, spawn, finishZ, killY: -26, checkpoints, conveyors,
