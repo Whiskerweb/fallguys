@@ -8,6 +8,7 @@ import { buildCourse } from './scenes/course.js';
 import { buildLobbyScreen, LOBBY } from './scenes/lobby.js';
 import { Character } from './character.js';
 import { cosmetics, SKINS } from './cosmetics.js';
+import { sfx, unlockAudio, audio } from './audio.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -26,6 +27,7 @@ const input = { x: 0, z: 0, jump: false, dive: false };
 let jumpEdge = false, diveEdge = false, camYaw = 0;
 
 addEventListener('keydown', (e) => {
+  unlockAudio();
   if (e.repeat) return;
   keys.add(e.code);
   if (e.code === 'Space') { jumpEdge = true; e.preventDefault(); }
@@ -34,9 +36,10 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && game?.mode !== 'lobby') game.returnToLobby();
   if (e.code === 'KeyR' && game?.mode === 'racing') game.restart();
   if (e.code === 'KeyH') gui.show(gui._hidden);
+  if (e.code === 'KeyP') el('perf').classList.toggle('hidden');
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
-addEventListener('mousedown', (e) => { if (e.button === 0 && game?.mode === 'racing') diveEdge = true; });
+addEventListener('mousedown', (e) => { unlockAudio(); if (e.button === 0 && game?.mode === 'racing') diveEdge = true; });
 addEventListener('contextmenu', (e) => e.preventDefault());
 addEventListener('blur', () => keys.clear());
 
@@ -75,6 +78,10 @@ function buildGui(getWorld) {
     }
     if (name !== 'Déplacement' && name !== 'Saut') folder.close();
   }
+  const audioFolder = gui.addFolder('Son');
+  audioFolder.add(audio, 'enabled').name('sons actifs');
+  audioFolder.close();
+
   const lobbyFolder = gui.addFolder('Lobby');
   lobbyFolder.add(LOBBY, 'avatarYaw', -Math.PI, Math.PI, 0.01).name('orientation avatar');
   lobbyFolder.add(LOBBY, 'cameraFov', 25, 70, 1).name('zoom camera').onChange(() => {
@@ -100,6 +107,7 @@ function buildWardrobe() {
     b.title = skin.name;
     b.addEventListener('click', () => {
       cosmetics.set(skin.hex);
+      sfx.click();
       for (const other of panel.children) other.classList.remove('on');
       b.classList.add('on');
     });
@@ -129,7 +137,7 @@ class Game {
 
     view.scene.add(lobby.group);
     view.scene.add(course.group);
-    el('play').addEventListener('click', () => this.startRace());
+    el('play').addEventListener('click', () => { sfx.click(); this.startRace(); });
     this.enterLobby(false);
   }
 
@@ -169,6 +177,7 @@ class Game {
     this.view.clouds.visible = true;
     this.view.scene.fog = this.view.fog;
     el('lobby-ui').classList.add('hidden');
+    el('wardrobe').classList.add('hidden');
     el('result-card').classList.remove('show');
     el('race-ui').classList.remove('hidden');
     this.character?.dispose();
@@ -205,6 +214,7 @@ class Game {
     if (record) { this.best = this.runTime; localStorage.setItem('feel-lab-best', String(this.runTime)); }
     this.crowns++;
     localStorage.setItem('tumble-crowns', String(this.crowns));
+    sfx.finish();
     this.banner(record ? 'RECORD !' : 'ARRIVÉE !');
     el('result-title').textContent = record ? 'NOUVEAU RECORD' : 'COURSE TERMINÉE';
     el('result-time').textContent = `${this.runTime.toFixed(2)} s`;
@@ -233,9 +243,13 @@ class Game {
       input.x = 0; input.z = 0; input.jump = false; input.dive = false;
       jumpEdge = false; diveEdge = false;
       if (this.countdown > 0) {
-        el('countdown-text').textContent = String(Math.ceil(this.countdown - 0.99) || 'GO !');
+        const n = Math.ceil(this.countdown - 0.99);
+        if (n !== this._lastBeep) { this._lastBeep = n; if (n > 0) sfx.beep(); }
+        el('countdown-text').textContent = String(n || 'GO !');
       } else {
         el('countdown').classList.add('hidden');
+        this._lastBeep = null;
+        sfx.go();
         this.banner('GO !', 800);
       }
     }
@@ -269,6 +283,12 @@ class Game {
     el('timer').textContent = this.runTime.toFixed(2);
     el('falls').textContent = String(this.falls);
     el('best').textContent = this.best ? this.best.toFixed(2) + ' s' : '—';
+
+    // Progression : sans reperage, 120 m de piste se vivent comme un couloir sans fin.
+    const total = this.course.spawn.z - this.course.finishZ;
+    const done = Math.max(0, Math.min(1, (this.course.spawn.z - pos.z) / total));
+    el('progress-fill').style.width = (done * 100).toFixed(1) + '%';
+    el('dist-text').textContent = Math.max(0, Math.round(total * (1 - done))) + ' m';
     this.updateCamera(dt, pos);
   }
 
@@ -311,13 +331,26 @@ async function boot() {
   el('loading').style.display = 'none';
 
   const clock = new THREE.Clock();
-  let elapsed = 0;
+  let elapsed = 0, frames = 0, fpsAccum = 0;
+  view.renderer.info.autoReset = false;
   function frame() {
     requestAnimationFrame(frame);
+    view.renderer.info.reset();
     const dt = Math.min(clock.getDelta(), 0.05);
     elapsed += dt;
     game.update(dt, elapsed);
     view.composer.render();
+
+    frames++; fpsAccum += dt;
+    // renderer.info se remet a zero a chaque passe : sans autoReset=false, on ne lirait
+    // que la derniere passe de post-processing (un quad), pas la scene entiere.
+    if (fpsAccum >= 0.5) {
+      const info = view.renderer.info.render;
+      el('perf').textContent = `${Math.round(frames / fpsAccum)} fps · ${info.triangles.toLocaleString('fr')} tris · ${info.calls} draws`;
+      window.__fps = Math.round(frames / fpsAccum);
+      window.__tris = info.triangles;
+      frames = 0; fpsAccum = 0;
+    }
   }
   frame();
 }

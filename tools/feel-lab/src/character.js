@@ -3,6 +3,7 @@ import { TUNING } from './tuning.js';
 import { toonMaterial, addOutline } from './world.js';
 import { assets } from './assets.js';
 import { cosmetics } from './cosmetics.js';
+import { sfx } from './audio.js';
 
 const RADIUS = 0.45;
 const HALF_HEIGHT = 0.35;          // hauteur totale = 2*HALF_HEIGHT + 2*RADIUS = 1.6 m
@@ -187,6 +188,7 @@ export class Character {
       this.squash = Math.min(this.squash, T.squashOnLand + (1 - T.squashOnLand) * (1 - impact));
       this.squashVel -= impact * 5;
       this.dust.burst(this.position.clone().setY(this.position.y - FOOT), 0.5 + impact);
+      sfx.land(0.4 + impact);
       if (this.state === State.Airborne) this.state = State.Grounded;
     }
     if (!this.grounded && this.state === State.Grounded) this.state = State.Airborne;
@@ -227,6 +229,7 @@ export class Character {
         this.squashVel += 5;
         this.state = State.Airborne;
         this.dust.burst(this.position.clone().setY(this.position.y - FOOT), 0.6);
+        sfx.jump();
       }
 
       // Plongeon
@@ -235,6 +238,7 @@ export class Character {
         vz = Math.cos(this.yaw) * T.diveForward;
         vy = T.diveUp;
         this.enterState(State.Diving);
+        sfx.dive();
         this.body.setEnabledRotations(true, true, true, true);
         this.body.setAngvel({ x: Math.cos(this.yaw) * 6, y: 0, z: -Math.sin(this.yaw) * 6 }, true);
       }
@@ -258,6 +262,7 @@ export class Character {
     this.body.setAngvel({ x: (Math.random() - 0.5) * spin, y: (Math.random() - 0.5) * spin, z: (Math.random() - 0.5) * spin }, true);
     this.squashVel -= 9;
     this.dust.burst(this.position, 1.2);
+    sfx.tumble();
   }
 
   updateStateTimers(dt, speedH) {
@@ -276,6 +281,7 @@ export class Character {
 
   beginGetUp() {
     this.enterState(State.GettingUp);
+    sfx.getUp();
     this.body.setEnabledRotations(false, false, false, true);
     this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     this.body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);

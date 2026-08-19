@@ -71,9 +71,16 @@ await page.screenshot({ path: `${OUT}/4-obstacles.png` });
 console.log('4-obstacles.png');
 await page.keyboard.up('KeyW');
 
+// Retour au lobby : verifie que la bascule inverse fonctionne aussi
+await page.keyboard.press('Escape');
+await page.waitForTimeout(2500);
+await page.screenshot({ path: `${OUT}/5-retour-lobby.png` });
+console.log('5-retour-lobby.png');
+
 // Etat interne
 const state = await page.evaluate(() => ({
-  fps: null,
+  fps: window.__fps ?? null,
+  triangles: window.__tris ?? null,
   timer: document.getElementById('timer')?.textContent,
   falls: document.getElementById('falls')?.textContent,
   canvas: (() => { const c = document.querySelector('canvas'); return c ? `${c.width}x${c.height}` : 'aucun'; })(),

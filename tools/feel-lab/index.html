@@ -149,6 +149,31 @@
     position:absolute; bottom:18px; left:22px; color:#fff; font-size:13px; font-weight:700;
     opacity:.85; line-height:1.7;
   }
+  #progressbar {
+    position:absolute; top:22px; left:50%; transform:translateX(-50%);
+    width:min(46vw, 620px); height:22px; border-radius:11px;
+    background:rgba(27,16,48,.5); border:3px solid rgba(255,255,255,.28);
+    box-shadow:0 4px 0 rgba(0,0,0,.18); overflow:hidden;
+  }
+  #progressbar .fill {
+    height:100%; width:0%; border-radius:9px;
+    background:linear-gradient(90deg, #ffd83d, #ff8a3d, #ff3d8b);
+    transition:width .12s linear;
+  }
+  #progressbar .pip {
+    position:absolute; top:50%; width:12px; height:12px; margin-top:-6px; margin-left:-6px;
+    border-radius:50%; background:#fff; box-shadow:0 0 0 3px rgba(27,16,48,.45);
+  }
+  #dist {
+    position:absolute; top:50px; left:50%; transform:translateX(-50%);
+    color:#fff; font-size:14px; font-weight:800; letter-spacing:1px;
+  }
+  #perf {
+    position:absolute; top:8px; right:8px; color:#fff; font-size:12px; font-weight:800;
+    background:rgba(0,0,0,.45); padding:4px 9px; border-radius:8px; font-variant-numeric:tabular-nums;
+  }
+  #perf.hidden { display:none; }
+
   #banner { position:absolute; inset:0; display:grid; place-items:center; opacity:0; transition:opacity .22s; }
   #banner.show { opacity:1; }
   #banner span {
@@ -219,6 +244,9 @@
     ZQSD / WASD / flèches — courir · ESPACE — sauter · MAJ ou CLIC — plonger<br/>
     A / E — pivoter la caméra · R — recommencer · ÉCHAP — retour lobby · H — réglages
   </div>
+  <div id="progressbar"><div class="fill" id="progress-fill"></div></div>
+  <div id="dist" class="stroke"><span id="dist-text">120 m</span></div>
+  <div id="perf" class="hidden">— fps</div>
   <div id="banner"><span id="banner-text">GO !</span></div>
   <div id="countdown" class="hidden"><span id="countdown-text">3</span></div>
 </div>
