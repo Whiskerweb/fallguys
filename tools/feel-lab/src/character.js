@@ -41,6 +41,15 @@ class Dust {
       p.life = 0.42 + Math.random() * 0.2;
     }
   }
+  dispose() {
+    for (const p of this.pool) {
+      p.mesh.removeFromParent();
+      p.mesh.material.dispose();
+    }
+    this.pool[0]?.mesh.geometry.dispose();
+    this.pool.length = 0;
+  }
+
   update(dt) {
     for (const p of this.pool) {
       if (p.life <= 0) continue;
@@ -171,6 +180,14 @@ export class Character {
   /** Detache le personnage de la scene : appele au changement de monde physique. */
   dispose() {
     this.container.removeFromParent();
+    // Retirer le corps du monde physique. Sans ca, changer de modele en course cree une
+    // seconde capsule a la meme position que la premiere, toujours presente : les deux
+    // s'interpenetrent et le personnage est ejecte. Et chaque course laissait un corps
+    // fantome qui tombait indefiniment en alourdissant chaque pas de simulation.
+    this.world.removeRigidBody(this.body);
+    this.dust.dispose();
+    this.puffs.dispose();
+    this.sparks.dispose();
   }
 
   get position() {

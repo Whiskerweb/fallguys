@@ -37,6 +37,16 @@ export class PuffSystem {
     }
   }
 
+  /** Libere geometrie et materiaux : sans cela chaque course laisse 70 materiaux en VRAM. */
+  dispose() {
+    for (const p of this.pool) {
+      p.mesh.removeFromParent();
+      p.mesh.material.dispose();
+    }
+    this.pool[0]?.mesh.geometry.dispose();
+    this.pool.length = 0;
+  }
+
   update(dt) {
     for (const p of this.pool) {
       if (p.life <= 0) continue;
@@ -192,6 +202,15 @@ export class SparkBurst {
       p.spin.set(Math.random() * 9, Math.random() * 9, Math.random() * 9);
       p.life = p.max = 0.55 + Math.random() * 0.3;
     }
+  }
+
+  dispose() {
+    for (const p of this.pool) {
+      p.mesh.removeFromParent();
+      p.mesh.material.dispose();
+    }
+    this.pool[0]?.mesh.geometry.dispose();
+    this.pool.length = 0;
   }
 
   update(dt) {

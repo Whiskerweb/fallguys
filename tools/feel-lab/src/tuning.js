@@ -32,11 +32,12 @@ export const TUNING = {
   squashDamping: 15,      // amortissement
 
   // --- Caméra ---
-  camDistance: 11.5,
-  camHeight: 5.6,
-  camLag: 7.5,            // plus haut = caméra plus collée
-  camLookAhead: 1.5,      // anticipation sur la vélocité
-  camFov: 50,
+  // Seule l'anticipation reste ici. Hauteur, recul, inclinaison, champ de vision et
+  // souplesse appartiennent au JOUEUR : ils vivent dans settings.js et se reglent depuis
+  // le panneau Parametres. Les garder en double faisait mentir le panneau Game feel
+  // (4 curseurs sur 5 ne pilotaient rien) et exportait vers Unity des constantes de
+  // camera qui n'etaient pas celles du jeu.
+  camLookAhead: 1.5,
 };
 
 export const TUNING_RANGES = {
@@ -45,6 +46,5 @@ export const TUNING_RANGES = {
   jumpBuffer: [0, 0.4], fallMultiplier: [1, 3], diveForward: [3, 25], diveUp: [0, 12],
   diveRecovery: [0.2, 3], tumbleTrigger: [1.05, 4], tumbleRecovery: [0.2, 3],
   getUpDuration: [0.1, 1.2], squashOnLand: [0.3, 1], stretchOnJump: [1, 1.8],
-  squashSpring: [40, 400], squashDamping: [4, 40], camDistance: [4, 20],
-  camHeight: [1, 12], camLag: [1, 20], camLookAhead: [0, 5], camFov: [35, 100],
+  squashSpring: [40, 400], squashDamping: [4, 40], camLookAhead: [0, 5],
 };

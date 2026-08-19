@@ -93,7 +93,7 @@ function buildGui(getWorld) {
     'Plongeon': ['diveForward', 'diveUp', 'diveRecovery'],
     'Culbute': ['tumbleTrigger', 'tumbleRecovery', 'getUpDuration'],
     'Squash & stretch': ['squashOnLand', 'stretchOnJump', 'squashSpring', 'squashDamping'],
-    'Caméra': ['camDistance', 'camHeight', 'camLag', 'camLookAhead', 'camFov'],
+    'Caméra': ['camLookAhead'],   // le reste appartient au panneau Parametres
   };
   for (const [name, list] of Object.entries(groups)) {
     const folder = gui.addFolder(name);
@@ -229,6 +229,13 @@ function closeSettings() {
   el('settings').classList.add('hidden');
 }
 
+function wireWardrobeButton() {
+  // Enregistre UNE fois. Il vivait dans buildWardrobe(), qui se rappelle a chaque
+  // changement de modele : les ecouteurs s'accumulaient et le bouton finissait par
+  // basculer deux fois, donc par ne plus rien ouvrir.
+  el('btn-wardrobe').addEventListener('click', () => el('wardrobe').classList.toggle('hidden'));
+}
+
 function wireSettings() {
   el('btn-settings').addEventListener('click', openSettings);
   el('settings-close').addEventListener('click', closeSettings);
@@ -257,7 +264,9 @@ function buildWardrobe() {
       cosmetics.setModel(m.id);
       sfx.click();
       buildWardrobe();
-      // Le personnage est reconstruit : en course il faut le recreer sur place.
+      // Le lobby est la vitrine des cosmetiques : il doit montrer ce qu'on selectionne.
+      game?.lobby?.rebuildAvatar?.();
+      // En course, le personnage est recree sur place.
       if (game?.mode !== 'lobby' && game?.character) {
         const at = game.character.position.clone();
         game.character.dispose();
@@ -282,7 +291,6 @@ function buildWardrobe() {
     });
     panel.appendChild(b);
   }
-  el('btn-wardrobe').addEventListener('click', () => panel.classList.toggle('hidden'));
 }
 
 // ---------- jeu ----------
@@ -353,7 +361,7 @@ class Game {
     this.character?.dispose();
     this.character = new Character(RAPIER, this.course.world, this.view.scene, this.course.spawn);
     const p = this.course.spawn;
-    this.camTarget.set(p.x, p.y + TUNING.camHeight, p.z + TUNING.camDistance);
+    this.camTarget.set(p.x, p.y + settings.camera.height, p.z + settings.camera.distance);
     this.view.camera.fov = settings.camera.fov;
     // Depart bloque : en multijoueur, les 16 joueurs doivent partir au meme instant.
     // Le prototype respecte deja cette contrainte pour que le feel soit representatif.
@@ -531,6 +539,7 @@ async function boot() {
   const course = buildCourse(RAPIER, assets);
   buildGui(() => course.world);
   buildWardrobe();
+  wireWardrobeButton();
   wireSettings();
   wirePause();
   game = new Game(view, lobby, course);

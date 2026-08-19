@@ -152,7 +152,9 @@ const spawn = new THREE.Vector3(0, 2.4, 12);
       const rail = pill(len, 0.36, railColor);
       rail.rotation.x = Math.PI / 2;
       addBody(rail, x + sx * (width / 2 + 0.28), y + 0.5, zc,
-        RAPIER.ColliderDesc.cuboid(0.36, 1.1, len / 2).setFriction(0.3));
+        // Demi-hauteur alignee sur le visuel : le collider faisait 2,2 m pour une rambarde
+        // de 0,72 m, soit 0,74 m de mur invisible au-dessus, infranchissable.
+        RAPIER.ColliderDesc.cuboid(0.36, 0.36, len / 2).setFriction(0.3));
       for (let z = zFrom; z >= zTo; z -= 8) {
         const post = bollard(1.3, 0.3, C.railPost);
         post.position.set(x + sx * (width / 2 + 0.2), y - 0.5, z);
@@ -412,7 +414,7 @@ const spawn = new THREE.Vector3(0, 2.4, 12);
   for (const [bx, bz] of [[-3.4, -9], [3.4, -9], [0, -13], [-4.2, -17], [4.2, -17], [-1.8, -21], [1.8, -21]]) {
     bumper(bx, 0, bz);
   }
-  swingDoor(GROUND_Y, 0, -14.5, 3.0, 0, 1.3, 1);
+  swingDoor(-3.2, 0, -14.5, 3.0, 0, 1.3, 1);
   swingDoor(3.2, 0, -14.5, 3.0, Math.PI, 1.3, -1);
 
   // 3 — Montée puis plateau des barreaux rotatifs

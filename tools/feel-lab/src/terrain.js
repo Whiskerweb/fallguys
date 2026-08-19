@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { toonMaterial } from './world.js';
+import { grassTufts } from './textures.js';
 
 /**
  * Terrain en relief continu.
@@ -157,7 +158,12 @@ export function createTerrain({ groundY = -15, size = 1300, segments = 220 } = {
   geo.computeVertexNormals();
 
   const mat = toonMaterial(0xffffff);
+  // Couleurs par sommet ET texture : elles se MULTIPLIENT. Le degrade d'altitude porte
+  // la teinte, le motif porte le grain. Sans grain, le sol est un aplat sans echelle et
+  // les objets poses dessus semblent flotter — c'est le repere de taille qui manque,
+  // pas la couleur.
   mat.vertexColors = true;
+  mat.map = grassTufts({ repeat: [size / 16, size / 16] });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(CX, groundY, CZ);
   mesh.receiveShadow = true;

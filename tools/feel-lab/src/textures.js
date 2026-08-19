@@ -26,6 +26,10 @@ const external = new Map();
 
 export const TEXTURE_SLOTS = [
   'ground-quilt', 'ground-check', 'ground-scale', 'ground-polka',
+  // Ces trois motifs sont les plus employes du parcours et interrogeaient deja
+  // painted(), mais n'etaient pas dans la liste : leur remplacement par un fichier
+  // peint etait impossible par construction.
+  'ground-dash', 'ground-maze', 'ground-swoosh',
   'hazard-stripes', 'grass', 'inflatable-bands', 'confetti',
 ];
 

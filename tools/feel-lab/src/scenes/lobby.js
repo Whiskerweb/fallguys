@@ -93,10 +93,11 @@ export function buildLobbyScreen(assets) {
   stage.position.y = 1.28;
   pedestal.add(stage);
 
+  let avatarRig = null;
   const riggedAvatar = cosmetics.model === 'player-rigged'
     ? createRiggedCharacter(assets, LOBBY.avatarHeight) : null;
   let avatar = riggedAvatar?.model ?? null;
-  const avatarRig = riggedAvatar?.rig ?? null;
+  avatarRig = riggedAvatar?.rig ?? null;
   if (!avatar) avatar = assets.getFitted(cosmetics.model, { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.025 })
     ?? assets.getFitted('player-blob', { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.018 });
   if (!avatar) {
@@ -132,7 +133,10 @@ export function buildLobbyScreen(assets) {
   avatar.userData.baseScale = avatar.scale.x || 1;
 
   // ---------- éclairage de studio ----------
-  const key = new THREE.DirectionalLight(0xffffff, 3.2);
+  // Ces lumieres S'AJOUTENT aux lumieres globales de la scene, qui ne sont jamais
+  // masquees en lobby. Calibrees en consequence : a pleine puissance l'avatar recevait
+  // le double de la cible et ecretait vers le blanc.
+  const key = new THREE.DirectionalLight(0xffffff, 1.1);
   key.position.set(4.5, 6.5, 7);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
@@ -143,11 +147,11 @@ export function buildLobbyScreen(assets) {
   key.target = pedestal;
   group.add(key);
 
-  const fill = new THREE.PointLight(0x8fd8ff, 60, 22);
+  const fill = new THREE.PointLight(0x8fd8ff, 26, 22);
   fill.position.set(-4.5, 3.2, 5);
   group.add(fill);
 
-  const rim = new THREE.PointLight(0xffd6a0, 70, 20);
+  const rim = new THREE.PointLight(0xffd6a0, 30, 20);
   rim.position.set(1.1, 4.2, -4.5);
   group.add(rim);
 
@@ -179,8 +183,25 @@ export function buildLobbyScreen(assets) {
   applySkin(cosmetics.hex);
   cosmetics.onChange(applySkin);
 
+  /** Reconstruit l'avatar : changer de modele doit se voir dans la vitrine. */
+  function rebuildAvatar() {
+    avatar?.removeFromParent();
+    const r = cosmetics.model === 'player-rigged'
+      ? createRiggedCharacter(assets, LOBBY.avatarHeight) : null;
+    avatar = r?.model
+      ?? assets.getFitted(cosmetics.model, { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.025 })
+      ?? assets.getFitted('player-blob', { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.018 });
+    if (!avatar) return;
+    avatarRig = r?.rig ?? null;
+    avatar.traverse((c) => { if (c.isMesh && !c.userData.isOutline) c.castShadow = true; });
+    avatar.userData.baseScale = avatar.scale.x || 1;
+    stage.add(avatar);
+    applySkin(cosmetics.hex);
+  }
+
   return {
     group,
+    rebuildAvatar,
     cameraPos: CAMERA_POS,
     cameraLook: CAMERA_LOOK,
     avatar,

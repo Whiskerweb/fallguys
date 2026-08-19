@@ -4,7 +4,6 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { TUNING } from './tuning.js';
 
 /**
  * Rampe d'ombrage. Elle démarre HAUT (0,59 et non 0,30) : dans un rendu cartoon, une
@@ -188,7 +187,7 @@ export function createWorld() {
   scene.add(sky);
   scene.add(clouds);
 
-  const camera = new THREE.PerspectiveCamera(TUNING.camFov, innerWidth / innerHeight, 0.1, 600);
+  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 600);
   camera.position.set(0, 8, 14);
 
   // INTENSITES CALIBREES SUR MESURE DE PIXELS. Depuis three.js r155 l'eclairage est
