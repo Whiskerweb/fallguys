@@ -74,6 +74,15 @@ function buildSky() {
         float h = normalize(vPos).y;
         vec3 c = mix(botColor, midColor, smoothstep(-0.25, 0.18, h));
         c = mix(c, topColor, smoothstep(0.15, 0.75, h));
+
+        // Trame triangulaire tres discrete, comme dans les references : elle empeche le
+        // ciel de se lire comme un aplat mort sans jamais devenir un motif visible.
+        vec3 n = normalize(vPos);
+        vec2 uv = vec2(atan(n.z, n.x) * 6.2, n.y * 9.0);
+        vec2 g = fract(uv) - 0.5;
+        float tri = abs(g.x + g.y * 0.577) + abs(g.y * 1.155);
+        c += (step(0.62, tri) - 0.5) * 0.02;
+
         gl_FragColor = vec4(c, 1.0);
       }`,
   });

@@ -271,41 +271,114 @@ export function slabMesh(w, h, d, topColor, edgeColor, { map = null, radius = 0.
  * Sommet strié : un cône aux bandes horizontales. Les stries se lisent de très loin et
  * donnent une échelle au décor — c'est ce qui manque à une simple colline unie.
  */
-export function stripedPeak(radius, height, baseColor, bandColor, bands = 5) {
+export function stripedPeak(radius, height, baseColor, capColor, opts = {}) {
+  const {
+    sharpness = 0.55,     // 0 = dôme très rond, 1 = cône pointu
+    capRatio = 0.30,      // part de la hauteur couverte par la calotte
+    bands = 0,            // bandes horizontales optionnelles
+    bandColor = null,
+    segments = 22,
+  } = opts;
+
   const group = new THREE.Group();
-  // Un cone pur donne un sommet pointu et dur. Les references ont des sommets arrondis :
-  // on part d'une demi-sphere etiree, dont le profil se rapproche naturellement d'un dome.
-  const geo = new THREE.SphereGeometry(radius, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2);
+
+  // Profil : demi-sphère étirée dont le resserrement vers le haut est réglable.
+  // Un cône pur donne un sommet dur ; les références ont des sommets pleins et arrondis.
+  const geo = new THREE.SphereGeometry(radius, segments, 16, 0, Math.PI * 2, 0, Math.PI / 2);
   const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    const y = pos.getY(i);
-    const k = y / radius;                       // 0 a la base, 1 au sommet
-    const shrink = 1 - Math.pow(k, 0.55) * 0.18; // resserre legerement vers le haut
-    pos.setX(i, pos.getX(i) * shrink);
-    pos.setZ(i, pos.getZ(i) * shrink);
-    pos.setY(i, y * (height / radius));
+  for (let k = 0; k < pos.count; k++) {
+    const y = pos.getY(k);
+    const t = Math.max(0, Math.min(1, y / radius));
+    const shrink = 1 - Math.pow(t, 1 - sharpness * 0.55) * (0.12 + sharpness * 0.5);
+    pos.setX(k, pos.getX(k) * shrink);
+    pos.setZ(k, pos.getZ(k) * shrink);
+    pos.setY(k, y * (height / radius));
   }
   geo.computeVertexNormals();
   const body = new THREE.Mesh(geo, toonMaterial(baseColor));
   group.add(body);
 
-  // Anneaux plaqués : plus lisibles qu'une texture, et gratuits en mémoire.
-  for (let i = 1; i <= bands; i++) {
-    const t = i / (bands + 1);
-    const r = radius * (1 - t) * 1.012;
-    const ring = new THREE.Mesh(
-      new THREE.CylinderGeometry(r * 0.97, r, height * 0.055, 18, 1, true),
-      toonMaterial(i % 2 ? bandColor : baseColor)
-    );
-    ring.position.y = height * t;
-    group.add(ring);
+  /**
+   * Calotte à bord ONDULÉ. Une calotte à bord net se lit comme un chapeau pose dessus ;
+   * l'ondulation lui donne l'air de couler sur les flancs, ce qui est la lecture juste.
+   */
+  const capH = height * capRatio;
+  const capBase = height - capH;
+  const capR = radius * (1 - Math.pow(capBase / height, 1 - sharpness * 0.55) * (0.12 + sharpness * 0.5)) * 1.02;
+  const capGeo = new THREE.SphereGeometry(capR, segments, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+  const cpos = capGeo.attributes.position;
+  for (let k = 0; k < cpos.count; k++) {
+    const x = cpos.getX(k), y = cpos.getY(k), z = cpos.getZ(k);
+    const t = Math.max(0, Math.min(1, y / capR));
+    const shrink = 1 - Math.pow(t, 1 - sharpness * 0.55) * (0.12 + sharpness * 0.5);
+    // Le bord bas ondule : amplitude maximale a la base, nulle au sommet.
+    const ang = Math.atan2(z, x);
+    const wave = Math.sin(ang * 5) * 0.035 + Math.sin(ang * 8 + 1.3) * 0.02;
+    const drop = (1 - t) * wave * capH * 1.5;
+    cpos.setX(k, x * shrink);
+    cpos.setZ(k, z * shrink);
+    cpos.setY(k, y * (capH / capR) + drop);
   }
-
-  // Calotte enneigee : une coupole posee sur le sommet, pas une boule qui depasse.
-  const capGeo = new THREE.SphereGeometry(radius * 0.34, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2);
-  const cap = new THREE.Mesh(capGeo, toonMaterial(0xffffff));
-  cap.position.y = height * 0.9;
-  cap.scale.y = 0.55;
+  capGeo.computeVertexNormals();
+  const cap = new THREE.Mesh(capGeo, toonMaterial(capColor));
+  cap.position.y = capBase;
   group.add(cap);
+
+  if (bands > 0 && bandColor !== null) {
+    for (let b = 1; b <= bands; b++) {
+      const t = (b / (bands + 1)) * (1 - capRatio);
+      const r = radius * (1 - Math.pow(t, 1 - sharpness * 0.55) * (0.12 + sharpness * 0.5)) * 1.012;
+      const ring = new THREE.Mesh(
+        new THREE.CylinderGeometry(r * 0.98, r, height * 0.04, segments, 1, true),
+        toonMaterial(bandColor)
+      );
+      ring.position.y = height * t;
+      group.add(ring);
+    }
+  }
+  return group;
+}
+
+/**
+ * Chaîne de montagnes étagée en trois plans.
+ * L'étagement est ce qui crée la profondeur : les sommets lointains sont plus PÂLES et
+ * moins saturés, ce qui reproduit la perspective atmosphérique. Un seul plan de montagnes
+ * de même teinte se lit comme un décor peint, quelle que soit sa qualité de forme.
+ */
+export function mountainRange(groundY) {
+  const group = new THREE.Group();
+
+  const LAYERS = [
+    // [distance z, teinte de base, teinte de calotte, échelle, nombre]
+    { z: -335, base: 0xf7dfe8, cap: 0xffffff, scale: 1.4, count: 7, sharp: 0.35, spread: 400 },
+    { z: -248, base: 0xf7bdd0, cap: 0xfff4f8, scale: 1.0, count: 8, sharp: 0.5, spread: 340 },
+    { z: -178, base: 0xf59ab8, cap: 0xffeaf2, scale: 0.72, count: 6, sharp: 0.62, spread: 300 },
+  ];
+  const TINTS = [null, 0xe8c8f0, 0xffd2c0, 0xc8e8f5];
+
+  LAYERS.forEach((layer, li) => {
+    for (let i = 0; i < layer.count; i++) {
+      const t = (i + 0.5) / layer.count;
+      const x = (t - 0.5) * layer.spread + ((i * 37) % 23) - 11;
+      const z = layer.z + ((i * 53) % 46) - 23;
+      const r = (26 + ((i * 17) % 20)) * layer.scale;
+      const h = (46 + ((i * 29) % 34)) * layer.scale;
+
+      // Une montagne sur quatre prend une teinte differente : une chaine monochrome
+      // parait plate meme bien eclairee.
+      const tint = TINTS[(i + li) % TINTS.length];
+      const base = tint ?? layer.base;
+
+      const peak = stripedPeak(r, h, base, layer.cap, {
+        sharpness: layer.sharp + ((i % 3) - 1) * 0.1,
+        capRatio: 0.22 + ((i % 4) * 0.05),
+        bands: i % 5 === 0 ? 3 : 0,
+        bandColor: 0xffffff,
+        segments: li === 0 ? 16 : 22,     // les plus lointaines sont moins detaillees
+      });
+      peak.position.set(x, groundY, z);
+      group.add(peak);
+    }
+  });
   return group;
 }

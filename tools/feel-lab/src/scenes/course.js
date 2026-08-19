@@ -4,7 +4,7 @@ import { toonMaterial, addOutline } from '../world.js';
 import { ConfettiField, SmokeCannon } from '../effects.js';
 import {
   roundedBox, pill, rimGlow, banner, inflatableArch, balloon, bollard, bunting,
-  flagPole, pennant, updateFlags, slabMesh, stripedPeak,
+  flagPole, pennant, updateFlags, slabMesh, mountainRange,
 } from '../props.js';
 import {
   quiltedVinyl, softChecker, hazardStripes, polkaStagger, grassTufts, scales, inflatedBands,
@@ -512,16 +512,10 @@ const spawn = new THREE.Vector3(0, 2.4, 12);
     ground.receiveShadow = true;
     group.add(ground);
 
-    // Montagnes : l'element principal du decor, etagees en profondeur.
-    for (const [hx, hz, r, h] of [
-      [-86, -186, 40, 54], [70, -206, 48, 66], [12, -244, 58, 78],
-      [-124, -120, 34, 44], [112, -78, 36, 48], [-136, -12, 30, 40],
-      [100, -164, 32, 42], [-104, -228, 38, 50],
-    ]) {
-      const peak = stripedPeak(r, h, 0xffb3c8, 0xfff0f5, 5);
-      peak.position.set(hx, GROUND_Y, hz);
-      group.add(peak);
-    }
+    // Montagnes : trois plans etages, teintes et profils varies, calottes ondulees.
+    // C'est l'element principal du decor — c'est lui qu'on regarde en courant.
+    const range = mountainRange(GROUND_Y);
+    group.add(range);
 
     // Collines basses : transition douce entre le terrain et les montagnes.
     const mound = new THREE.SphereGeometry(1, 14, 10);
