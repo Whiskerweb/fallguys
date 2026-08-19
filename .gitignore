@@ -44,3 +44,6 @@ replays/
 
 # Banc d'essai
 tools/feel-lab/dist/
+# Modeles generes par Meshy : regenerables via tools/meshy-pipeline/state.json
+tools/feel-lab/public/models/*.glb
+tools/feel-lab/shots/

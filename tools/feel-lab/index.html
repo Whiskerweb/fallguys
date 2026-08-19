@@ -3,48 +3,198 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Feel Lab — La Course</title>
+<title>TUMBLE — Lobby</title>
 <style>
+  :root {
+    --pink:#ff3d8b; --pink-dark:#c9236a; --cyan:#31c7f0; --cyan-dark:#1a8fb0;
+    --yellow:#ffc93c; --ink:#1b1030; --ink-soft:#2f1d52; --cream:#fff6e6;
+  }
   * { margin:0; padding:0; box-sizing:border-box; }
-  html, body { height:100%; overflow:hidden; background:#7fd4ff; font-family: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif; }
-  canvas { display:block; }
-  #hud {
-    position:fixed; top:18px; left:18px; color:#fff; pointer-events:none;
-    text-shadow: 0 3px 0 rgba(0,0,0,.28); letter-spacing:.3px;
+  html, body { height:100%; overflow:hidden; background:#f5a623;
+    font-family: ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased; user-select:none; }
+  canvas { display:block; position:fixed; inset:0; }
+
+  .hidden { display:none !important; }
+  .stroke { text-shadow: 0 3px 0 rgba(0,0,0,.32); }
+
+  /* ---------- écran de lobby ---------- */
+  #lobby-ui { position:fixed; inset:0; pointer-events:none; }
+  #lobby-ui > * { pointer-events:auto; }
+
+  #topbar {
+    position:absolute; top:0; left:0; right:0; height:62px;
+    background:linear-gradient(180deg, rgba(18,8,38,.94), rgba(18,8,38,.82));
+    display:flex; align-items:center; gap:14px; padding:0 20px;
   }
-  #timer { font-size:52px; font-weight:800; line-height:1; font-variant-numeric: tabular-nums; }
-  #sub { font-size:15px; font-weight:700; opacity:.92; margin-top:6px; }
+  #topbar .title { color:#fff; font-size:24px; font-weight:900; letter-spacing:2px; }
+  #topbar .spacer { flex:1; }
+
+  .navbtn {
+    width:58px; height:38px; border:none; border-radius:11px; cursor:pointer;
+    background:var(--cyan); box-shadow:0 4px 0 var(--cyan-dark);
+    display:grid; place-items:center; font-size:19px; transition:transform .08s, box-shadow .08s;
+  }
+  .navbtn:hover { transform:translateY(-2px); box-shadow:0 6px 0 var(--cyan-dark); }
+  .navbtn:active { transform:translateY(3px); box-shadow:0 1px 0 var(--cyan-dark); }
+  .navbtn.primary { background:var(--pink); box-shadow:0 4px 0 var(--pink-dark); }
+  .navbtn.primary:hover { box-shadow:0 6px 0 var(--pink-dark); }
+
+  .wallet {
+    display:flex; align-items:center; gap:9px; height:38px; padding:0 16px 0 12px;
+    border-radius:11px; background:rgba(255,255,255,.1); border:2px solid rgba(255,255,255,.18);
+    color:#fff; font-weight:800; font-size:16px; font-variant-numeric:tabular-nums;
+  }
+  .wallet .ic { font-size:17px; }
+  .wallet.cash { background:rgba(74,222,128,.18); border-color:rgba(74,222,128,.45); color:#c9f7d8; }
+
+  #leftpanel { position:absolute; top:96px; left:44px; width:330px; }
+  #logo {
+    font-size:74px; font-weight:900; line-height:.86; letter-spacing:-1px;
+    color:var(--cyan); -webkit-text-stroke:5px var(--ink);
+    paint-order:stroke fill; filter:drop-shadow(0 7px 0 rgba(0,0,0,.22));
+  }
+  #logo em { display:block; font-style:normal; color:var(--pink); font-size:42px; letter-spacing:5px; margin-top:4px; }
+  #season { margin-top:26px; color:#fff; font-weight:900; font-size:19px; letter-spacing:2px; }
+  #progress-label { margin-top:16px; color:rgba(255,255,255,.9); font-weight:800; font-size:13px; letter-spacing:2.5px; }
+  #progress {
+    margin-top:8px; height:30px; border-radius:15px; background:rgba(27,16,48,.45);
+    border:3px solid var(--ink); display:flex; align-items:center; padding:0 5px; position:relative;
+  }
+  #progress .lvl {
+    width:30px; height:30px; margin-left:-8px; border-radius:9px; background:var(--pink);
+    border:3px solid var(--ink); color:#fff; font-weight:900; font-size:15px;
+    display:grid; place-items:center; flex:none; z-index:2;
+  }
+  #progress .track { flex:1; height:15px; margin:0 8px; border-radius:8px; background:rgba(0,0,0,.28); overflow:hidden; }
+  #progress .fill { height:100%; width:38%; border-radius:8px; background:linear-gradient(90deg, var(--pink), #ff8bc0); }
+  #progress .num { color:#fff; font-weight:800; font-size:13px; padding-right:6px; font-variant-numeric:tabular-nums; }
+
+  #playername {
+    position:absolute; left:44px; bottom:44px; display:flex; align-items:center; gap:11px;
+    height:52px; padding:0 24px 0 18px; border-radius:14px;
+    background:var(--cyan); border:4px solid var(--ink); box-shadow:0 6px 0 rgba(0,0,0,.2);
+    color:#fff; font-weight:900; font-size:19px; letter-spacing:.5px;
+  }
+
+  #playzone { position:absolute; right:44px; bottom:40px; text-align:right; }
+  #invite { color:#fff; font-weight:900; font-size:20px; margin-bottom:14px; letter-spacing:.5px; }
+  #invite .key {
+    display:inline-grid; place-items:center; width:30px; height:30px; border-radius:50%;
+    background:var(--ink); color:var(--yellow); font-size:15px; margin-right:9px; vertical-align:-6px;
+  }
+  #play {
+    display:flex; align-items:center; gap:18px; padding:0 44px 0 22px; height:92px;
+    border:5px solid var(--ink); border-radius:20px; cursor:pointer;
+    background:linear-gradient(180deg, #ff5c9e, var(--pink));
+    box-shadow:0 9px 0 var(--pink-dark), 0 16px 26px rgba(0,0,0,.28);
+    color:#fff; font-size:52px; font-weight:900; letter-spacing:1.5px;
+    transition:transform .09s, box-shadow .09s;
+  }
+  #play:hover { transform:translateY(-3px); box-shadow:0 12px 0 var(--pink-dark), 0 20px 30px rgba(0,0,0,.3); }
+  #play:active { transform:translateY(6px); box-shadow:0 3px 0 var(--pink-dark), 0 8px 14px rgba(0,0,0,.25); }
+  #play .key {
+    display:grid; place-items:center; width:46px; height:46px; border-radius:50%;
+    background:var(--ink); color:var(--yellow); font-size:22px; font-weight:900;
+  }
+
+  #entry-badge {
+    position:absolute; right:44px; bottom:150px;
+    padding:9px 18px; border-radius:12px; background:rgba(27,16,48,.86);
+    border:3px solid rgba(255,255,255,.16); color:#ffe9b8; font-weight:800; font-size:15px;
+  }
+  #entry-badge b { color:#4ade80; }
+
+  #result-card {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-2deg);
+    padding:30px 56px; border-radius:24px; text-align:center;
+    background:linear-gradient(180deg, #7b4bd1, #4c2a91);
+    border:6px solid var(--ink); box-shadow:0 14px 0 rgba(0,0,0,.25);
+    color:#fff; opacity:0; transition:opacity .3s; pointer-events:none;
+  }
+  #result-card.show { opacity:1; }
+  #result-card h2 { font-size:40px; font-weight:900; color:var(--yellow); letter-spacing:1px; }
+  #result-card .big { font-size:66px; font-weight:900; font-variant-numeric:tabular-nums; margin:6px 0; }
+  #result-card .line { font-size:19px; font-weight:700; opacity:.9; }
+
+  /* ---------- HUD de course ---------- */
+  #race-ui { position:fixed; inset:0; pointer-events:none; }
+  #hud { position:absolute; top:20px; left:22px; color:#fff; }
+  #timer { font-size:56px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; }
+  #sub { font-size:15px; font-weight:800; opacity:.94; margin-top:6px; }
   #help {
-    position:fixed; bottom:18px; left:18px; color:#fff; font-size:13px; font-weight:700;
-    opacity:.85; pointer-events:none; text-shadow:0 2px 0 rgba(0,0,0,.28); line-height:1.7;
+    position:absolute; bottom:18px; left:22px; color:#fff; font-size:13px; font-weight:700;
+    opacity:.85; line-height:1.7;
   }
-  #banner {
-    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    pointer-events:none; opacity:0; transition:opacity .25s;
-  }
+  #banner { position:absolute; inset:0; display:grid; place-items:center; opacity:0; transition:opacity .22s; }
   #banner.show { opacity:1; }
   #banner span {
-    font-size:74px; font-weight:900; color:#fff; letter-spacing:2px;
-    text-shadow: 0 6px 0 rgba(0,0,0,.25), 0 0 40px rgba(255,225,120,.9);
-    transform:rotate(-3deg);
+    font-size:82px; font-weight:900; color:#fff; letter-spacing:2px; transform:rotate(-3deg);
+    text-shadow:0 7px 0 rgba(0,0,0,.25), 0 0 46px rgba(255,225,120,.9);
   }
-  #loading {
-    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    background:#7fd4ff; color:#fff; font-size:22px; font-weight:800; z-index:10;
-  }
+
+  #loading { position:fixed; inset:0; display:grid; place-items:center; background:#f5a623;
+    color:#fff; font-size:23px; font-weight:900; z-index:20; text-shadow:0 3px 0 rgba(0,0,0,.2); }
 </style>
 </head>
 <body>
 <div id="loading">Chargement…</div>
-<div id="hud">
-  <div id="timer">0.00</div>
-  <div id="sub">Chutes : <span id="falls">0</span> &nbsp;·&nbsp; Record : <span id="best">—</span></div>
+
+<!-- ===== LOBBY ===== -->
+<div id="lobby-ui" class="hidden">
+  <div id="topbar">
+    <div class="title stroke">LOBBY</div>
+    <div class="spacer"></div>
+    <button class="navbtn primary" title="Jouer">▶</button>
+    <button class="navbtn" title="Garde-robe">👕</button>
+    <button class="navbtn" title="Collabs">🤝</button>
+    <button class="navbtn" title="Boutique">🛒</button>
+    <button class="navbtn" title="Réglages">⚙</button>
+    <div class="spacer"></div>
+    <div class="wallet"><span class="ic">👑</span><span id="crowns">0</span></div>
+    <div class="wallet cash"><span class="ic">◎</span><span id="balance">12.40</span></div>
+  </div>
+
+  <div id="leftpanel">
+    <div id="logo" class="stroke">TUMBLE<em>ROYALE</em></div>
+    <div id="season" class="stroke">SAISON 1</div>
+    <div id="progress-label" class="stroke">PROGRESSION</div>
+    <div id="progress">
+      <div class="lvl">4</div>
+      <div class="track"><div class="fill"></div></div>
+      <div class="num">609/800</div>
+    </div>
+  </div>
+
+  <div id="playername"><span>👑</span><span id="pname">Blob #2005</span></div>
+
+  <div id="entry-badge">Entrée <b>1,00 $</b> · 16 joueurs · pot 16,00 $</div>
+
+  <div id="playzone">
+    <div id="invite" class="stroke"><span class="key">I</span>Inviter des joueurs</div>
+    <button id="play"><span class="key">↵</span>JOUER</button>
+  </div>
+
+  <div id="result-card">
+    <h2 id="result-title">COURSE TERMINÉE</h2>
+    <div class="big" id="result-time">0.00 s</div>
+    <div class="line" id="result-line">—</div>
+  </div>
 </div>
-<div id="help">
-  ZQSD / WASD ou flèches — courir &nbsp;·&nbsp; ESPACE — sauter &nbsp;·&nbsp; MAJ ou CLIC — plonger<br/>
-  R — recommencer &nbsp;·&nbsp; H — masquer les réglages
+
+<!-- ===== COURSE ===== -->
+<div id="race-ui" class="hidden">
+  <div id="hud">
+    <div id="timer" class="stroke">0.00</div>
+    <div id="sub" class="stroke">Chutes : <span id="falls">0</span> · Record : <span id="best">—</span></div>
+  </div>
+  <div id="help" class="stroke">
+    ZQSD / WASD / flèches — courir · ESPACE — sauter · MAJ ou CLIC — plonger<br/>
+    A / E — pivoter la caméra · R — recommencer · ÉCHAP — retour lobby · H — réglages
+  </div>
+  <div id="banner"><span id="banner-text">GO !</span></div>
 </div>
-<div id="banner"><span id="banner-text">ARRIVÉE !</span></div>
+
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>

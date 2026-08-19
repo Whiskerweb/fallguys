@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TUNING } from './tuning.js';
 import { toonMaterial, addOutline } from './world.js';
+import { assets } from './assets.js';
 
 const RADIUS = 0.45;
 const HALF_HEIGHT = 0.35;          // hauteur totale = 2*HALF_HEIGHT + 2*RADIUS = 1.6 m
@@ -10,14 +11,14 @@ export const State = { Grounded: 'grounded', Airborne: 'airborne', Diving: 'divi
 
 /** Bouffée de poussière à l'atterrissage — bon marché, et ça vend beaucoup l'impact. */
 class Dust {
-  constructor(scene) {
-    this.scene = scene;
+  constructor(parent) {
+    this.parent = parent;
     this.pool = [];
     const geo = new THREE.SphereGeometry(0.17, 7, 6);
     for (let i = 0; i < 40; i++) {
       const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true }));
       m.visible = false;
-      scene.add(m);
+      parent.add(m);
       this.pool.push({ mesh: m, life: 0, vel: new THREE.Vector3() });
     }
     this.cursor = 0;
@@ -69,39 +70,53 @@ export class Character {
     this.collider = world.createCollider(colDesc, this.body);
 
     // --- Visuel ---
+    // Tout vit sous un conteneur unique : changer de scene revient a le detacher.
+    this.container = new THREE.Group();
+    scene.add(this.container);
     this.root = new THREE.Group();
     this.visual = new THREE.Group();
     this.root.add(this.visual);
-    scene.add(this.root);
+    this.container.add(this.root);
 
-    const bodyMesh = new THREE.Mesh(
-      new THREE.CapsuleGeometry(RADIUS, HALF_HEIGHT * 2, 6, 20),
-      toonMaterial(0xff5f7e)
-    );
-    bodyMesh.castShadow = true;
-    bodyMesh.receiveShadow = true;
-    addOutline(bodyMesh, 0.06);
-    this.visual.add(bodyMesh);
-    this.bodyMesh = bodyMesh;
-
-    this.eyes = new THREE.Group();
-    const whiteGeo = new THREE.SphereGeometry(0.155, 14, 12);
-    const white = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const pupilGeo = new THREE.SphereGeometry(0.075, 10, 8);
-    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x14203a });
+    // Le modele Meshy remplace la capsule des qu'il est disponible.
+    const model = assets.getFitted('player-blob', { y: HALF_HEIGHT * 2 + RADIUS * 2 }, { groundAlign: false, outline: 0.02 });
     this.pupils = [];
-    for (const sx of [-1, 1]) {
-      const e = new THREE.Mesh(whiteGeo, white);
-      e.position.set(sx * 0.185, 0.30, -RADIUS * 0.86);
-      const p = new THREE.Mesh(pupilGeo, pupilMat);
-      p.position.set(0, 0, -0.098);
-      e.add(p);
-      this.pupils.push(p);
-      this.eyes.add(e);
-    }
-    this.visual.add(this.eyes);
+    if (model) {
+      model.traverse((c) => {
+        if (c.isMesh && c.material && c.material.color && !c.material.map) c.material.color.setHex(0xff5f7e);
+      });
+      this.visual.add(model);
+      this.bodyMesh = model;
+    } else {
+      const bodyMesh = new THREE.Mesh(
+        new THREE.CapsuleGeometry(RADIUS, HALF_HEIGHT * 2, 6, 20),
+        toonMaterial(0xff5f7e)
+      );
+      bodyMesh.castShadow = true;
+      bodyMesh.receiveShadow = true;
+      addOutline(bodyMesh, 0.06);
+      this.visual.add(bodyMesh);
+      this.bodyMesh = bodyMesh;
 
-    this.dust = new Dust(scene);
+      // L'avant du personnage est +Z local (yaw = 0 donne la direction (0,0,1)).
+      this.eyes = new THREE.Group();
+      const whiteGeo = new THREE.SphereGeometry(0.155, 14, 12);
+      const white = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const pupilGeo = new THREE.SphereGeometry(0.075, 10, 8);
+      const pupilMat = new THREE.MeshBasicMaterial({ color: 0x14203a });
+      for (const sx of [-1, 1]) {
+        const e = new THREE.Mesh(whiteGeo, white);
+        e.position.set(sx * 0.185, 0.30, RADIUS * 0.86);
+        const p = new THREE.Mesh(pupilGeo, pupilMat);
+        p.position.set(0, 0, 0.098);
+        e.add(p);
+        this.pupils.push(p);
+        this.eyes.add(e);
+      }
+      this.visual.add(this.eyes);
+    }
+
+    this.dust = new Dust(this.container);
 
     // --- État ---
     this.state = State.Airborne;
@@ -116,6 +131,11 @@ export class Character {
     this.runCycle = 0;
     this._down = new THREE.Vector3(0, -1, 0);
     this._tmp = new THREE.Vector3();
+  }
+
+  /** Detache le personnage de la scene : appele au changement de monde physique. */
+  dispose() {
+    this.container.removeFromParent();
   }
 
   get position() {
@@ -300,7 +320,7 @@ export class Character {
     // Les pupilles regardent dans la direction du mouvement
     const v = this.body.linvel();
     const look = Math.min(0.05, Math.hypot(v.x, v.z) * 0.006);
-    for (const p of this.pupils) p.position.set(0, -look * 0.4, -0.098 - look);
+    for (const p of this.pupils) p.position.set(0, -look * 0.4, 0.098 + look);
 
     this.dust.update(dt);
   }

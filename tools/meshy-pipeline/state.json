@@ -1,0 +1,52 @@
+{
+  "roller-log": {
+    "previewId": "01a019a0-652d-761b-8b71-ebf674f7506a",
+    "refineId": "01a019a1-5343-7d2f-be9e-b411b3a9eee8",
+    "done": true
+  },
+  "spinner-arm": {
+    "previewId": "01a019a0-64cf-7a81-bbe1-5bc264f4dd5e",
+    "refineId": "01a019a0-ee6b-7d21-9148-3c2a8d706054",
+    "done": true
+  },
+  "player-blob": {
+    "previewId": "01a019a0-652e-7cf8-866d-8a376d156efa",
+    "refineId": "01a019a1-3205-770f-bff8-0a635f62fe9c",
+    "done": true
+  },
+  "wrecking-ball": {
+    "previewId": "01a019a0-64d5-76dd-abd1-d8be2a423eff",
+    "refineId": "01a019a1-32a7-7710-8b3c-d97459603bce",
+    "done": true
+  },
+  "platform-hex": {
+    "previewId": "01a019a1-c199-7686-a7c1-75bb583f26f4",
+    "refineId": "01a019a2-6842-7d77-adae-3925ba7d3341",
+    "done": true
+  },
+  "tree-candy": {
+    "previewId": "01a019a2-2073-7aff-9bf4-ad704cbf09d4",
+    "refineId": "01a019a2-eda8-7b40-9e0a-e105b8c23659",
+    "done": true
+  },
+  "grandstand": {
+    "previewId": "01a019a2-265d-7d5f-a704-90b2e60e3b07",
+    "refineId": "01a019a3-3126-76d3-a436-110de70a68a4",
+    "done": true
+  },
+  "finish-arch": {
+    "previewId": "01a019a2-43a9-7b15-8ee0-7216fdc87eac",
+    "refineId": "01a019a2-ed8f-7789-b07e-aa22034388f4",
+    "done": true
+  },
+  "lobby-podium": {
+    "previewId": "01a019a3-5772-7dba-8874-db4838579a9b",
+    "refineId": "01a019a4-1cae-7dea-886e-8d097f0639ba",
+    "done": true
+  },
+  "lobby-island": {
+    "previewId": "01a019a3-bc07-7b66-be7b-0019852981a0",
+    "refineId": "01a019a4-e561-7843-8397-efc7c27814bf",
+    "done": true
+  }
+}

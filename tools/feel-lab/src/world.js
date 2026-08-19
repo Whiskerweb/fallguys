@@ -105,8 +105,10 @@ export function createWorld() {
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(0xbfe8ff, 90, 260);
-  scene.add(buildSky());
-  scene.add(buildClouds());
+  const sky = buildSky();
+  const clouds = buildClouds();
+  scene.add(sky);
+  scene.add(clouds);
 
   const camera = new THREE.PerspectiveCamera(TUNING.camFov, innerWidth / innerHeight, 0.1, 600);
   camera.position.set(0, 8, 14);
@@ -147,5 +149,5 @@ export function createWorld() {
     sun.target.updateMatrixWorld();
   }
 
-  return { renderer, scene, camera, composer, followShadow };
+  return { renderer, scene, camera, composer, followShadow, sky, clouds, fog: scene.fog };
 }
