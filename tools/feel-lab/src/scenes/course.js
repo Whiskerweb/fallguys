@@ -63,7 +63,14 @@ export function buildCourse(RAPIER, assets) {
   const animated = [];
   const checkpoints = [];
   const conveyors = [];
-  const spawn = new THREE.Vector3(0, 2.4, 12);
+  /**
+ * Le terrain est LOIN sous la piste. Dans les references, le parcours est une passerelle
+ * surelevee : on voit le paysage en contrebas, et c'est ce qui donne l'ampleur. Une piste
+ * posee au sol enferme le regard et oblige a encombrer les bords pour meubler.
+ */
+const GROUND_Y = -15;
+
+const spawn = new THREE.Vector3(0, 2.4, 12);
   const finishZ = -140;
 
   // ─────────────────────────── briques ───────────────────────────
@@ -136,12 +143,14 @@ export function buildCourse(RAPIER, assets) {
     for (const sx of [-1, 1]) {
       // 0,66 de rayon : la rambarde arrive au sommet du crane. Avant, tout ce qui
       // etait proche du joueur etait plus petit que lui — aucune echelle, aucun cadrage.
-      const rail = pill(len, 0.66, railColor);
+      // Basses volontairement : une rambarde a hauteur d'oeil masque le vide, or c'est
+      // le vide qui donne la sensation d'altitude.
+      const rail = pill(len, 0.36, railColor);
       rail.rotation.x = Math.PI / 2;
-      addBody(rail, x + sx * (width / 2 + 0.2), y + 0.62, zc,
-        RAPIER.ColliderDesc.cuboid(0.44, 1.0, len / 2).setFriction(0.3));
+      addBody(rail, x + sx * (width / 2 + 0.28), y + 0.5, zc,
+        RAPIER.ColliderDesc.cuboid(0.36, 1.1, len / 2).setFriction(0.3));
       for (let z = zFrom; z >= zTo; z -= 8) {
-        const post = bollard(2.1, 0.42, C.railPost);
+        const post = bollard(1.3, 0.3, C.railPost);
         post.position.set(x + sx * (width / 2 + 0.2), y - 0.5, z);
         group.add(post);
       }
@@ -399,7 +408,7 @@ export function buildCourse(RAPIER, assets) {
   for (const [bx, bz] of [[-3.4, -9], [3.4, -9], [0, -13], [-4.2, -17], [4.2, -17], [-1.8, -21], [1.8, -21]]) {
     bumper(bx, 0, bz);
   }
-  swingDoor(-3.2, 0, -14.5, 3.0, 0, 1.3, 1);
+  swingDoor(GROUND_Y, 0, -14.5, 3.0, 0, 1.3, 1);
   swingDoor(3.2, 0, -14.5, 3.0, Math.PI, 1.3, -1);
 
   // 3 — Montée puis plateau des barreaux rotatifs
@@ -471,6 +480,26 @@ export function buildCourse(RAPIER, assets) {
     cannons.push(cannon);
   }
 
+  // Piliers : sans eux la piste flotte sans explication. Ils donnent aussi l'echelle
+  // de la hauteur, qui est l'effet recherche.
+  for (let z = 14; z > -150; z -= 13) {
+    for (const sx of [-1, 1]) {
+      const h = 13.5;
+      const pillar = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.85, 1.15, h, 14),
+        toonMaterial(sx > 0 ? 0xff8ac0 : 0x9d7bff)
+      );
+      pillar.position.set(sx * 4.2, GROUND_Y + h / 2, z);
+      pillar.castShadow = true;
+      addOutline(pillar, 0.012);
+      group.add(pillar);
+
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.8, 0.9, 14), toonMaterial(0x7b5ad6));
+      foot.position.set(sx * 4.2, GROUND_Y + 0.45, z);
+      group.add(foot);
+    }
+  }
+
   dressStart();
   dressFinish();
   dressScenery();
@@ -507,7 +536,7 @@ export function buildCourse(RAPIER, assets) {
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(340, 460), toonMaterial(0x8ede6d));
     ground.material.map = grassTufts({ repeat: [30, 40] });
     ground.rotation.x = -Math.PI / 2;
-    ground.position.set(0, -3.2, -60);
+    ground.position.set(0, GROUND_Y, -60);
     ground.receiveShadow = true;
     group.add(ground);
 
@@ -519,7 +548,7 @@ export function buildCourse(RAPIER, assets) {
       [100, -164, 32, 42], [-104, -228, 38, 50],
     ]) {
       const peak = stripedPeak(r, h, 0xffb3c8, 0xfff0f5, 5);
-      peak.position.set(hx, -3.2, hz);
+      peak.position.set(hx, GROUND_Y, hz);
       group.add(peak);
     }
 
@@ -527,7 +556,7 @@ export function buildCourse(RAPIER, assets) {
     const mound = new THREE.SphereGeometry(1, 14, 10);
     for (const [hx, hz, r] of [[-52, -60, 22], [56, -110, 26], [-60, -160, 20], [48, -20, 18]]) {
       const m = new THREE.Mesh(mound, toonMaterial(0x7fd45e));
-      m.position.set(hx, -3.2, hz);
+      m.position.set(hx, GROUND_Y, hz);
       m.scale.set(r, r * 0.3, r);
       group.add(m);
     }
@@ -542,11 +571,11 @@ export function buildCourse(RAPIER, assets) {
     // Trois masses dominantes. Sans elles, tout le decor fait la meme taille et l'oeil
     // n'a nulle part ou se poser ; elles servent aussi de reperes de distance.
     const bigArch = inflatableArch(46, 26, 1.9, 0xff3d8b);
-    bigArch.position.set(0, -3.2, -66);
+    bigArch.position.set(0, GROUND_Y, -66);
     group.add(bigArch);
 
     /** Pose un modèle généré : pas de contour, pas d'ombre — c'est du décor, pas du gameplay. */
-    function prop(name, size, x, z, { y = -3.2, rot = 0, tint = null, shadow = false } = {}) {
+    function prop(name, size, x, z, { y = GROUND_Y, rot = 0, tint = null, shadow = false } = {}) {
       const m = assets.get(name, size, { outline: 0 });
       if (!m) return null;
       m.position.set(x, y, z);
@@ -584,7 +613,7 @@ export function buildCourse(RAPIER, assets) {
         }
         const holder = new THREE.Group();
         holder.add(shape);
-        holder.position.set(side * (15 + ((v * 3.7) % 5)), -3.2, z - (side > 0 ? 4 : 0));
+        holder.position.set(side * (26 + ((v * 3.7) % 9)), GROUND_Y, z - (side > 0 ? 4 : 0));
         group.add(holder);
         v++;
       }
@@ -598,7 +627,7 @@ export function buildCourse(RAPIER, assets) {
     prop('bounce-castle', 34, 46, -104, { rot: -0.9 });
     prop('camera-tower', 7, 26, -108, { rot: -1.2 });
     prop('camera-tower', 7, -24, -146, { rot: 1.4 });
-    prop('giant-trophy', 9, 0, finishZ - 12, { y: -3.2, shadow: true });
+    prop('giant-trophy', 9, 0, finishZ - 12, { y: GROUND_Y, shadow: true });
 
     // ── Dirigeable : dérive lentement au-dessus du parcours ──
     const blimp = prop('blimp', 22, -30, -70, { y: 34, rot: 0.3 });
@@ -616,7 +645,7 @@ export function buildCourse(RAPIER, assets) {
     for (let z = 4; z > -150; z -= 34) {
       for (const side of [-1, 1]) {
         const pole = flagPole(6.8 + (f % 3) * 0.7, 2.1, 1.15, 0xf0f0f5, flagColors[f % flagColors.length]);
-        pole.position.set(side * 15.2, -3.2, z);
+        pole.position.set(side * 15.2, GROUND_Y, z);
         // Tous les drapeaux flottent vers l'arrivee : un vent coherent, et ils ne
         // font plus face au joueur comme des panneaux publicitaires.
         pole.rotation.y = Math.PI / 2;
@@ -626,7 +655,7 @@ export function buildCourse(RAPIER, assets) {
     }
     for (const [x, z] of [[-14, -52], [14, -112]]) {
       const pen = pennant(8.8, 2.6, 0.9, 0xe8e8ef, flagColors[(f++) % flagColors.length]);
-      pen.position.set(x, -3.2, z);
+      pen.position.set(x, GROUND_Y, z);
       group.add(pen);
     }
 
@@ -635,9 +664,25 @@ export function buildCourse(RAPIER, assets) {
       [-34, -46, 3.2, 0xff5f7e], [36, -108, 3.4, 0x4fd1c5],
     ]) {
       const b = balloon(r, color);
-      b.position.set(bx, -3.2, bz);
+      b.position.set(bx, GROUND_Y, bz);
       group.add(b);
     }
+
+    // Quelques arbres seulement, en contrebas et bien espaces : dans les references le
+    // terrain est presque nu, l'interet est dans les montagnes et le ciel.
+    const treeSpots = [[-30, -8], [34, -34], [-38, -62], [31, -88], [-33, -118], [36, -142]];
+    treeSpots.forEach(([tx, tz], i) => {
+      const t = assets.get(i % 2 ? 'tree-round' : 'tree-pine', 7 + (i % 3) * 1.6, { outline: 0 });
+      if (!t) return;
+      t.position.set(tx, GROUND_Y, tz);
+      t.rotation.y = i * 1.7;
+      t.traverse((c) => {
+        if (!c.isMesh || c.userData.isOutline) return;
+        c.castShadow = false;
+        if (c.material?.color) c.material.color.setHex(i % 2 ? 0x86e06a : 0x6ed49a);
+      });
+      group.add(t);
+    });
 
     for (const [x, z, ry] of [[-30, -44, 0.5], [30, -104, -0.5]]) {
       grandstand(x, z, ry * Math.PI);
@@ -695,7 +740,7 @@ export function buildCourse(RAPIER, assets) {
   });
 
   return {
-    world, group, spawn, finishZ, killY: -12, checkpoints, conveyors,
+    world, group, spawn, finishZ, killY: -26, checkpoints, conveyors,
     update: (elapsed, dt = 0.016, focus = null) => {
       updateFlags(elapsed);
       for (const fn of animated) fn(elapsed);

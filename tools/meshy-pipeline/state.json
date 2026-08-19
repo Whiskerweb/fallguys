@@ -148,5 +148,25 @@
     "previewId": "01a01a5f-d8a7-724b-a7fb-004ba5b02170",
     "refineId": "01a01a60-d9f7-728c-85fc-760a460dfd3a",
     "done": true
+  },
+  "tube-gate-arch": {
+    "previewId": "01a01a6f-9058-7c27-acb5-a0ec368a88df",
+    "refineId": "01a01a70-3ef1-770b-a5c3-e3118e92c3a3",
+    "done": true
+  },
+  "inflatable-shrub-cluster": {
+    "previewId": "01a01a6f-9056-74cd-b2c9-8ecf13de11b2",
+    "refineId": "01a01a70-6198-7345-8a89-ef5c7efe2b48",
+    "done": true
+  },
+  "mattress-grandstand-stack": {
+    "previewId": "01a01a6f-9058-7c26-b46d-33c52da75bbb",
+    "refineId": "01a01a70-8342-7510-8042-6764d4035471",
+    "done": true
+  },
+  "finish-line-bouncy-castle": {
+    "previewId": "01a01a6f-9056-74cb-8f72-0b9fe9cc9c8e",
+    "refineId": "01a01a70-846d-7725-8206-68269899cee1",
+    "done": true
   }
 }

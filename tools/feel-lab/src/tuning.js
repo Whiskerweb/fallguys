@@ -33,7 +33,7 @@ export const TUNING = {
 
   // --- Caméra ---
   camDistance: 11.5,
-  camHeight: 4.6,
+  camHeight: 5.6,
   camLag: 7.5,            // plus haut = caméra plus collée
   camLookAhead: 1.5,      // anticipation sur la vélocité
   camFov: 50,
