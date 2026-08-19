@@ -20,7 +20,7 @@ const SLOTS = [
 ];
 const OUT = path.resolve('../feel-lab/public/textures');
 
-const [src, slot, sizeArg] = process.argv.slice(2);
+const [src, slot, sizeArg, liftArg] = process.argv.slice(2);
 if (!src || !slot) {
   console.error('usage: node seamless.mjs <image> <slot> [taille]');
   console.error('slots: ' + SLOTS.join(', '));
@@ -29,6 +29,14 @@ if (!src || !slot) {
 if (!SLOTS.includes(slot)) console.warn(`! "${slot}" ne correspond a aucun slot connu — le jeu l'ignorera.`);
 
 const SIZE = Number(sizeArg) || 1024;
+/**
+ * `lift` remonte les valeurs sombres vers le blanc : out = 1 - (1-in) * (1-lift).
+ * Une texture de MOTIF multiplie la couleur du matériau ; ses creux gris désaturent
+ * donc le rose en rose sale. En relevant les creux, le relief reste lisible mais la
+ * couleur du matériau s'exprime pleinement. À ne pas appliquer aux textures de SIGNAL,
+ * qui portent elles-mêmes leurs couleurs.
+ */
+const LIFT = Math.min(0.95, Math.max(0, Number(liftArg) || 0));
 const BAND = Math.round(SIZE * 0.22);           // largeur de la zone de fondu
 
 const smooth = (t) => t * t * (3 - 2 * t);      // lissage cubique, évite une cassure nette
@@ -55,6 +63,19 @@ for (let y = 0; y < SIZE; y++) {
                (mix((a >>> 16) & 255, (b >>> 16) & 255) << 16) |
                (mix((a >>> 8) & 255, (b >>> 8) & 255) << 8) | 255) >>> 0;
     img.setPixelColor(c, x, y);
+  }
+}
+
+if (LIFT > 0) {
+  const k = 1 - LIFT;
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const c = img.getPixelColor(x, y);
+      const up = (v) => Math.round(255 - (255 - v) * k);
+      const n = ((up((c >>> 24) & 255) << 24) | (up((c >>> 16) & 255) << 16) |
+                 (up((c >>> 8) & 255) << 8) | 255) >>> 0;
+      img.setPixelColor(n, x, y);
+    }
   }
 }
 

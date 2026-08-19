@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import GUI from 'lil-gui';
 import { TUNING, TUNING_RANGES } from './tuning.js';
-import { createWorld } from './world.js';
+import { createWorld, GRADE } from './world.js';
 import { assets } from './assets.js';
 import { loadExternalTextures } from './textures.js';
 import { buildCourse } from './scenes/course.js';
@@ -80,6 +80,15 @@ function buildGui(getWorld) {
     }
     if (name !== 'Déplacement' && name !== 'Saut') folder.close();
   }
+  // Placé en premier et ouvert : c'est le réglage le plus subjectif, donc celui
+  // qui doit être sous la main quand on juge le rendu.
+  const gradeFolder = gui.addFolder('Image');
+  gradeFolder.add(GRADE, 'saturation', 0.6, 2.0, 0.01).name('saturation');
+  gradeFolder.add(GRADE, 'brightness', 0.7, 1.6, 0.01).name('luminosite');
+  gradeFolder.add(GRADE, 'lift', 0, 0.25, 0.005).name('noirs releves');
+  gradeFolder.add(GRADE, 'contrast', 0.7, 1.5, 0.01).name('contraste');
+  gradeFolder.add(GRADE, 'warmth', -0.08, 0.12, 0.005).name('chaleur');
+
   const rigFolder = gui.addFolder('Animation');
   for (const [k, [min, max]] of Object.entries(RIG_RANGES)) {
     rigFolder.add(RIG, k, min, max, (max - min) / 200);
@@ -367,6 +376,7 @@ async function boot() {
     const dt = Math.min(rawDt, 0.05);
     elapsed += dt;
     game.update(dt, elapsed);
+    view.applyGrade();
     view.composer.render();
 
     // On accumule le temps REEL, pas le delta plafonne : sinon un jeu a 2 fps

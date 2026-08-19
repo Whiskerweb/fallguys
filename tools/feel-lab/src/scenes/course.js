@@ -23,9 +23,9 @@ import {
  */
 
 const C = {
-  ground: 0xff7ab8, groundAlt: 0xffa8d2, groundHigh: 0x7fd8f0, rail: 0x8b4dff,
-  hazard: 0xffb01f, roller: 0x1fc9b8, platform: 0x9b5cff, finish: 0x2ecc71,
-  bumper: 0xff4d8d, conveyor: 0x5b8cff, hammer: 0xff5f3d,
+  ground: 0xff8ec2, groundAlt: 0xffb6d9, groundHigh: 0x8fe2f5, rail: 0x9d64ff,
+  hazard: 0xffc23d, roller: 0x36dbc9, platform: 0xa974ff, finish: 0x45d97f,
+  bumper: 0xff5f9c, conveyor: 0x6f9dff, hammer: 0xff7250,
 };
 
 /** Interrupteurs de diagnostic : ?skip=ramps,doors,hammers,bumpers,conveyors,rollers,spinners,pendulums */
@@ -424,7 +424,7 @@ export function buildCourse(RAPIER, assets) {
 
   function dressScenery() {
     // Terrain : sans lui, gradins et décors flottent au-dessus du vide.
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(340, 460), toonMaterial(0x7bc95f));
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(340, 460), toonMaterial(0x8ede6d));
     ground.material.map = grassTufts({ repeat: [30, 40] });
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(0, -3.2, -60);

@@ -3,11 +3,17 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { TUNING } from './tuning.js';
 
-/** Rampe de 4 niveaux : donne l'aplat franc du toon shading plutôt qu'un dégradé lisse. */
+/**
+ * Rampe d'ombrage. Elle démarre HAUT (0,59 et non 0,30) : dans un rendu cartoon, une
+ * face à l'ombre doit rester lumineuse. Une rampe basse donne des ombres profondes qui
+ * font paraître toutes les couleurs sales et éteintes — c'était la cause principale du
+ * rendu terne. Les quatre paliers restent francs, donc l'aplat est conservé.
+ */
 export function toonGradient() {
-  const data = new Uint8Array([76, 140, 205, 255]);
+  const data = new Uint8Array([150, 200, 232, 255]);
   const tex = new THREE.DataTexture(data, data.length, 1, THREE.RedFormat);
   tex.minFilter = THREE.NearestFilter;
   tex.magFilter = THREE.NearestFilter;
@@ -41,9 +47,9 @@ function buildSky() {
     side: THREE.BackSide,
     depthWrite: false,
     uniforms: {
-      topColor: { value: new THREE.Color(0x1e86e0) },
-      midColor: { value: new THREE.Color(0x6fc8f5) },
-      botColor: { value: new THREE.Color(0xffd98a) },
+      topColor: { value: new THREE.Color(0x35a3f0) },
+      midColor: { value: new THREE.Color(0x8fdcff) },
+      botColor: { value: new THREE.Color(0xffe9b0) },
     },
     vertexShader: `
       varying vec3 vPos;
@@ -94,6 +100,38 @@ function mulberry32(a) {
   };
 }
 
+/**
+ * Correction colorimétrique finale. C'est elle qui donne le « plastique neuf » du genre :
+ * saturation poussée, noirs relevés (rien n'est jamais vraiment noir), et une pointe de
+ * chaleur. Réglable en direct dans le panneau — c'est un jugement d'œil, pas de calcul.
+ */
+export const GRADE = { saturation: 1.34, brightness: 1.08, lift: 0.06, contrast: 1.02, warmth: 0.025 };
+
+const GradeShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uSat: { value: GRADE.saturation }, uBright: { value: GRADE.brightness },
+    uLift: { value: GRADE.lift }, uContrast: { value: GRADE.contrast }, uWarm: { value: GRADE.warmth },
+  },
+  vertexShader: `varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uSat; uniform float uBright; uniform float uLift; uniform float uContrast; uniform float uWarm;
+    varying vec2 vUv;
+    void main() {
+      vec4 tex = texture2D(tDiffuse, vUv);
+      vec3 c = tex.rgb;
+      c = (c - 0.5) * uContrast + 0.5;                 // contraste autour du gris moyen
+      float l = dot(c, vec3(0.2126, 0.7152, 0.0722));  // luminance perçue
+      c = mix(vec3(l), c, uSat);                       // saturation
+      c = c * (1.0 - uLift) + uLift;                   // noirs relevés : plus de trous noirs
+      c *= uBright;
+      c.r += uWarm; c.b -= uWarm * 0.6;                // légère chaleur
+      gl_FragColor = vec4(clamp(c, 0.0, 1.0), tex.a);
+    }`,
+};
+
 export function createWorld() {
   // ?lowfx desactive bloom et ombres. Indispensable pour l'inspection automatisee :
   // le navigateur headless rend sans GPU, et les passes plein ecran y coutent
@@ -109,7 +147,7 @@ export function createWorld() {
   document.body.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x9fd8f5, 150, 420);
+  scene.fog = new THREE.Fog(0xc8ecff, 190, 460);
   const sky = buildSky();
   const clouds = buildClouds();
   scene.add(sky);
@@ -118,12 +156,12 @@ export function createWorld() {
   const camera = new THREE.PerspectiveCamera(TUNING.camFov, innerWidth / innerHeight, 0.1, 600);
   camera.position.set(0, 8, 14);
 
-  scene.add(new THREE.HemisphereLight(0xbfe4ff, 0xffb877, 0.36));
+  scene.add(new THREE.HemisphereLight(0xd6efff, 0xffd0a0, 0.46));
 
   // Somme des intensites volontairement sous 1.15 : l'ombrage toon ne compresse pas les
 // hautes lumieres, et au-dela toute teinte claire ecrete vers le blanc. Le personnage
 // violet apparaissait entierement blanc a 1.7.
-  const sun = new THREE.DirectionalLight(0xfffaf0, 0.94);
+  const sun = new THREE.DirectionalLight(0xfffdf6, 0.72);
   sun.position.set(26, 42, 18);
   sun.castShadow = !lowFx;
   sun.shadow.mapSize.set(2048, 2048);
@@ -140,8 +178,10 @@ export function createWorld() {
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   if (!lowFx) {
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.7, 0.92));
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.26, 0.7, 0.9));
   }
+  const gradePass = new ShaderPass(GradeShader);
+  composer.addPass(gradePass);
   composer.addPass(new OutputPass());
 
   addEventListener('resize', () => {
@@ -158,5 +198,15 @@ export function createWorld() {
     sun.target.updateMatrixWorld();
   }
 
-  return { renderer, scene, camera, composer, followShadow, sky, clouds, fog: scene.fog };
+  /** Répercute les réglages du panneau sur l'étage de correction. */
+  function applyGrade() {
+    const u = gradePass.uniforms;
+    u.uSat.value = GRADE.saturation;
+    u.uBright.value = GRADE.brightness;
+    u.uLift.value = GRADE.lift;
+    u.uContrast.value = GRADE.contrast;
+    u.uWarm.value = GRADE.warmth;
+  }
+
+  return { renderer, scene, camera, composer, followShadow, sky, clouds, fog: scene.fog, applyGrade };
 }
