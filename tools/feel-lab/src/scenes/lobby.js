@@ -25,8 +25,10 @@ export function buildLobbyScreen(assets) {
     depthWrite: false,
     uniforms: {
       time: { value: 0 },
-      inner: { value: new THREE.Color(0xffc93c) },
-      outer: { value: new THREE.Color(0xf08b1e) },
+      // Fond FROID : le skin par defaut est chaud, et un fond orange l'avalait.
+      // Un dégradé violet-cyan fait ressortir toutes les couleurs de la garde-robe.
+      inner: { value: new THREE.Color(0x8b5cf6) },
+      outer: { value: new THREE.Color(0x2dd9d9) },
     },
     vertexShader: `
       varying vec2 vUv;

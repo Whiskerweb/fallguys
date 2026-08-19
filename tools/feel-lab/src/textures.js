@@ -154,7 +154,7 @@ export function quiltedVinyl({ base = '#ffffff', seam = '#d7d7d7', cells = 5, re
 }
 
 /** MOTIF — damier à cases arrondies, plus doux qu'un damier net. */
-export function softChecker({ a = '#ffffff', b = '#d4d4d4', cells = 4, repeat = [5, 10] } = {}) {
+export function softChecker({ a = '#ffffff', b = '#e6e6e6', cells = 4, repeat = [5, 10] } = {}) {
   const hand = painted('ground-check', repeat);
   if (hand) return hand;
   return make(`checker-${a}-${b}-${cells}`, 512, (ctx, s) => {
@@ -373,7 +373,7 @@ export function floorMarkings(kind, { color = '#ffffff', alpha = 0.55 } = {}) {
 }
 
 /** MOTIF — traits arrondis épars, le marquage signature des sols du genre. Gros et lisibles. */
-export function dashPattern({ base = '#ffffff', dash = '#dcdcdc', count = 22, repeat = [3, 6] } = {}) {
+export function dashPattern({ base = '#ffffff', dash = '#ececec', count = 22, repeat = [3, 6] } = {}) {
   const hand = painted('ground-dash', repeat);
   if (hand) return hand;
   return make(`dash-${base}-${dash}-${count}`, 512, (ctx, s) => {
@@ -395,7 +395,7 @@ export function dashPattern({ base = '#ffffff', dash = '#dcdcdc', count = 22, re
 }
 
 /** MOTIF — labyrinthe à angles arrondis : un grand graphisme qui occupe la surface. */
-export function mazePattern({ base = '#ffffff', line = '#d6d6d6', cells = 6, repeat = [3, 6] } = {}) {
+export function mazePattern({ base = '#ffffff', line = '#e8e8e8', cells = 6, repeat = [3, 6] } = {}) {
   const hand = painted('ground-maze', repeat);
   if (hand) return hand;
   return make(`maze-${base}-${line}-${cells}`, 512, (ctx, s) => {
@@ -424,7 +424,7 @@ export function mazePattern({ base = '#ffffff', line = '#d6d6d6', cells = 6, rep
 }
 
 /** MOTIF — grandes courbes larges, façon marquage de piste. */
-export function swoosh({ base = '#ffffff', line = '#dadada', repeat = [2, 5] } = {}) {
+export function swoosh({ base = '#ffffff', line = '#ededed', repeat = [2, 5] } = {}) {
   const hand = painted('ground-swoosh', repeat);
   if (hand) return hand;
   return make(`swoosh-${base}-${line}`, 512, (ctx, s) => {

@@ -273,8 +273,20 @@ export function slabMesh(w, h, d, topColor, edgeColor, { map = null, radius = 0.
  */
 export function stripedPeak(radius, height, baseColor, bandColor, bands = 5) {
   const group = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.ConeGeometry(radius, height, 18, 1), toonMaterial(baseColor));
-  body.position.y = height / 2;
+  // Un cone pur donne un sommet pointu et dur. Les references ont des sommets arrondis :
+  // on part d'une demi-sphere etiree, dont le profil se rapproche naturellement d'un dome.
+  const geo = new THREE.SphereGeometry(radius, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    const k = y / radius;                       // 0 a la base, 1 au sommet
+    const shrink = 1 - Math.pow(k, 0.55) * 0.18; // resserre legerement vers le haut
+    pos.setX(i, pos.getX(i) * shrink);
+    pos.setZ(i, pos.getZ(i) * shrink);
+    pos.setY(i, y * (height / radius));
+  }
+  geo.computeVertexNormals();
+  const body = new THREE.Mesh(geo, toonMaterial(baseColor));
   group.add(body);
 
   // Anneaux plaqués : plus lisibles qu'une texture, et gratuits en mémoire.
@@ -289,9 +301,11 @@ export function stripedPeak(radius, height, baseColor, bandColor, bands = 5) {
     group.add(ring);
   }
 
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.22, 12, 8), toonMaterial(0xffffff));
-  cap.position.y = height * 0.97;
-  cap.scale.y = 0.6;
+  // Calotte enneigee : une coupole posee sur le sommet, pas une boule qui depasse.
+  const capGeo = new THREE.SphereGeometry(radius * 0.34, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+  const cap = new THREE.Mesh(capGeo, toonMaterial(0xffffff));
+  cap.position.y = height * 0.9;
+  cap.scale.y = 0.55;
   group.add(cap);
   return group;
 }

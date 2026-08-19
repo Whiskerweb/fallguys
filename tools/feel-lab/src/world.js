@@ -13,7 +13,10 @@ import { TUNING } from './tuning.js';
  * rendu terne. Les quatre paliers restent francs, donc l'aplat est conservé.
  */
 export function toonGradient() {
-  const data = new Uint8Array([150, 200, 232, 255]);
+  // Trois paliers HAUTS au lieu de quatre : une surface horizontale doit atteindre la
+  // couleur PLEINE, sinon le jaune vire au moutarde et le turquoise au gris-vert.
+  // Le jaune est la teinte la plus fragile : multiplie par 0,9 il verdit deja.
+  const data = new Uint8Array([185, 228, 255]);
   const tex = new THREE.DataTexture(data, data.length, 1, THREE.RedFormat);
   tex.minFilter = THREE.NearestFilter;
   tex.magFilter = THREE.NearestFilter;
@@ -121,7 +124,7 @@ function mulberry32(a) {
  * saturation poussée, noirs relevés (rien n'est jamais vraiment noir), et une pointe de
  * chaleur. Réglable en direct dans le panneau — c'est un jugement d'œil, pas de calcul.
  */
-export const GRADE = { saturation: 1.30, brightness: 1.05, lift: 0.05, contrast: 1.06, warmth: 0.015 };
+export const GRADE = { saturation: 1.32, brightness: 1.07, lift: 0.045, contrast: 1.04, warmth: 0.0 };
 
 const GradeShader = {
   uniforms: {

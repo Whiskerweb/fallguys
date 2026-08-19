@@ -31,20 +31,20 @@ import {
  */
 const C = {
   cyan: 0x2dd9d9,
-  yellow: 0xffe14d,
+  yellow: 0xffee7a,
   pink: 0xff4fa3,
   blue: 0x2e9bf5,
   mint: 0x6ee86e,
   violet: 0xb072ff,
   edge: 0xffffff,
 
-  rail: 0xffd93b,
+  rail: 0xffe45c,
   railAlt: 0xff2d8f,
   railPost: 0xff8a1f,
   hazard: 0xff7a1f,
   bumper: 0xff2d8f,
   hammer: 0xff5a2d,
-  roller: 0xffe14d,
+  roller: 0xffee7a,
   platform: 0xff4fa3,
   conveyor: 0xa855f7,
   finish: 0x3ee87a,
