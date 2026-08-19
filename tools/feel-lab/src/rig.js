@@ -14,13 +14,13 @@ import * as THREE from 'three';
  */
 
 export const RIG = {
-  armSwing: 0.95,     // amplitude du balancement des bras en course
-  legSwing: 1.05,     // amplitude du balancement des jambes
-  cadence: 1.35,      // pas par mètre parcouru
-  torsoLean: 0.26,    // inclinaison du buste à pleine vitesse
-  bounce: 0.09,       // rebond vertical du bassin par foulée
+  armSwing: 1.35,     // amplitude du balancement des bras en course
+  legSwing: 1.45,     // amplitude du balancement des jambes
+  cadence: 1.55,      // pas par mètre parcouru
+  torsoLean: 0.34,    // inclinaison du buste à pleine vitesse
+  bounce: 0.15,       // rebond vertical du bassin par foulée
   armRest: 1.28,      // angle qui ramène les bras de la pose T au corps
-  headBob: 0.12,
+  headBob: 0.2,
   blend: 14,          // vitesse de transition entre poses
 };
 
@@ -151,13 +151,13 @@ export class CharacterRig {
 
       this.set('LeftUpLeg', -s * R.legSwing * run, 0, 0.06, w);
       this.set('RightUpLeg', s * R.legSwing * run, 0, -0.06, w);
-      this.set('LeftLeg', Math.max(0, s) * 1.15 * run, 0, 0, w);
-      this.set('RightLeg', Math.max(0, -s) * 1.15 * run, 0, 0, w);
-      this.set('LeftFoot', -0.25 * run, 0, 0, w);
-      this.set('RightFoot', -0.25 * run, 0, 0, w);
+      this.set('LeftLeg', Math.max(0, s) * 1.55 * run, 0, 0, w);
+      this.set('RightLeg', Math.max(0, -s) * 1.55 * run, 0, 0, w);
+      this.set('LeftFoot', -0.38 * run, 0, 0, w);
+      this.set('RightFoot', -0.38 * run, 0, 0, w);
 
       this.set('Spine01', R.torsoLean * run + breathe, 0, 0, w);
-      this.set('Spine02', 0.05 * run, -s * 0.1 * run, 0, w);
+      this.set('Spine02', 0.05 * run, -s * 0.16 * run, c * 0.12 * run, w);
       this.set('Head', -R.torsoLean * 0.7 * run + R.headBob * c * run * 0.3, s * 0.08 * run, 0, w);
 
       bounce = Math.abs(c) * R.bounce * run;

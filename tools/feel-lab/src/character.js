@@ -343,10 +343,19 @@ export class Character {
       this.visual.quaternion.set(r.x, r.y, r.z, r.w);
     } else {
       // Orientation + inclinaison avant proportionnelle à la vitesse : lit la course d'un coup d'œil
-      const lean = Math.min(0.32, (speedH / T.maxSpeed) * 0.3);
+      // Inclinaison avant proportionnelle a la vitesse, plus un roulis dans les virages :
+      // un personnage qui tourne a plat parait glisser sur des rails.
+      const lean = Math.min(0.4, (speedH / T.maxSpeed) * 0.38);
+      let dYaw = this.yaw - (this.prevYaw ?? this.yaw);
+      while (dYaw > Math.PI) dYaw -= Math.PI * 2;
+      while (dYaw < -Math.PI) dYaw += Math.PI * 2;
+      this.bank = (this.bank ?? 0) + (Math.max(-0.45, Math.min(0.45, dYaw * 9)) - (this.bank ?? 0)) * Math.min(1, dt * 8);
+      this.prevYaw = this.yaw;
+
       this.visual.rotation.set(0, 0, 0);
       this.visual.rotateY(this.yaw);
       this.visual.rotateX(lean);
+      this.visual.rotateZ(-this.bank * (speedH / T.maxSpeed));
       // Sans squelette, un balancement du corps entier tient lieu de course.
       if (!this.rig && this.grounded && speedH > 0.6) {
         this.runCycle += dt * (5 + speedH * 1.5);

@@ -26,10 +26,10 @@ export const TUNING = {
   getUpDuration: 0.35,    // s d'animation de relevé
 
   // --- Squash & stretch ---
-  squashOnLand: 0.62,     // facteur d'écrasement à l'atterrissage
-  stretchOnJump: 1.22,    // facteur d'étirement au saut
-  squashSpring: 190,      // raideur du retour élastique
-  squashDamping: 17,      // amortissement
+  squashOnLand: 0.48,     // facteur d'écrasement à l'atterrissage
+  stretchOnJump: 1.38,    // facteur d'étirement au saut
+  squashSpring: 230,      // raideur du retour élastique
+  squashDamping: 15,      // amortissement
 
   // --- Caméra ---
   camDistance: 6.2,
