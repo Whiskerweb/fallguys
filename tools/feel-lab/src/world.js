@@ -13,11 +13,18 @@ import { TUNING } from './tuning.js';
  * rendu terne. Les quatre paliers restent francs, donc l'aplat est conservé.
  */
 export function toonGradient() {
-  // Trois paliers HAUTS au lieu de quatre : une surface horizontale doit atteindre la
-  // couleur PLEINE, sinon le jaune vire au moutarde et le turquoise au gris-vert.
-  // Le jaune est la teinte la plus fragile : multiplie par 0,9 il verdit deja.
-  const data = new Uint8Array([185, 228, 255]);
-  const tex = new THREE.DataTexture(data, data.length, 1, THREE.RedFormat);
+  // Rampe COLOREE, pas en niveaux de gris. Une rampe grise desature par construction
+  // tout ce qu'elle ombre — c'est ce qui salissait les teintes. Ici la face ombree vire
+  // au bleu-lavande et CONSERVE sa saturation. Deux texels sur quatre a 1,0 : la pleine
+  // lumiere doit couvrir la moitie de la rampe, sinon le jaune vire au moutarde.
+  const data = new Uint8Array([
+    198, 192, 224, 255,   // #C6C0E0 — ombre lavande, valeur 0,78
+    226, 222, 242, 255,   // #E2DEF2 — penombre, 0,89
+    255, 255, 255, 255,
+    255, 255, 255, 255,
+  ]);
+  const tex = new THREE.DataTexture(data, 4, 1, THREE.RGBAFormat);
+  tex.colorSpace = THREE.LinearSRGBColorSpace;
   tex.minFilter = THREE.NearestFilter;
   tex.magFilter = THREE.NearestFilter;
   tex.needsUpdate = true;
@@ -50,9 +57,9 @@ function buildSky() {
     side: THREE.BackSide,
     depthWrite: false,
     uniforms: {
-      topColor: { value: new THREE.Color(0x2f95e8) },
-      midColor: { value: new THREE.Color(0x7fd4ff) },
-      botColor: { value: new THREE.Color(0xdff3ff) },
+      topColor: { value: new THREE.Color(0x00c3eb) },
+      midColor: { value: new THREE.Color(0x6fd8f5) },
+      botColor: { value: new THREE.Color(0xd4f5f8) },
     },
     vertexShader: `
       varying vec3 vPos;
@@ -166,7 +173,7 @@ export function createWorld() {
   document.body.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xdff3ff, 210, 500);
+  scene.fog = new THREE.Fog(0xd4f5f8, 120, 380);
   const sky = buildSky();
   const clouds = buildClouds();
   scene.add(sky);
@@ -210,6 +217,16 @@ export function createWorld() {
     composer.setSize(innerWidth, innerHeight);
   });
 
+  /**
+   * Le decor bouge en permanence. Un decor fige lit "diorama", pas "monde", quel que
+   * soit le soin apporte aux materiaux. C'est le meilleur rapport lignes/impact du lot.
+   */
+  function animateSky(elapsed, dt) {
+    clouds.position.x += 0.35 * dt;
+    if (clouds.position.x > 120) clouds.position.x = -120;
+    clouds.position.y = Math.sin(elapsed * 0.3) * 0.6;
+  }
+
   /** La shadow camera suit le joueur : sans ça, les ombres se dégradent sur une piste longue. */
   function followShadow(target) {
     sun.position.set(target.x + 26, target.y + 42, target.z + 18);
@@ -227,5 +244,5 @@ export function createWorld() {
     u.uWarm.value = GRADE.warmth;
   }
 
-  return { renderer, scene, camera, composer, followShadow, sky, clouds, fog: scene.fog, applyGrade };
+  return { renderer, scene, camera, composer, followShadow, animateSky, sky, clouds, fog: scene.fog, applyGrade };
 }

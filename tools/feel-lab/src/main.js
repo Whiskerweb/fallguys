@@ -248,6 +248,7 @@ class Game {
 
   update(dt, elapsed) {
     this.lobby.update(elapsed, dt);
+    this.view.animateSky(elapsed, dt);
 
     if (this.mode === 'lobby') return;
 

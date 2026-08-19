@@ -134,12 +134,14 @@ export function buildCourse(RAPIER, assets) {
     // voisins ne sont jamais de la meme couleur.
     const railColor = (railTurn++ % 2) ? C.railAlt : C.rail;
     for (const sx of [-1, 1]) {
-      const rail = pill(len, 0.44, railColor);
+      // 0,66 de rayon : la rambarde arrive au sommet du crane. Avant, tout ce qui
+      // etait proche du joueur etait plus petit que lui — aucune echelle, aucun cadrage.
+      const rail = pill(len, 0.66, railColor);
       rail.rotation.x = Math.PI / 2;
       addBody(rail, x + sx * (width / 2 + 0.2), y + 0.62, zc,
         RAPIER.ColliderDesc.cuboid(0.44, 1.0, len / 2).setFriction(0.3));
       for (let z = zFrom; z >= zTo; z -= 8) {
-        const post = bollard(1.5, 0.26, C.railPost);
+        const post = bollard(2.1, 0.42, C.railPost);
         post.position.set(x + sx * (width / 2 + 0.2), y - 0.5, z);
         group.add(post);
       }
@@ -685,6 +687,18 @@ export function buildCourse(RAPIER, assets) {
       for (const s of spectators) s.m.position.y = s.base + Math.abs(Math.sin(t * s.speed + s.phase)) * 0.34;
     });
   }
+
+  // Respiration des gonflables : 1,2 % d'amplitude suffit a faire vivre une scene entiere.
+  const breathing = [];
+  group.traverse((o) => {
+    if (o.isMesh && !o.userData.isOutline && o.geometry?.type === 'CapsuleGeometry') breathing.push(o);
+  });
+  animated.push((t) => {
+    for (let i = 0; i < breathing.length; i++) {
+      const k = 1 + Math.sin(t * 1.1 + i * 0.7) * 0.012;
+      breathing[i].scale.set(k, breathing[i].scale.y, k);
+    }
+  });
 
   return {
     world, group, spawn, finishZ, killY: -12, checkpoints, conveyors,

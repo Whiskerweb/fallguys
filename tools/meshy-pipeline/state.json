@@ -108,5 +108,17 @@
     "previewId": "01a01a22-3f12-75b8-b8f2-8133a6125436",
     "refineId": "01a01a23-26ef-79c4-8317-f3b55c452c18",
     "done": true
+  },
+  "teardrop-marker-beacon": {
+    "previewId": "01a01a5d-5e6c-7743-8ba4-99118dff513b"
+  },
+  "inflatable-windmill-drum": {
+    "previewId": "01a01a5d-5dd0-7ec8-ab96-e7eab2f5a338"
+  },
+  "inflatable-prize-kiosk": {
+    "previewId": "01a01a5d-5dce-7741-aaa4-fb6e303cef9d"
+  },
+  "bumper-wall-segment": {
+    "previewId": "01a01a5d-611e-7f9f-a28a-6e624ca9c0a4"
   }
 }

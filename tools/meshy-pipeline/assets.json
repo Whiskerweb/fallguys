@@ -131,6 +131,78 @@
       "polycount": 13000,
       "symmetry": "on",
       "prompt": "cartoon inflatable bouncy castle, fat rounded pastel pink turquoise and yellow inflatable towers with a big arched entrance, glossy vinyl material, tiny flags on top, theme park attraction prop"
+    },
+    {
+      "name": "inflatable-shrub-cluster",
+      "polycount": 6000,
+      "symmetry": "off",
+      "prompt": "Stylized inflatable bush prop for a cartoon party game. Four egg-shaped balloons squashed to 68 percent of their width, fused into one single rounded cluster, resting on one short stubby stem cylinder whose height is 25 percent of the cluster and whose diameter is 35 percent of the cluster. Cluster is one single flat saturated lime green #A5D440 glossy vinyl; stem is flat purple #8E5FD3 glossy vinyl. Absolutely no bark, no wood grain, no branches, no leaves, no foliage, no roots, no realistic plant of any kind. Fully inflated air-filled surfaces, thick welded seams, very large rounded radii everywhere, no sharp angle, no small detail, no engraving, no text. Simple closed silhouette readable from 50 meters away, clean toon game asset, uniform smooth quads, no ground plane, no base, no scenery."
+    },
+    {
+      "name": "inflatable-prize-kiosk",
+      "polycount": 9000,
+      "symmetry": "on",
+      "prompt": "Inflatable vinyl fairground kiosk for a cartoon obstacle course. Body is a fat lying-down cylinder with fully rounded end caps, radius equal to 35 percent of its length, split into two crisp flat color blocks: magenta #FE2A96 on one half, golden yellow #FEC809 on the other. On top sits a scalloped dome canopy made of ten big rounded lobes alternating pure white #FFFFFF and magenta #FE2A96, overhanging the body by 15 percent of its diameter. Glossy air-filled plastic, thick welded seams between tubes, soft balloon bulge, every edge heavily rounded. No wooden planks, no boards, no stone, no metal, no windows, no doors, no counter, no cups, no baskets, no signage, no text, no logo, no tiny props. Bold simple silhouette, flat saturated colors, clean toon game asset, no ground plane."
+    },
+    {
+      "name": "inflatable-windmill-drum",
+      "polycount": 11000,
+      "symmetry": "on",
+      "prompt": "Inflatable vinyl windmill replacement for a cartoon party game. Main body is a lying-down cylinder segmented into three fat parallel tubes, all cyan #00C3EB, radius equal to half its length, end caps fully domed. Four flat blades radiate from the front face, each a flat capsule with fully rounded tips, length 1.6 times the body height, alternating magenta #FE2A96 and golden yellow #FEC809. Base is a truncated cone built from three stacked inflated rings in golden yellow #FEC809. Glossy balloon plastic with thick welded seams and soft air pressure bulges. No stone, no bricks, no masonry, no wooden sails, no fabric, no shingles, no windows, no door, no rope, no gears, no small parts, no text. Very rounded readable silhouette, flat saturated colors, clean toon game asset, no ground plane."
+    },
+    {
+      "name": "mattress-grandstand-stack",
+      "polycount": 8000,
+      "symmetry": "on",
+      "prompt": "Inflatable spectator grandstand for a cartoon obstacle course. Three stacked rectangular air mattress steps of equal thickness, each one shorter in depth than the one below to form a staircase, colors alternating golden yellow #FEC809, magenta #FE2A96, golden yellow #FEC809. Every mattress has strongly rounded corners and edges, a puffy quilted-free inflated bulge and a visible welded seam line running around its middle. On the top two steps stand simple rounded capsules acting as spectators, each capsule one single flat color from magenta, cyan, yellow, orange, purple, coral, spaced apart by 1.2 times their own width, no faces, no arms, no clothing. Glossy vinyl plastic only. No wood, no metal scaffolding, no railing, no stairs, no grey, no concrete, no text. Flat saturated colors, simple silhouette, clean toon game asset, no ground plane."
+    },
+    {
+      "name": "teardrop-marker-beacon",
+      "polycount": 4000,
+      "symmetry": "on",
+      "prompt": "Floating map-pin marker beacon for a cartoon party game. One single teardrop volume, round bulb on top tapering to a soft rounded point at the bottom, twice as tall as it is wide, in pure glossy white #FFFFFF inflatable vinyl. A thick golden yellow #FEC809 ring collar wraps around its widest part, and a small rounded golden sphere caps the very top. Perfectly smooth inflated surface, no sharp edge anywhere, one soft glossy highlight. No pole, no stick, no stand, no ground plane, no wood, no stone, no metal, no rope, no icon, no text, no engraving, no tiny detail. Extremely simple and instantly readable silhouette, flat saturated colors, clean toon game asset."
+    },
+    {
+      "name": "finish-line-bouncy-castle",
+      "polycount": 14000,
+      "symmetry": "on",
+      "prompt": "Giant inflatable bouncy castle marking the finish line of a cartoon obstacle course. Wide chunky fortress made of fat vertical tube columns and rounded merlons on top, twice as wide as it is tall, with one big arched tunnel opening in the center whose top is a perfect half circle. Body in saturated magenta #FE2A96, tube trim, merlon caps and arch border in turquoise #3ED0D8, three rounded pennant bulbs in golden yellow #FEC809 on the highest towers. Everything is air-filled glossy vinyl with thick welded seams, huge rounded radii, soft pressure bulges, no right angle visible. No stone, no bricks, no wood, no fabric, no ropes, no windows, no ladders, no text, no logo, no small ornament. Massive bold silhouette readable from very far, flat saturated colors, clean toon game asset, no ground plane."
+    },
+    {
+      "name": "tube-gate-arch",
+      "polycount": 8000,
+      "symmetry": "on",
+      "prompt": "Inflatable checkpoint arch for a cartoon obstacle course. One thick continuous tube bent into a wide portal, straight vertical legs and a broad rounded top, inner opening about seven times the tube diameter wide, tube diameter constant along the whole path. The tube is split into four equal colored segments along its length: magenta #FE2A96, orange #FB7813, golden yellow #FEC809, turquoise #3ED0D8, separated by crisp flat color breaks with a slight welded pinch at each junction. Two fat rounded pads at the base act as feet. Glossy air-filled vinyl, perfectly circular cross-section, soft pressure bulge, no sharp angle at all. No fabric banner, no ropes, no poles, no metal, no wood, no text, no logo, no numbers, no small fittings. Bold simple silhouette, flat saturated colors, clean toon game asset, no ground plane."
+    },
+    {
+      "name": "bumper-wall-segment",
+      "polycount": 5000,
+      "symmetry": "on",
+      "prompt": "Inflatable side bumper wall segment for a cartoon obstacle course. Three long horizontal tubes stacked on top of each other and welded together into one straight wall panel, each tube a perfect half-cylinder bulge with fully domed rounded ends, total height slightly larger than the wall length divided by three. Bottom and top tubes coral pink #FD5987, middle tube golden yellow #FEC809, with a deep welded valley groove between tubes losing only a little value. Glossy vinyl plastic, soft air pressure swelling, every edge fully rounded, no flat panel, no right angle. No metal rails, no posts, no bolts, no straps, no wood, no stone, no text, no logo, no tiny detail. Very simple readable silhouette, flat saturated colors, clean toon game asset, no ground plane."
+    },
+    {
+      "name": "pennant-flag-mast",
+      "polycount": 6000,
+      "symmetry": "off",
+      "prompt": "Inflatable pennant mast for a cartoon party game. One tall rounded pole made of a smooth capsule-shaped tube in golden yellow #FEC809, five times taller than it is wide, standing on a fat inflated donut base in turquoise #3ED0D8, capped by a small rounded sphere on top. Five thick triangular pennants with fully rounded tips are attached along one side of the pole, each a solid chunky volume, not a thin sheet, alternating magenta #FE2A96, white #FFFFFF, turquoise #3ED0D8, each gently curved as if caught in the wind. Glossy inflated vinyl only. No cloth, no fabric folds, no wrinkles, no rope, no wire, no metal, no wood, no text, no logo, no tiny hardware. Simple readable silhouette, flat saturated colors, clean toon game asset, no ground plane."
+    },
+    {
+      "name": "hot-air-balloon-float",
+      "polycount": 10000,
+      "symmetry": "on",
+      "prompt": "Inflatable hot air balloon prop floating above a cartoon obstacle course. Large smooth teardrop envelope, wider than tall, made of eight broad vertical gores alternating magenta #FE2A96 and golden yellow #FEC809 with crisp flat color breaks, topped by a small rounded cap in white #FFFFFF. Below hangs a fat rounded basket shaped like a soft cushioned cylinder in turquoise #3ED0D8 with a thick rolled rim, connected by four short chunky rounded tube struts. Everything is glossy air-filled vinyl with soft pressure bulges and welded seams. No wicker, no rattan, no ropes, no netting, no fabric wrinkles, no burner, no metal frame, no wood, no text, no logo, no small detail. Bold simple silhouette readable from far, flat saturated colors, clean toon game asset, no ground plane."
+    },
+    {
+      "name": "pastel-background-dome",
+      "polycount": 5000,
+      "symmetry": "off",
+      "prompt": "Soft background hill dome for a cartoon party game skyline. One large smooth rounded mound, three times wider than tall, with two smaller mounds fused into its sides, all silhouettes made of gentle continuous curves with no ridge, no crest line, no facet and no sharp angle anywhere. Body in light desaturated pink #F2A8C0, upper caps in very pale icy white blue #E1EEF6 with a clean curved wavy border between the two colors. Surface is a smooth inflated matte vinyl balloon skin. No rock, no stone, no cliff, no scree, no trees, no grass, no snow texture, no erosion, no noise, no bumps, no text. Extremely simple readable blob silhouette, flat pale colors, clean toon game asset, no ground plane, no base."
+    },
+    {
+      "name": "confetti-cannon-turret",
+      "polycount": 7000,
+      "symmetry": "on",
+      "prompt": "Inflatable confetti cannon prop flanking a checkpoint in a cartoon obstacle course. A fat tapered tube barrel with a wide flared fully rounded muzzle, tilted upward at forty-five degrees, mounted on a squat rounded drum base. Barrel is orange #FB7813 with two thick cream #FFD15D stripes wrapping around it, the flared muzzle rim in magenta #FE2A96, the drum base in golden yellow #FEC809 with a fat rolled rim. All shapes are inflated air-filled vinyl, glossy, with welded seam valleys and soft pressure bulges, every radius very generous, no visible right angle. No metal, no rivets, no wheels, no wood, no rope, no trigger, no gauges, no wires, no text, no logo, no tiny mechanical part. Bold simple silhouette, flat saturated colors, clean toon game asset, no ground plane."
     }
   ]
 }
