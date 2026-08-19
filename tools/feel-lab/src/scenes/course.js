@@ -7,7 +7,7 @@ import {
 } from '../props.js';
 import {
   quiltedVinyl, softChecker, hazardStripes, polkaStagger, grassTufts, scales, inflatedBands,
-  floorMarkings,
+  floorMarkings, dashPattern, mazePattern, swoosh,
 } from '../textures.js';
 
 /**
@@ -23,24 +23,30 @@ import {
  * construit en géométrie procédurale, taillée exactement sur son collider.
  */
 
+/**
+ * Palette relevee sur les references : des teintes FRANCHES, jamais pastel.
+ * Le principe cle : le sol ne garde JAMAIS la meme couleur sur toute la longueur.
+ * Il alterne par zone — c'est ce qui empeche l'ennui visuel, bien plus que la saturation.
+ */
 const C = {
-  // Sols FROIDS : ils reculent et laissent les accents chauds ressortir.
-  ground: 0x3aa8ee,        // bleu franc — la piste principale
-  groundAlt: 0x6ec8f7,     // bleu clair — ilots et paliers
-  groundHigh: 0x8f7bf0,    // violet — plateau haut, pour distinguer l'altitude
-  edge: 0xffffff,          // tranche des dalles : blanc, contraste maximal
+  cyan: 0x2dd9d9,
+  yellow: 0xffe14d,
+  pink: 0xff4fa3,
+  blue: 0x2e9bf5,
+  mint: 0x6ee86e,
+  violet: 0xb072ff,
+  edge: 0xffffff,
 
-  // Bordures et obstacles CHAUDS : opposes au sol, donc lisibles instantanement.
-  // C'etait le defaut principal — un sol rose borde de violet ne se lit pas.
-  rail: 0xffc93c,
-  railPost: 0xff9a1f,
-  hazard: 0xff8a3d,
-  bumper: 0xff3d8b,
-  hammer: 0xff5f3d,
-  roller: 0xffd83d,
-  platform: 0xff6fb0,
-  conveyor: 0x9d64ff,
-  finish: 0x2ecc71,
+  rail: 0xffd93b,
+  railAlt: 0xff2d8f,
+  railPost: 0xff8a1f,
+  hazard: 0xff7a1f,
+  bumper: 0xff2d8f,
+  hammer: 0xff5a2d,
+  roller: 0xffe14d,
+  platform: 0xff4fa3,
+  conveyor: 0xa855f7,
+  finish: 0x3ee87a,
 };
 
 /** Interrupteurs de diagnostic : ?skip=ramps,doors,hammers,bumpers,conveyors,rollers,spinners,pendulums */
@@ -83,7 +89,7 @@ export function buildCourse(RAPIER, assets) {
   }
 
   /** Dalle horizontale : sol jouable, avec liseré et bordures gonflables. */
-  function slab(x, y, zFrom, zTo, width, { color = C.ground, map, rails = true, glow = true } = {}) {
+  function slab(x, y, zFrom, zTo, width, { color = C.blue, map, rails = true, glow = true } = {}) {
     const len = Math.abs(zTo - zFrom);
     checkDims(width, len);
     const zc = (zFrom + zTo) / 2;
@@ -119,14 +125,18 @@ export function buildCourse(RAPIER, assets) {
   }
 
   /** Bordures gonflables : elles guident l'œil autant qu'elles retiennent le joueur. */
+  let railTurn = 0;
   function addRails(x, y, zFrom, zTo, width) {
     const len = Math.abs(zTo - zFrom);
     const zc = (zFrom + zTo) / 2;
+    // Les bordures alternent d'une zone a l'autre : dans les references, deux troncons
+    // voisins ne sont jamais de la meme couleur.
+    const railColor = (railTurn++ % 2) ? C.railAlt : C.rail;
     for (const sx of [-1, 1]) {
-      const rail = pill(len, 0.34, C.rail);
+      const rail = pill(len, 0.44, railColor);
       rail.rotation.x = Math.PI / 2;
       addBody(rail, x + sx * (width / 2 + 0.2), y + 0.62, zc,
-        RAPIER.ColliderDesc.cuboid(0.34, 0.9, len / 2).setFriction(0.3));
+        RAPIER.ColliderDesc.cuboid(0.44, 1.0, len / 2).setFriction(0.3));
       for (let z = zFrom; z >= zTo; z -= 8) {
         const post = bollard(1.5, 0.26, C.railPost);
         post.position.set(x + sx * (width / 2 + 0.2), y - 0.5, z);
@@ -136,7 +146,7 @@ export function buildCourse(RAPIER, assets) {
   }
 
   /** Rampe inclinée : permet le dénivelé, qui casse la monotonie du couloir plat. */
-  function ramp(x, yFrom, yTo, zFrom, zTo, width, color = C.groundAlt) {
+  function ramp(x, yFrom, yTo, zFrom, zTo, width, color = C.cyan) {
     if (skipped('ramps')) { slab(x, (yFrom + yTo) / 2, zFrom, zTo, width, { rails: false }); return null; }
     const dz = Math.abs(zTo - zFrom);
     const dy = yTo - yFrom;
@@ -365,19 +375,23 @@ export function buildCourse(RAPIER, assets) {
   // se lit comme un test, pas comme un niveau.
 
   // Une texture différente par zone : le joueur sait où il est sans lire un panneau.
+  // Un motif GROS par zone. Les references peignent de larges graphismes blancs, pas
+  // des textures fines : a la vitesse de course, un motif fin disparait.
   const P = {
-    quilt: quiltedVinyl({ cells: 5, repeat: [4, 9] }),
-    check: softChecker({ cells: 4, repeat: [5, 10] }),
-    polka: polkaStagger({ cells: 3, repeat: [7, 15] }),
-    scale: scales({ cells: 5, repeat: [5, 11] }),
+    dash: dashPattern({ count: 20, repeat: [3, 7] }),
+    maze: mazePattern({ cells: 5, repeat: [2, 5] }),
+    swoosh: swoosh({ repeat: [2, 5] }),
+    check: softChecker({ cells: 3, repeat: [4, 8] }),
+    quilt: quiltedVinyl({ cells: 4, repeat: [3, 7] }),
+    polka: polkaStagger({ cells: 3, repeat: [5, 11] }),
   };
 
   // 1 — Départ, large et plat
-  slab(0, 0, 20, -4, 16, { map: P.check });
+  slab(0, 0, 20, -4, 16, { color: C.cyan, map: P.check });
   checkpoints.push(new THREE.Vector3(0, 2.4, 12));
 
   // 2 — Entonnoir à bumpers : premier goulot, premier chaos
-  slab(0, 0, -4, -24, 13, { map: P.quilt });
+  slab(0, 0, -4, -24, 13, { color: C.yellow, map: P.dash });
   checkpoints.push(new THREE.Vector3(0, 2.4, -6));
   for (const [bx, bz] of [[-3.4, -9], [3.4, -9], [0, -13], [-4.2, -17], [4.2, -17], [-1.8, -21], [1.8, -21]]) {
     bumper(bx, 0, bz);
@@ -386,8 +400,8 @@ export function buildCourse(RAPIER, assets) {
   swingDoor(3.2, 0, -14.5, 3.0, Math.PI, 1.3, -1);
 
   // 3 — Montée puis plateau des barreaux rotatifs
-  ramp(0, 0, 4, -24, -33, 12);
-  slab(0, 4, -33, -54, 12, { color: C.groundHigh, map: P.scale });
+  ramp(0, 0, 4, -24, -33, 12, C.pink);
+  slab(0, 4, -33, -54, 12, { color: C.blue, map: P.swoosh });
   checkpoints.push(new THREE.Vector3(0, 6.4, -35));
   spinner(0, 5.05, -39, 11, 1.0, 0);
   spinner(0, 5.05, -47, 11, -1.25, Math.PI / 2);
@@ -395,8 +409,8 @@ export function buildCourse(RAPIER, assets) {
   hammer(3.6, 9.2, -52, Math.PI);
 
   // 4 — Descente vers le pont étroit
-  ramp(0, 4, 1, -54, -62, 11);
-  slab(0, 1, -62, -84, 7.5, { color: C.ground, map: P.polka });
+  ramp(0, 4, 1, -54, -62, 11, C.violet);
+  slab(0, 1, -62, -84, 7.5, { color: C.yellow, map: P.maze });
   checkpoints.push(new THREE.Vector3(0, 3.4, -64));
   pendulum(0, 7.0, -68, 0);
   pendulum(0, 7.0, -74, Math.PI * 0.6);
@@ -411,17 +425,17 @@ export function buildCourse(RAPIER, assets) {
   roller(0, 1.9, -93, -3.4, 10.5);
 
   // 6 — Plateformes mobiles au-dessus du vide
-  slab(0, 1, -96, -101, 9, { map: P.quilt, rails: false });
+  slab(0, 1, -96, -101, 9, { color: C.mint, map: P.dash, rails: false });
   checkpoints.push(new THREE.Vector3(0, 3.4, -98));
   movingPlatform(-105, 5.6, 2.2, 0.45, 1);
-  slab(0, 1, -110, -113, 6.5, { map: P.quilt, rails: false });
+  slab(0, 1, -110, -113, 6.5, { color: C.pink, map: P.dash, rails: false });
   movingPlatform(-117, 5.6, -2.2, 0.62, 1);
-  slab(0, 1, -122, -127, 9, { map: P.quilt, rails: false });
+  slab(0, 1, -122, -127, 9, { color: C.cyan, map: P.dash, rails: false });
 
   // 7 — Dernière ligne : descente, barreau bas, sprint final
   checkpoints.push(new THREE.Vector3(0, 3.4, -124));
-  ramp(0, 1, 0, -127, -132, 11);
-  slab(0, 0, -132, -148, 12, { map: hazardStripes({ a: '#ffc94a', b: '#ff8a3d', bands: 5, repeat: [5, 14] }), color: 0xffffff });
+  ramp(0, 1, 0, -127, -132, 11, C.violet);
+  slab(0, 0, -132, -148, 12, { map: hazardStripes({ a: '#ffd93b', b: '#ff2d8f', bands: 6, repeat: [4, 12] }), color: 0xffffff });
   spinner(0, 1.05, -137, 10, 2.1, 0);
 
   // ─────────────────────────── habillage ───────────────────────────

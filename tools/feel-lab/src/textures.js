@@ -371,3 +371,78 @@ export function floorMarkings(kind, { color = '#ffffff', alpha = 0.55 } = {}) {
     ctx.globalAlpha = 1;
   }, [1, 1]);
 }
+
+/** MOTIF — traits arrondis épars, le marquage signature des sols du genre. Gros et lisibles. */
+export function dashPattern({ base = '#ffffff', dash = '#dcdcdc', count = 22, repeat = [3, 6] } = {}) {
+  const hand = painted('ground-dash', repeat);
+  if (hand) return hand;
+  return make(`dash-${base}-${dash}-${count}`, 512, (ctx, s) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, s, s);
+    ctx.fillStyle = dash;
+    const r = rng(91);
+    for (let i = 0; i < count; i++) {
+      const x = r() * s, y = r() * s;
+      const w = s * (0.055 + r() * 0.05), h = s * 0.021;
+      const rot = r() * Math.PI;
+      wrap(ctx, s, x, y, w, (px, py) => {
+        ctx.save(); ctx.translate(px, py); ctx.rotate(rot);
+        ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, h / 2); ctx.fill();
+        ctx.restore();
+      });
+    }
+  }, repeat);
+}
+
+/** MOTIF — labyrinthe à angles arrondis : un grand graphisme qui occupe la surface. */
+export function mazePattern({ base = '#ffffff', line = '#d6d6d6', cells = 6, repeat = [3, 6] } = {}) {
+  const hand = painted('ground-maze', repeat);
+  if (hand) return hand;
+  return make(`maze-${base}-${line}-${cells}`, 512, (ctx, s) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, s, s);
+    ctx.strokeStyle = line;
+    ctx.lineWidth = s * 0.032;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const q = s / cells;
+    const r = rng(7);
+    // Segments alignés sur la grille : les extrémités tombent sur les bords, donc ça raccorde.
+    for (let y = 0; y < cells; y++) {
+      for (let x = 0; x < cells; x++) {
+        const cx = x * q, cy = y * q;
+        const kind = Math.floor(r() * 4);
+        ctx.beginPath();
+        if (kind === 0) { ctx.moveTo(cx, cy + q / 2); ctx.lineTo(cx + q, cy + q / 2); }
+        else if (kind === 1) { ctx.moveTo(cx + q / 2, cy); ctx.lineTo(cx + q / 2, cy + q); }
+        else if (kind === 2) { ctx.moveTo(cx, cy + q / 2); ctx.lineTo(cx + q / 2, cy + q / 2); ctx.lineTo(cx + q / 2, cy + q); }
+        else { ctx.moveTo(cx + q / 2, cy); ctx.lineTo(cx + q / 2, cy + q / 2); ctx.lineTo(cx + q, cy + q / 2); }
+        ctx.stroke();
+      }
+    }
+  }, repeat);
+}
+
+/** MOTIF — grandes courbes larges, façon marquage de piste. */
+export function swoosh({ base = '#ffffff', line = '#dadada', repeat = [2, 5] } = {}) {
+  const hand = painted('ground-swoosh', repeat);
+  if (hand) return hand;
+  return make(`swoosh-${base}-${line}`, 512, (ctx, s) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, s, s);
+    ctx.strokeStyle = line;
+    ctx.lineCap = 'round';
+    ctx.lineWidth = s * 0.075;
+    for (let i = 0; i < 4; i++) {
+      const yBase = (s / 4) * i;
+      for (const dy of [-s, 0, s]) {
+        ctx.beginPath();
+        for (let x = 0; x <= s; x += 6) {
+          const y = yBase + dy + Math.sin((x / s) * Math.PI * 2 + i * 1.4) * s * 0.06;
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+    }
+  }, repeat);
+}
