@@ -266,3 +266,32 @@ export function slabMesh(w, h, d, topColor, edgeColor, { map = null, radius = 0.
 
   return group;
 }
+
+/**
+ * Sommet strié : un cône aux bandes horizontales. Les stries se lisent de très loin et
+ * donnent une échelle au décor — c'est ce qui manque à une simple colline unie.
+ */
+export function stripedPeak(radius, height, baseColor, bandColor, bands = 5) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.ConeGeometry(radius, height, 18, 1), toonMaterial(baseColor));
+  body.position.y = height / 2;
+  group.add(body);
+
+  // Anneaux plaqués : plus lisibles qu'une texture, et gratuits en mémoire.
+  for (let i = 1; i <= bands; i++) {
+    const t = i / (bands + 1);
+    const r = radius * (1 - t) * 1.012;
+    const ring = new THREE.Mesh(
+      new THREE.CylinderGeometry(r * 0.97, r, height * 0.055, 18, 1, true),
+      toonMaterial(i % 2 ? bandColor : baseColor)
+    );
+    ring.position.y = height * t;
+    group.add(ring);
+  }
+
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.22, 12, 8), toonMaterial(0xffffff));
+  cap.position.y = height * 0.97;
+  cap.scale.y = 0.6;
+  group.add(cap);
+  return group;
+}

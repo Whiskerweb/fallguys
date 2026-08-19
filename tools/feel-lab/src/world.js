@@ -70,22 +70,38 @@ function buildSky() {
   return new THREE.Mesh(geo, mat);
 }
 
-/** Nuages en boules aplaties : lisibles, cohérents avec la DA cartoon, quasi gratuits. */
-function buildClouds() {
+/**
+ * Nuage cotonneux : amas de sphères, volumineux et opaque, pas un voile.
+ * Défini ici et non dans props.js : ce module importe déjà world.js, et l'import
+ * inverse créerait un cycle qui casserait l'initialisation.
+ */
+function puffyCloud(scale = 1, seed = 0) {
   const group = new THREE.Group();
   const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const rand = mulberry32(1337);
-  for (let i = 0; i < 26; i++) {
-    const cloud = new THREE.Group();
-    const puffs = 3 + Math.floor(rand() * 3);
-    for (let p = 0; p < puffs; p++) {
-      const r = 2.4 + rand() * 2.6;
-      const puff = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat);
-      puff.position.set((p - puffs / 2) * 3.1 + rand() * 1.4, rand() * 1.1, rand() * 1.8);
-      puff.scale.y = 0.62;
-      cloud.add(puff);
-    }
-    cloud.position.set(-90 + rand() * 300, 34 + rand() * 26, -130 + rand() * 260);
+  const geo = new THREE.SphereGeometry(1, 12, 10);
+  let a = seed * 9301 + 49297;
+  const rnd = () => { a = (a * 9301 + 49297) % 233280; return a / 233280; };
+  const puffs = 5 + Math.floor(rnd() * 3);
+  for (let i = 0; i < puffs; i++) {
+    const r = (1.6 + rnd() * 1.5) * scale;
+    const puff = new THREE.Mesh(geo, mat);
+    puff.position.set((i - puffs / 2) * 1.9 * scale + rnd() * scale, rnd() * 0.9 * scale, rnd() * 1.6 * scale);
+    puff.scale.set(r, r * 0.74, r);
+    group.add(puff);
+  }
+  return group;
+}
+
+function buildClouds() {
+  const group = new THREE.Group();
+  for (let i = 0; i < 22; i++) {
+    const seed = i * 37 + 11;
+    const cloud = puffyCloud(1.6 + ((seed % 7) / 7) * 1.4, seed);
+    cloud.position.set(
+      -140 + ((seed * 13) % 300),
+      42 + ((seed * 7) % 30),
+      -180 + ((seed * 23) % 320)
+    );
     group.add(cloud);
   }
   return group;

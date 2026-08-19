@@ -3,10 +3,11 @@ import { TUNING } from '../tuning.js';
 import { toonMaterial, addOutline } from '../world.js';
 import {
   roundedBox, pill, rimGlow, banner, inflatableArch, balloon, bollard, bunting,
-  flagPole, pennant, updateFlags, slabMesh,
+  flagPole, pennant, updateFlags, slabMesh, stripedPeak,
 } from '../props.js';
 import {
   quiltedVinyl, softChecker, hazardStripes, polkaStagger, grassTufts, scales, inflatedBands,
+  floorMarkings,
 } from '../textures.js';
 
 /**
@@ -94,6 +95,26 @@ export function buildCourse(RAPIER, assets) {
       group.add(g);
     }
     if (rails) addRails(x, y, zFrom, zTo, width);
+    return mesh;
+  }
+
+  /**
+   * Applique un marquage à plat, très légèrement au-dessus du sol.
+   * depthWrite désactivé et polygonOffset évitent le combat de profondeur avec la dalle,
+   * y compris en vue rasante où le marquage clignoterait sinon.
+   */
+  function decal(kind, x, y, z, size, rotation = 0) {
+    // La grille sert de fond de zone, pas de signal : elle doit rester en retrait.
+    const alpha = kind === 'grid' ? 0.3 : 0.55;
+    const mat = new THREE.MeshBasicMaterial({
+      map: floorMarkings(kind, { alpha }), transparent: true, depthWrite: false,
+      polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.rotation.z = rotation;
+    mesh.position.set(x, y + 0.045, z);
+    group.add(mesh);
     return mesh;
   }
 
@@ -405,6 +426,19 @@ export function buildCourse(RAPIER, assets) {
 
   // ─────────────────────────── habillage ───────────────────────────
 
+  // Marquages : ils jalonnent la piste et indiquent la direction.
+  decal('grid', 0, 0, 12, 9);
+  decal('arrow', 0, 0, -8, 4.5);
+  decal('rings', 0, 0, -19, 6);
+  decal('chevrons', 0, 4, -38, 5.5);
+  decal('arrow', 0, 4, -50, 4.5);
+  decal('rings', 0, 1, -66, 5);
+  decal('chevrons', 0, 1, -78, 5);
+  decal('arrow', 0, 1, -90, 4.5);
+  decal('rings', 0, 1, -99, 5.5);
+  decal('arrow', 0, 0, -136, 4.5);
+  decal('grid', 0, 0, -145, 9);
+
   dressStart();
   dressFinish();
   dressScenery();
@@ -445,16 +479,25 @@ export function buildCourse(RAPIER, assets) {
     ground.receiveShadow = true;
     group.add(ground);
 
-    const hillGeo = new THREE.SphereGeometry(1, 14, 10);
-    for (const [hx, hz, r, color] of [
-      [-78, -170, 36, 0x63b84e], [64, -190, 44, 0x55a843], [10, -230, 54, 0x4d9a3d],
-      [-112, -110, 30, 0x6cc257], [104, -70, 32, 0x63b84e], [-124, -6, 26, 0x55a843],
-      [92, -150, 28, 0x6cc257], [-96, -210, 34, 0x4d9a3d],
+    // Montagnes hautes et striees : elles ferment l'horizon et donnent l'echelle.
+    // Une colline unie de meme taille parait deux fois plus petite.
+    for (const [hx, hz, r, h] of [
+      [-86, -186, 40, 54], [70, -206, 48, 66], [12, -244, 58, 78],
+      [-124, -120, 34, 44], [112, -78, 36, 48], [-136, -12, 30, 40],
+      [100, -164, 32, 42], [-104, -228, 38, 50],
     ]) {
-      const hill = new THREE.Mesh(hillGeo, toonMaterial(color));
-      hill.position.set(hx, -3.2, hz);
-      hill.scale.set(r, r * 0.42, r);
-      group.add(hill);
+      const peak = stripedPeak(r, h, 0xffb3c8, 0xfff0f5, 5);
+      peak.position.set(hx, -3.2, hz);
+      group.add(peak);
+    }
+
+    // Collines vertes basses au premier plan : transition avec l'herbe.
+    const mound = new THREE.SphereGeometry(1, 14, 10);
+    for (const [hx, hz, r] of [[-52, -60, 22], [56, -110, 26], [-60, -160, 20], [48, -20, 18]]) {
+      const m = new THREE.Mesh(mound, toonMaterial(0x7fd45e));
+      m.position.set(hx, -3.2, hz);
+      m.scale.set(r, r * 0.3, r);
+      group.add(m);
     }
 
     // Arches gonflables au-dessus de la piste : jalonnent la progression sans texte.

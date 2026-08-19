@@ -315,3 +315,56 @@ export function confettiPattern({ base = '#ffffff', colors = ['#ff5f7e', '#4fd1c
     }
   }, repeat);
 }
+
+/**
+ * Marquages peints au sol, en blanc sur fond transparent : flèches de direction,
+ * cercles concentriques, chevrons, grille. Posés à plat au-dessus de la piste, ils
+ * donnent de l'information au joueur et cassent l'uniformité d'un long couloir.
+ */
+export function floorMarkings(kind, { color = '#ffffff', alpha = 0.55 } = {}) {
+  return make(`mark-${kind}-${color}`, 512, (ctx, s) => {
+    ctx.clearRect(0, 0, s, s);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = alpha;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (kind === 'arrow') {
+      ctx.beginPath();
+      ctx.moveTo(s * 0.5, s * 0.16);
+      ctx.lineTo(s * 0.80, s * 0.52);
+      ctx.lineTo(s * 0.64, s * 0.52);
+      ctx.lineTo(s * 0.64, s * 0.84);
+      ctx.lineTo(s * 0.36, s * 0.84);
+      ctx.lineTo(s * 0.36, s * 0.52);
+      ctx.lineTo(s * 0.20, s * 0.52);
+      ctx.closePath();
+      ctx.fill();
+    } else if (kind === 'rings') {
+      for (const [r, w] of [[0.42, 0.07], [0.28, 0.055], [0.13, 0.11]]) {
+        ctx.lineWidth = s * w;
+        ctx.beginPath();
+        ctx.arc(s / 2, s / 2, s * r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    } else if (kind === 'chevrons') {
+      ctx.lineWidth = s * 0.075;
+      for (let i = 0; i < 3; i++) {
+        const y = s * (0.24 + i * 0.26);
+        ctx.beginPath();
+        ctx.moveTo(s * 0.2, y + s * 0.12);
+        ctx.lineTo(s * 0.5, y - s * 0.09);
+        ctx.lineTo(s * 0.8, y + s * 0.12);
+        ctx.stroke();
+      }
+    } else {
+      ctx.lineWidth = s * 0.035;
+      for (let i = 1; i < 4; i++) {
+        ctx.beginPath(); ctx.moveTo((s / 4) * i, 0); ctx.lineTo((s / 4) * i, s); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, (s / 4) * i); ctx.lineTo(s, (s / 4) * i); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }, [1, 1]);
+}
