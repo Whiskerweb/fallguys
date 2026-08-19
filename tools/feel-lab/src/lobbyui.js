@@ -95,6 +95,8 @@ export function buildSkinsScreen(onChange) {
 
   const current = MODELS.find((m) => m.id === cosmetics.model) ?? MODELS[0];
   showInfo(current, assets.has(current.id));
+  // Construite au demarrage, la fiche ne doit apparaitre qu'une fois la vitrine ouverte.
+  if (!el('screen-skins')?.classList.contains('on')) el('skin-info')?.classList.add('hidden');
 }
 
 /** Fiche descriptive, à gauche sous le personnage. */

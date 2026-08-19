@@ -57,19 +57,44 @@ export class CharacterRig {
    * géométrie en pose de liaison sans appliquer les transformations d'os, et le modèle
    * Meshy porte une échelle sur son armature. La boîte annonçait 2 cm au lieu de 1,7 m.
    */
-  measureHeight(root) {
+  /**
+   * Hauteur réelle du personnage.
+   *
+   * On mesure avec Box3.setFromObject, c'est-à-dire AVEC LE MÊME OUTIL QUE LE RENDU.
+   * Les deux alternatives essayées échouent chacune sur une partie des modèles :
+   *  - l'écart vertical entre os ignore le maillage, et certains rigs sont bien plus
+   *    compacts que le personnage qu'ils déforment (0,30 mesuré pour 1,9 réel) ;
+   *  - parcourir les sommets bruts ignore le skinning, et donne 0,017 là où le rendu
+   *    affiche 2,0 — d'où des personnages mis à l'échelle cent fois trop grand.
+   * Box3 est la seule mesure qui coïncide avec ce que le joueur voit.
+   */
+  measureHeight(root) { return this.measureBox(root)?.height ?? 0; }
+
+  /** Position verticale du bas du modèle, dans le même repère. */
+  measureFloor(root) { return this.measureBox(root)?.floor ?? 0; }
+
+  /**
+   * Boîte du modèle, calculée comme le rendu la calcule.
+   *
+   * Le point délicat : sur un SkinnedMesh, three.js ne tient compte du squelette que si
+   * la boîte du mesh a déjà été calculée. À la construction elle ne l'est pas, et la
+   * mesure porte alors sur la géométrie brute — cent fois plus petite que le personnage
+   * affiché, d'où des avatars mis à l'échelle cent fois trop grand. On force donc le
+   * calcul avant de mesurer.
+   */
+  measureBox(root) {
     root.updateWorldMatrix(true, true);
-    const p = new THREE.Vector3();
-    let lo = Infinity, hi = -Infinity;
-    for (const bone of this.bones.values()) {
-      bone.getWorldPosition(p);
-      lo = Math.min(lo, p.y);
-      hi = Math.max(hi, p.y);
-    }
-    if (!Number.isFinite(lo) || hi <= lo) return 0;
-    // Les os s'arrêtent à la cheville et sous le crâne : ~8 % de marge de part et d'autre.
-    return (hi - lo) * 1.16;
+    // Sur un SkinnedMesh, le skinning s'exprime dans l'espace de LIAISON : la matrice
+    // propre du mesh n'entre pas dans le calcul comme pour un mesh ordinaire. Il faut
+    // donc laisser Box3.setFromObject faire le travail, apres avoir force le calcul de
+    // la boite du mesh — sans quoi elle porte sur la geometrie brute, cent fois plus
+    // petite que le personnage affiche.
+    root.traverse((o) => { if (o.isSkinnedMesh) o.computeBoundingBox?.(); });
+    const box = new THREE.Box3().setFromObject(root);
+    if (box.isEmpty()) return null;
+    return { height: box.max.y - box.min.y, floor: box.min.y };
   }
+
 
   /** Applique une rotation locale (radians) par-dessus la pose de repos du bone. */
   set(name, x, y, z, weight = 1) {
@@ -208,19 +233,31 @@ export function createRiggedCharacter(assets, targetHeight, name = 'player-rigge
   const rig = new CharacterRig(model);
   if (!rig.ok) return null;
 
+  /**
+   * Mise a l'echelle par CORRECTION ITERATIVE.
+   *
+   * Une mesure unique ne suffit pas : sur un SkinnedMesh, la boite renvoyee avant tout
+   * rendu porte sur la geometrie brute et peut etre cent fois plus petite que le
+   * personnage reellement affiche. Plutot que de chercher a predire ce facteur — qui
+   * varie selon la maniere dont chaque modele a ete rigge — on mesure, on corrige, on
+   * remesure. Trois passes suffisent a converger a moins de 1 %.
+   */
   model.scale.setScalar(1);
-  const native = rig.measureHeight(model);
-  if (native > 0.0001) model.scale.setScalar(targetHeight / native);
+  for (let pass = 0; pass < 4; pass++) {
+    model.updateWorldMatrix(true, true);
+    const h = rig.measureHeight(model);
+    if (!(h > 0.00001)) break;
+    const ratio = targetHeight / h;
+    if (Math.abs(ratio - 1) < 0.01) break;          // deja a la bonne taille
+    model.scale.multiplyScalar(ratio);
+  }
   model.updateWorldMatrix(true, true);
 
   addSkinnedOutline(model);
 
-  const foot = rig.bones.get('LeftToeBase') ?? rig.bones.get('LeftFoot');
-  if (foot) {
-    const p = new THREE.Vector3();
-    foot.getWorldPosition(p);
-    model.position.y -= p.y - model.position.y;
-  }
+  // Recalage : le bas du modele vient sur y=0, mesure avec le meme outil que la hauteur.
+  model.position.y -= rig.measureFloor(model);
+
   return { model, rig };
 }
 

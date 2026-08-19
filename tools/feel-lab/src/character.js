@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { TUNING } from './tuning.js';
 import { toonMaterial, addOutline } from './world.js';
 import { assets } from './assets.js';
-import { cosmetics } from './cosmetics.js';
+import { cosmetics, MODELS } from './cosmetics.js';
 import { sfx } from './audio.js';
 import { PuffSystem, SparkBurst } from './effects.js';
 import { createRiggedCharacter } from './rig.js';
@@ -108,7 +108,12 @@ export class Character {
     // l'échelle depuis les os) ; un modèle sans squelette est simplement ajusté à la
     // hauteur de la capsule et animé par le corps entier.
     const wanted = cosmetics.model;
-    const rigged = wanted === 'player-rigged' ? createRiggedCharacter(assets, HEIGHT) : null;
+    // La fabrique doit recevoir le NOM du modele choisi. Elle n'etait appelee que pour
+    // 'player-rigged' : tous les autres personnages tombaient dans le repli, qui mesure
+    // avec une boite englobante — fausse sur un maillage anime — d'ou des tailles
+    // aberrantes, et qui ne construit aucun squelette, d'ou l'absence d'animation.
+    const meta = MODELS.find((m) => m.id === wanted);
+    const rigged = meta?.rigged !== false ? createRiggedCharacter(assets, HEIGHT, wanted) : null;
     let model = null;
     if (rigged) {
       model = rigged.model;
@@ -121,9 +126,8 @@ export class Character {
     }
     this.pupils = [];
     if (model) {
-      model.traverse((c) => {
-        if (c.isMesh && !c.userData.isOutline && c.material?.color) c.material.color.setHex(cosmetics.hex);
-      });
+      // Aucune teinte appliquee : les personnages sont fixes et portent leur propre
+      // texture. Repeindre un skin de collaboration trahirait la marque du partenaire.
       this.visual.add(model);
       this.bodyMesh = model;
     } else {

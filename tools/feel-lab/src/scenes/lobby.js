@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { toonMaterial, addOutline } from '../world.js';
-import { cosmetics } from '../cosmetics.js';
+import { cosmetics, MODELS } from '../cosmetics.js';
 import { createRiggedCharacter } from '../rig.js';
 
 /**
@@ -94,8 +94,8 @@ export function buildLobbyScreen(assets) {
   pedestal.add(stage);
 
   let avatarRig = null;
-  const riggedAvatar = cosmetics.model === 'player-rigged'
-    ? createRiggedCharacter(assets, LOBBY.avatarHeight) : null;
+  const riggedAvatar = (MODELS.find((m) => m.id === cosmetics.model)?.rigged !== false)
+    ? createRiggedCharacter(assets, LOBBY.avatarHeight, cosmetics.model) : null;
   let avatar = riggedAvatar?.model ?? null;
   avatarRig = riggedAvatar?.rig ?? null;
   if (!avatar) avatar = assets.getFitted(cosmetics.model, { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.025 })
@@ -117,6 +117,10 @@ export function buildLobbyScreen(assets) {
     }
   }
   avatar.traverse((c) => { if (c.isMesh && !c.userData.isOutline) c.castShadow = true; });
+  // Releve AVANT l'enregistrement de l'animation : celle-ci multiplie par baseScale, et
+  // s'il vaut encore undefined au premier passage le repli ramene l'echelle a 1. Avec
+  // les personnages rigges, dont l'echelle avoisine 118, cela les rend invisibles.
+  avatar.userData.baseScale = avatar.scale.x || 1;
   stage.add(avatar);
 
   // Pose d'attente : rotation lente et respiration. Un personnage figé donne un menu mort.
@@ -127,10 +131,10 @@ export function buildLobbyScreen(assets) {
     if (avatarRig) avatarRig.update(dt ?? 0.016, 0, 8, 'grounded', 0);
     stage.rotation.y = Math.sin(t * 0.32) * 0.85 + LOBBY.avatarYaw;
     const breathe = 1 + Math.sin(t * 1.6) * 0.022;
-    avatar.scale.set(2 - breathe, breathe, 2 - breathe).multiplyScalar(avatar.userData.baseScale ?? 1);
+    const base = avatar.userData.baseScale ?? avatar.scale.x ?? 1;
+    avatar.scale.set((2 - breathe) * base, breathe * base, (2 - breathe) * base);
     stage.position.y = 1.28 + Math.sin(t * 1.6) * 0.035;
   });
-  avatar.userData.baseScale = avatar.scale.x || 1;
 
   // ---------- éclairage de studio ----------
   // Ces lumieres S'AJOUTENT aux lumieres globales de la scene, qui ne sont jamais
@@ -175,19 +179,14 @@ export function buildLobbyScreen(assets) {
     }
   });
 
-  const applySkin = (hex) => {
-    avatar.traverse((c) => {
-      if (c.isMesh && !c.userData.isOutline && c.material?.color) c.material.color.setHex(hex);
-    });
-  };
-  applySkin(cosmetics.hex);
-  cosmetics.onChange(applySkin);
+  // Plus de teinte : chaque personnage garde sa texture d'origine.
+  const applySkin = () => {};
 
   /** Reconstruit l'avatar : changer de modele doit se voir dans la vitrine. */
   function rebuildAvatar() {
     avatar?.removeFromParent();
-    const r = cosmetics.model === 'player-rigged'
-      ? createRiggedCharacter(assets, LOBBY.avatarHeight) : null;
+    const r = (MODELS.find((m) => m.id === cosmetics.model)?.rigged !== false)
+      ? createRiggedCharacter(assets, LOBBY.avatarHeight, cosmetics.model) : null;
     avatar = r?.model
       ?? assets.getFitted(cosmetics.model, { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.025 })
       ?? assets.getFitted('player-blob', { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.018 });
