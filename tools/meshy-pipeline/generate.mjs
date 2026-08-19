@@ -113,8 +113,14 @@ async function main() {
 
   const ok = results.filter((r) => r.ok).length;
   log(`--- ${ok}/${results.length} assets prets ---`);
-  const manifest = results.filter((r) => r.ok).map((r) => r.name);
-  await fs.writeFile(path.join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  // Le manifeste reflete le CONTENU du dossier, pas seulement les assets traites :
+  // regenerer un seul modele ne doit pas effacer les autres de la liste.
+  const present = (await fs.readdir(OUT))
+    .filter((f) => f.endsWith('.glb'))
+    .map((f) => f.replace(/\.glb$/, ''))
+    .sort();
+  await fs.writeFile(path.join(OUT, 'manifest.json'), JSON.stringify(present, null, 2));
+  log(`manifeste : ${present.length} modeles`);
   for (const r of results.filter((r) => !r.ok)) log(`  echec: ${r.name} (${r.error})`);
 }
 

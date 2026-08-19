@@ -48,7 +48,7 @@ export class AssetLibrary {
 
   prepare(root) {
     root.traverse((child) => {
-      if (!child.isMesh) return;
+      if (!child.isMesh || child.userData.isOutline) return;
       child.castShadow = true;
       child.receiveShadow = true;
       const src = child.material;
@@ -94,7 +94,11 @@ export class AssetLibrary {
     }
 
     if (outline) {
-      model.traverse((c) => { if (c.isMesh) addOutline(c, outline, 0x2a1b45); });
+      // On collecte AVANT d'ajouter : addOutline insere un mesh enfant, et le traverser
+      // pendant le parcours produit une recursion infinie (pile saturee au chargement).
+      const meshes = [];
+      model.traverse((c) => { if (c.isMesh && !c.userData.isOutline) meshes.push(c); });
+      for (const m of meshes) addOutline(m, outline, 0x2a1b45);
     }
     holder.userData.nativeSize = size;
     return holder;

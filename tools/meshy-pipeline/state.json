@@ -29,11 +29,6 @@
     "refineId": "01a019a2-eda8-7b40-9e0a-e105b8c23659",
     "done": true
   },
-  "grandstand": {
-    "previewId": "01a019a2-265d-7d5f-a704-90b2e60e3b07",
-    "refineId": "01a019a3-3126-76d3-a436-110de70a68a4",
-    "done": true
-  },
   "finish-arch": {
     "previewId": "01a019a2-43a9-7b15-8ee0-7216fdc87eac",
     "refineId": "01a019a2-ed8f-7789-b07e-aa22034388f4",
@@ -48,5 +43,9 @@
     "previewId": "01a019a3-bc07-7b66-be7b-0019852981a0",
     "refineId": "01a019a4-e561-7843-8397-efc7c27814bf",
     "done": true
+  },
+  "grandstand": {
+    "previewId": "01a019b5-f094-7b76-b9fc-2130496dff52",
+    "refineId": "01a019b7-0002-7e00-bb29-5067b230c163"
   }
 }

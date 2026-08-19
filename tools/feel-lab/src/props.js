@@ -24,7 +24,15 @@ function canvasTexture(key, size, draw, repeat = [1, 1]) {
   return tex;
 }
 
-/** Rayures diagonales — signal de danger, lisible à toute vitesse. */
+/**
+ * Deux régimes de texture, et il ne faut pas les mélanger :
+ *  - MOTIF (sol) : niveaux clairs quasi neutres. La teinte vient du matériau, la texture
+ *    ne fait que la moduler. Une texture colorée multiplierait la couleur et l'assombrirait
+ *    deux fois — c'est ce qui faisait virier le rose au brun.
+ *  - SIGNAL (danger) : la texture porte les couleurs, et le matériau reste blanc.
+ */
+
+/** Rayures diagonales — signal de danger, lisible à toute vitesse. Matériau blanc attendu. */
 export function stripeTexture(a = '#ffc93c', b = '#ff8a3d', bands = 8, repeat = [4, 1]) {
   return canvasTexture(`stripe-${a}-${b}-${bands}-${repeat}`, 256, (ctx, s) => {
     ctx.fillStyle = a;
@@ -89,22 +97,37 @@ export function pill(length, radius, color, opts = {}) {
   return mesh;
 }
 
-/** Liseré lumineux qui souligne le bord d'une plateforme : c'est ce qui la fait lire comme un objet. */
-export function rimGlow(w, d, color = 0xffe9b8, y = 0.02) {
-  const shape = new THREE.Shape();
-  const r = 0.3, hw = w / 2, hd = d / 2;
-  shape.moveTo(-hw + r, -hd);
-  shape.lineTo(hw - r, -hd); shape.quadraticCurveTo(hw, -hd, hw, -hd + r);
-  shape.lineTo(hw, hd - r); shape.quadraticCurveTo(hw, hd, hw - r, hd);
-  shape.lineTo(-hw + r, hd); shape.quadraticCurveTo(-hw, hd, -hw, hd - r);
-  shape.lineTo(-hw, -hd + r); shape.quadraticCurveTo(-hw, -hd, -hw + r, -hd);
-  const geo = new THREE.ShapeGeometry(shape);
+/** Contour arrondi réutilisable. */
+function roundedRectPath(w, d, r) {
+  const path = new THREE.Path();
+  const hw = w / 2, hd = d / 2;
+  const rad = Math.min(r, Math.min(hw, hd) * 0.95);
+  path.moveTo(-hw + rad, -hd);
+  path.lineTo(hw - rad, -hd); path.quadraticCurveTo(hw, -hd, hw, -hd + rad);
+  path.lineTo(hw, hd - rad); path.quadraticCurveTo(hw, hd, hw - rad, hd);
+  path.lineTo(-hw + rad, hd); path.quadraticCurveTo(-hw, hd, -hw, hd - rad);
+  path.lineTo(-hw, -hd + rad); path.quadraticCurveTo(-hw, -hd, -hw + rad, -hd);
+  return path;
+}
+
+/**
+ * Liseré lumineux qui souligne le BORD d'une plateforme.
+ * C'est un anneau, pas un disque : une ShapeGeometry pleine poserait un voile
+ * semi-transparent sur toute la surface et délaverait la couleur du sol.
+ */
+export function rimGlow(w, d, color = 0xffe9b8, y = 0.02, thickness = 0.42) {
+  const outer = new THREE.Shape();
+  outer.curves = roundedRectPath(w, d, 0.3).curves;
+  const inner = roundedRectPath(Math.max(0.2, w - thickness * 2), Math.max(0.2, d - thickness * 2), 0.22);
+  outer.holes.push(inner);
+
+  const geo = new THREE.ShapeGeometry(outer);
   geo.rotateX(-Math.PI / 2);
   const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-    color, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false,
+    color, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false,
   }));
   mesh.position.y = y;
-  mesh.scale.setScalar(1.035);
+  mesh.scale.setScalar(1.02);
   return mesh;
 }
 

@@ -83,7 +83,7 @@ export class Character {
     this.pupils = [];
     if (model) {
       model.traverse((c) => {
-        if (c.isMesh && c.material && c.material.color && !c.material.map) c.material.color.setHex(0xff5f7e);
+        if (c.isMesh && !c.userData.isOutline && c.material?.color && !c.material.map) c.material.color.setHex(0xff5f7e);
       });
       this.visual.add(model);
       this.bodyMesh = model;

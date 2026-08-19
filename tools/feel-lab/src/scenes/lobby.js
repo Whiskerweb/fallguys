@@ -106,7 +106,7 @@ export function buildLobbyScreen(assets) {
       avatar.add(eye);
     }
   }
-  avatar.traverse((c) => { if (c.isMesh) c.castShadow = true; });
+  avatar.traverse((c) => { if (c.isMesh && !c.userData.isOutline) c.castShadow = true; });
   stage.add(avatar);
 
   // Pose d'attente : rotation lente et respiration. Un personnage figé donne un menu mort.
@@ -169,7 +169,7 @@ export function buildLobbyScreen(assets) {
     /** Change la couleur du blob exposé — préfigure la garde-robe. */
     setColor(hex) {
       avatar.traverse((c) => {
-        if (c.isMesh && c.material && c.material.color && !c.material.map && c.material.side !== THREE.BackSide) {
+        if (c.isMesh && !c.userData.isOutline && c.material?.color && !c.material.map) {
           c.material.color.setHex(hex);
         }
       });

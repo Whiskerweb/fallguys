@@ -13,13 +13,13 @@
   html, body { height:100%; overflow:hidden; background:#f5a623;
     font-family: ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI", system-ui, sans-serif;
     -webkit-font-smoothing:antialiased; user-select:none; }
-  canvas { display:block; position:fixed; inset:0; }
+  canvas { display:block; position:fixed; inset:0; z-index:0; }
 
   .hidden { display:none !important; }
   .stroke { text-shadow: 0 3px 0 rgba(0,0,0,.32); }
 
   /* ---------- écran de lobby ---------- */
-  #lobby-ui { position:fixed; inset:0; pointer-events:none; }
+  #lobby-ui { position:fixed; inset:0; pointer-events:none; z-index:10; }
   #lobby-ui > * { pointer-events:auto; }
 
   #topbar {
@@ -99,7 +99,7 @@
   }
 
   #entry-badge {
-    position:absolute; right:44px; bottom:150px;
+    position:absolute; right:44px; bottom:216px;
     padding:9px 18px; border-radius:12px; background:rgba(27,16,48,.86);
     border:3px solid rgba(255,255,255,.16); color:#ffe9b8; font-weight:800; font-size:15px;
   }
@@ -118,7 +118,7 @@
   #result-card .line { font-size:19px; font-weight:700; opacity:.9; }
 
   /* ---------- HUD de course ---------- */
-  #race-ui { position:fixed; inset:0; pointer-events:none; }
+  #race-ui { position:fixed; inset:0; pointer-events:none; z-index:10; }
   #hud { position:absolute; top:20px; left:22px; color:#fff; }
   #timer { font-size:56px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; }
   #sub { font-size:15px; font-weight:800; opacity:.94; margin-top:6px; }
@@ -132,6 +132,8 @@
     font-size:82px; font-weight:900; color:#fff; letter-spacing:2px; transform:rotate(-3deg);
     text-shadow:0 7px 0 rgba(0,0,0,.25), 0 0 46px rgba(255,225,120,.9);
   }
+
+  .lil-gui.root { top:70px !important; z-index:30 !important; }
 
   #loading { position:fixed; inset:0; display:grid; place-items:center; background:#f5a623;
     color:#fff; font-size:23px; font-weight:900; z-index:20; text-shadow:0 3px 0 rgba(0,0,0,.2); }

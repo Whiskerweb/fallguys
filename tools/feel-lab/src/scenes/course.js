@@ -8,15 +8,17 @@ import { roundedBox, pill, rimGlow, banner, stripeTexture, checkerTexture, dotTe
  * CONTRAINTE LÉGALE : tous les obstacles suivent des cycles temporels FIXES, démarrés au
  * même instant pour tous. Aucun aléatoire ne décide du gagnant.
  *
- * Note d'implémentation : le VISUEL vient de Meshy, la COLLISION reste une primitive
- * (boîte, cylindre). C'est la pratique standard — un collider en maillage détaillé coûte
- * 50 à 100 fois plus cher et produit des accrochages invisibles. Le joueur voit le modèle,
- * la physique voit la forme simple.
+ * RÈGLE D'ASSETS, apprise en regardant le rendu : Meshy sert au DÉCOR et au PERSONNAGE,
+ * jamais aux obstacles. Un modèle généré a une silhouette libre (le premier bras rotatif
+ * produit était un tube courbé) alors que son collider reste une primitive : le joueur se
+ * ferait frapper par une forme qu'il ne voit pas. Dans un jeu où l'on mise, une hitbox qui
+ * ne correspond pas au visuel est disqualifiante. Tout ce qui blesse ou porte est donc
+ * construit en géométrie procédurale, taillée exactement sur son collider.
  */
 
 const C = {
-  ground: 0xf5a3c7, groundAlt: 0xffd2e6, rail: 0x7b4bd1,
-  hazard: 0xffc93c, roller: 0x4fd1c5, platform: 0xa78bfa, finish: 0x4ade80,
+  ground: 0xff7ab8, groundAlt: 0xffa8d2, rail: 0x8b4dff,
+  hazard: 0xffb01f, roller: 0x1fc9b8, platform: 0x9b5cff, finish: 0x2ecc71,
 };
 
 export function buildCourse(RAPIER, assets) {
@@ -25,7 +27,7 @@ export function buildCourse(RAPIER, assets) {
   const group = new THREE.Group();
   const animated = [];
   const checkpoints = [];
-  const spawn = new THREE.Vector3(0, 2.2, 4);
+  const spawn = new THREE.Vector3(0, 2.2, 6);
   const finishZ = -118;
 
   // ---------- helpers ----------
@@ -53,12 +55,12 @@ export function buildCourse(RAPIER, assets) {
     glow.position.set(0, 0.03, zc);
     group.add(glow);
     for (const sx of [-1, 1]) {
-      const rail = pill(len, 0.42, C.rail);
+      const rail = pill(len, 0.3, C.rail);
       rail.rotation.x = Math.PI / 2;
-      solid(rail, sx * (width / 2 + 0.25), 0.55, zc, 0.42, 0.9, len / 2);
-      for (let z = zStart; z >= zEnd; z -= 6) {
-        const post = pill(2.1, 0.3, 0x5b34a3);
-        post.position.set(sx * (width / 2 + 0.25), 0.1, z);
+      solid(rail, sx * (width / 2 + 0.2), 0.62, zc, 0.3, 0.85, len / 2);
+      for (let z = zStart; z >= zEnd; z -= 7) {
+        const post = pill(1.7, 0.22, 0x5b28b8);
+        post.position.set(sx * (width / 2 + 0.2), 0.05, z);
         group.add(post);
       }
     }
@@ -66,27 +68,34 @@ export function buildCourse(RAPIER, assets) {
   }
 
   // ---------- départ ----------
-  segment(8, -16, 14, checkerTexture('#ffffff', '#f5a3c7', 6, [6, 12]));
-  checkpoints.push(new THREE.Vector3(0, 2.2, 4));
-  const startArch = assets.getFitted('finish-arch', { x: 15, y: 6 }) ;
-  if (startArch) { startArch.position.set(0, 0, 6); group.add(startArch); }
-  else { const b = banner(15, C.finish, true); b.position.set(0, 4.4, 6); group.add(b); }
+  segment(16, -16, 14, checkerTexture('#ffffff', '#d2d2d2', 6, [6, 12]));
+  checkpoints.push(new THREE.Vector3(0, 2.2, 6));
+  // Depart : bannière souple et portiques, pas l'arche Meshy — elle porte le mot FINISH
+  // et sa taille ecrasait le cadrage juste devant le joueur.
+  for (const sx of [-1, 1]) {
+    const post = pill(5.2, 0.42, C.finish);
+    post.position.set(sx * 7.2, 2.4, 2);
+    group.add(post);
+  }
+  const startBanner = banner(14.4, C.finish, true);
+  startBanner.position.set(0, 4.7, 2);
+  group.add(startBanner);
 
   // ---------- zone 1 : bras rotatifs ----------
-  segment(-16, -38, 12, dotTexture('#f5a3c7', '#ffd2e6', [10, 22]));
+  segment(-16, -38, 12, dotTexture('#ffffff', '#e2e2e2', [10, 22]));
   checkpoints.push(new THREE.Vector3(0, 2.2, -17));
   addSpinner(0, 1.05, -23, 11, 1.0, 0);
   addSpinner(0, 1.05, -33, 11, -1.25, Math.PI / 2);
 
   // ---------- zone 2 : pendules ----------
-  segment(-38, -58, 10, dotTexture('#ffd2e6', '#f5a3c7', [9, 20]));
+  segment(-38, -58, 10, dotTexture('#ffffff', '#e6e6e6', [9, 20]));
   checkpoints.push(new THREE.Vector3(0, 2.2, -39));
-  addPendulum(0, 7.0, -43, 0);
-  addPendulum(0, 7.0, -49, Math.PI * 0.6);
-  addPendulum(0, 7.0, -55, Math.PI * 1.2);
+  addPendulum(0, 6.0, -43, 0);
+  addPendulum(0, 6.0, -49, Math.PI * 0.6);
+  addPendulum(0, 6.0, -55, Math.PI * 1.2);
 
   // ---------- zone 3 : rouleaux ----------
-  segment(-58, -74, 10, stripeTexture('#ffd2e6', '#f5a3c7', 10, [6, 12]));
+  segment(-58, -74, 10, stripeTexture('#ffffff', '#dcdcdc', 10, [6, 12]));
   checkpoints.push(new THREE.Vector3(0, 2.2, -59));
   addRoller(0, 0.9, -63, 3.4);
   addRoller(0, 0.9, -67, -3.4);
@@ -101,12 +110,12 @@ export function buildCourse(RAPIER, assets) {
   island(0, -93, 9, 5);
 
   // ---------- zone 5 : final ----------
-  segment(-96, -120, 11, stripeTexture('#ffc93c', '#ff8a3d', 12, [5, 14]));
+  segment(-96, -120, 11, stripeTexture('#ffc94a', '#ff8a3d', 12, [5, 14]), 0xffffff);
   checkpoints.push(new THREE.Vector3(0, 2.2, -94));
   addSpinner(0, 1.05, -104, 10, 1.6, 0);
   addSpinner(0, 2.45, -112, 9, -2.1, Math.PI / 3);
 
-  const arch = assets.getFitted('finish-arch', { x: 13, y: 6.5 });
+  const arch = assets.getFitted('finish-arch', { x: 11.5, y: 5.4 });
   if (arch) { arch.position.set(0, 0, finishZ); group.add(arch); }
   else {
     for (const sx of [-1, 1]) { const p = pill(6, 0.7, C.finish); p.position.set(sx * 5.4, 3, finishZ); group.add(p); }
@@ -117,13 +126,21 @@ export function buildCourse(RAPIER, assets) {
 
   // ---------- constructeurs d'obstacles ----------
   function addSpinner(x, y, z, length, speed, phase) {
-    const visual = assets.getFitted('spinner-arm', { x: length }, { groundAlign: false })
-      ?? roundedBox(length, 0.9, 0.9, C.hazard, { radius: 0.42, map: stripeTexture('#ffc93c', '#ff8a3d', 14, [7, 1]) });
+    // Barreau procédural : ses demi-dimensions sont exactement celles du collider.
+    const visual = roundedBox(length, 0.9, 0.9, 0xffffff, {
+      radius: 0.42, map: stripeTexture('#ffb01f', '#ff6a2b', 14, [7, 1]),
+    });
     visual.position.set(x, y, z);
     group.add(visual);
+    for (const sx of [-1, 1]) {
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.52, 14, 12), toonMaterial(0xff6a2b));
+      cap.position.set(sx * (length / 2 - 0.1), 0, 0);
+      cap.castShadow = true;
+      visual.add(cap);
+    }
 
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.75, 2.2, 16), toonMaterial(C.rail));
-    hub.position.set(x, y - 0.35, z);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 1.5, 18), toonMaterial(C.rail));
+    hub.position.set(x, y - 0.6, z);
     hub.castShadow = true;
     group.add(hub);
 
@@ -137,7 +154,7 @@ export function buildCourse(RAPIER, assets) {
   }
 
   function addPendulum(x, pivotY, z, phase) {
-    const armLen = 5.0;
+    const armLen = 4.2;
     const pivot = new THREE.Group();
     pivot.position.set(x, pivotY, z);
     group.add(pivot);
@@ -146,8 +163,9 @@ export function buildCourse(RAPIER, assets) {
     rope.position.y = -armLen / 2;
     pivot.add(rope);
 
+    // La boule est une sphère des deux côtés : le modèle généré épouse son collider ball().
     const ball = assets.get('wrecking-ball', 3.0, { groundAlign: false })
-      ?? new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 2), toonMaterial(0xff8a3d));
+      ?? new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 2), toonMaterial(0xff6a2b));
     ball.position.y = -armLen;
     pivot.add(ball);
 
@@ -167,13 +185,16 @@ export function buildCourse(RAPIER, assets) {
 
   function addRoller(x, y, z, speed) {
     const length = 9.5, radius = 0.9;
-    let visual = assets.getFitted('roller-log', { x: length }, { groundAlign: false });
-    if (!visual) {
-      const geo = new THREE.CylinderGeometry(radius, radius, length, 22);
-      geo.rotateZ(Math.PI / 2);
-      visual = new THREE.Mesh(geo, toonMaterial(C.roller, {}));
-      visual.material.map = stripeTexture('#4fd1c5', '#ffffff', 16, [1, 8]);
-      visual.castShadow = true;
+    const geo = new THREE.CylinderGeometry(radius, radius, length, 24);
+    geo.rotateZ(Math.PI / 2);
+    const visual = new THREE.Mesh(geo, toonMaterial(0xffffff));
+    visual.material.map = stripeTexture('#1fc9b8', '#f2fffd', 16, [1, 8]);
+    visual.castShadow = true;
+    visual.receiveShadow = true;
+    for (const sx of [-1, 1]) {
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.06, 16, 12), toonMaterial(0x14a394));
+      cap.position.x = sx * length / 2;
+      visual.add(cap);
     }
     visual.position.set(x, y, z);
     group.add(visual);
@@ -191,15 +212,14 @@ export function buildCourse(RAPIER, assets) {
   }
 
   function island(x, z, w, d) {
-    const slab = roundedBox(w, 1.1, d, C.groundAlt, { radius: 0.5, map: dotTexture('#ffd2e6', '#f5a3c7', [4, 4]) });
+    const slab = roundedBox(w, 1.1, d, C.groundAlt, { radius: 0.5, map: dotTexture('#ffffff', '#e2e2e2', [4, 4]) });
     solid(slab, x, -0.55, z, w / 2, 0.55, d / 2);
     const glow = rimGlow(w, d); glow.position.set(x, 0.03, z); group.add(glow);
   }
 
   function addMovingPlatform(z, amplitude, phaseOffset, speed) {
     const w = 4.4, d = 4.4;
-    let visual = assets.getFitted('platform-hex', { x: w, z: d }, { groundAlign: false });
-    if (!visual) visual = roundedBox(w, 1.0, d, C.platform, { radius: 0.45, emissive: 0x2a1150 });
+    const visual = roundedBox(w, 1.0, d, C.platform, { radius: 0.45, emissive: 0x2a1150 });
     visual.position.set(0, -0.5, z);
     group.add(visual);
     const glow = rimGlow(w, d, 0xd8b4fe, 0.06);
@@ -231,7 +251,11 @@ export function buildCourse(RAPIER, assets) {
       if (!tree) return;
       tree.position.set(x, -1.2, z);
       tree.rotation.y = i * 1.3;
-      tree.traverse((c) => { if (c.isMesh) c.castShadow = false; });
+      tree.traverse((c) => {
+        if (!c.isMesh || c.userData.isOutline) return;
+        c.castShadow = false;
+        if (c.material?.color) c.material.color.setHex(0x8fd66f);
+      });
       group.add(tree);
     });
     for (const [x, z, ry] of [[-19, -30, 0.5], [19, -62, -0.5], [-19, -100, 0.6]]) {

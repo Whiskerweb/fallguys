@@ -7,7 +7,7 @@ import { TUNING } from './tuning.js';
 
 /** Rampe de 4 niveaux : donne l'aplat franc du toon shading plutôt qu'un dégradé lisse. */
 export function toonGradient() {
-  const data = new Uint8Array([90, 150, 215, 255]);
+  const data = new Uint8Array([76, 140, 205, 255]);
   const tex = new THREE.DataTexture(data, data.length, 1, THREE.RedFormat);
   tex.minFilter = THREE.NearestFilter;
   tex.magFilter = THREE.NearestFilter;
@@ -30,6 +30,7 @@ export function addOutline(mesh, thickness = 0.055, color = 0x1a2b45) {
   outline.scale.multiplyScalar(1 + thickness);
   outline.castShadow = false;
   outline.receiveShadow = false;
+  outline.userData.isOutline = true;
   mesh.add(outline);
   return outline;
 }
@@ -40,9 +41,9 @@ function buildSky() {
     side: THREE.BackSide,
     depthWrite: false,
     uniforms: {
-      topColor: { value: new THREE.Color(0x3aa6ef) },
-      midColor: { value: new THREE.Color(0x9fe0ff) },
-      botColor: { value: new THREE.Color(0xffe9b8) },
+      topColor: { value: new THREE.Color(0x1e86e0) },
+      midColor: { value: new THREE.Color(0x6fc8f5) },
+      botColor: { value: new THREE.Color(0xffd98a) },
     },
     vertexShader: `
       varying vec3 vPos;
@@ -99,12 +100,12 @@ export function createWorld() {
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  // ACESFilmic desature et lave les aplats : un rendu cartoon veut des couleurs franches.
+  renderer.toneMapping = THREE.NoToneMapping;
   document.body.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xbfe8ff, 90, 260);
+  scene.fog = new THREE.Fog(0x9fd8f5, 150, 420);
   const sky = buildSky();
   const clouds = buildClouds();
   scene.add(sky);
@@ -113,9 +114,9 @@ export function createWorld() {
   const camera = new THREE.PerspectiveCamera(TUNING.camFov, innerWidth / innerHeight, 0.1, 600);
   camera.position.set(0, 8, 14);
 
-  scene.add(new THREE.HemisphereLight(0xcfefff, 0xe8b98a, 1.05));
+  scene.add(new THREE.HemisphereLight(0xbfe4ff, 0xffb877, 0.45));
 
-  const sun = new THREE.DirectionalLight(0xfff3d6, 2.35);
+  const sun = new THREE.DirectionalLight(0xfffaf0, 1.28);
   sun.position.set(26, 42, 18);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -131,7 +132,7 @@ export function createWorld() {
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.34, 0.75, 0.86);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.7, 0.92);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
 
