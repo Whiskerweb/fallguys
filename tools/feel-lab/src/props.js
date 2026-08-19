@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { toonMaterial, addOutline } from './world.js';
+import { hazardStripes, softChecker, polkaStagger } from './textures.js';
 
 /**
  * Aucune arête vive dans ce jeu : toutes les surfaces jouables passent par ici.
@@ -8,69 +9,17 @@ import { toonMaterial, addOutline } from './world.js';
  * se lit comme un objet dessiné. C'est la différence entre un prototype et un jeu.
  */
 
-const texCache = new Map();
-
-function canvasTexture(key, size, draw, repeat = [1, 1]) {
-  if (texCache.has(key)) return texCache.get(key);
-  const c = document.createElement('canvas');
-  c.width = c.height = size;
-  draw(c.getContext('2d'), size);
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(repeat[0], repeat[1]);
-  tex.anisotropy = 4;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  texCache.set(key, tex);
-  return tex;
+// Les textures vivent desormais dans textures.js : raccordables par construction,
+// bien plus riches (matelassage, touffes, ecailles, bandes gonflees).
+// Ces trois alias gardent les appels existants valides.
+export function stripeTexture(a, b, bands = 8, repeat = [4, 1]) {
+  return hazardStripes({ a, b, bands, repeat });
 }
-
-/**
- * Deux régimes de texture, et il ne faut pas les mélanger :
- *  - MOTIF (sol) : niveaux clairs quasi neutres. La teinte vient du matériau, la texture
- *    ne fait que la moduler. Une texture colorée multiplierait la couleur et l'assombrirait
- *    deux fois — c'est ce qui faisait virier le rose au brun.
- *  - SIGNAL (danger) : la texture porte les couleurs, et le matériau reste blanc.
- */
-
-/** Rayures diagonales — signal de danger, lisible à toute vitesse. Matériau blanc attendu. */
-export function stripeTexture(a = '#ffc93c', b = '#ff8a3d', bands = 8, repeat = [4, 1]) {
-  return canvasTexture(`stripe-${a}-${b}-${bands}-${repeat}`, 256, (ctx, s) => {
-    ctx.fillStyle = a;
-    ctx.fillRect(0, 0, s, s);
-    ctx.fillStyle = b;
-    const w = s / bands;
-    ctx.save();
-    ctx.translate(-s, 0);
-    ctx.rotate(-0.5);
-    for (let i = 0; i < bands * 4; i++) ctx.fillRect(i * w * 2, -s, w, s * 4);
-    ctx.restore();
-  }, repeat);
+export function checkerTexture(a, b, cells = 8, repeat = [1, 1]) {
+  return softChecker({ a, b, cells: Math.max(2, Math.round(cells / 2)), repeat });
 }
-
-/** Damier — départ, arrivée, zones neutres. */
-export function checkerTexture(a = '#ffffff', b = '#2a1b45', squares = 8, repeat = [3, 1]) {
-  return canvasTexture(`check-${a}-${b}-${squares}-${repeat}`, 256, (ctx, s) => {
-    const q = s / squares;
-    for (let y = 0; y < squares; y++)
-      for (let x = 0; x < squares; x++) {
-        ctx.fillStyle = (x + y) % 2 ? a : b;
-        ctx.fillRect(x * q, y * q, q, q);
-      }
-  }, repeat);
-}
-
-/** Pois doux — sol des zones calmes, évite l'aplat mort. */
-export function dotTexture(bg = '#f5a3c7', dot = '#ffd2e6', repeat = [8, 8]) {
-  return canvasTexture(`dots-${bg}-${dot}-${repeat}`, 256, (ctx, s) => {
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, s, s);
-    ctx.fillStyle = dot;
-    for (const [cx, cy] of [[0.25, 0.25], [0.75, 0.75]]) {
-      ctx.beginPath();
-      ctx.arc(cx * s, cy * s, s * 0.11, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }, repeat);
+export function dotTexture(base, dot, repeat = [8, 8]) {
+  return polkaStagger({ base, dot, repeat });
 }
 
 /** Boîte à coins arrondis, avec texture et contour cartoon. */
@@ -222,5 +171,79 @@ export function bunting(width, count = 14, colors = [0xff5f7e, 0x4fd1c5, 0xffd83
     flag.rotation.x = Math.PI;
     group.add(flag);
   }
+  return group;
+}
+
+/**
+ * Drapeau flottant. L'ondulation est injectée dans le vertex shader d'un MeshToonMaterial
+ * via onBeforeCompile : on garde l'ombrage en aplats du reste du jeu tout en déformant
+ * le maillage sur le GPU. Animer 40 drapeaux sur le CPU coûterait bien plus cher.
+ * L'amplitude croît avec la distance au mât — c'est ce qui donne l'air d'un tissu tenu
+ * d'un seul côté plutôt que d'une plaque qui vibre.
+ */
+const wavingShaders = [];
+
+export function flag(width, height, color, { map = null, amplitude = 0.28, speed = 3.2 } = {}) {
+  const geo = new THREE.PlaneGeometry(width, height, 24, 8);
+  geo.translate(width / 2, 0, 0);          // le bord gauche reste au mât
+  const mat = toonMaterial(color);
+  mat.side = THREE.DoubleSide;
+  if (map) mat.map = map;
+
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = { value: 0 };
+    shader.uniforms.uAmp = { value: amplitude };
+    shader.uniforms.uSpeed = { value: speed };
+    shader.uniforms.uWidth = { value: width };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+        uniform float uTime; uniform float uAmp; uniform float uSpeed; uniform float uWidth;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        float grip = clamp(transformed.x / uWidth, 0.0, 1.0);
+        float t = uTime * uSpeed;
+        transformed.z += sin(transformed.x * 3.4 - t) * uAmp * grip;
+        transformed.z += sin(transformed.y * 2.1 + t * 0.7) * uAmp * 0.35 * grip;
+        transformed.y += cos(transformed.x * 2.6 - t * 1.1) * uAmp * 0.28 * grip;`);
+    wavingShaders.push(shader);
+  };
+
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+  return mesh;
+}
+
+/** À appeler une fois par frame : fait avancer tous les drapeaux d'un coup. */
+export function updateFlags(elapsed) {
+  for (const sh of wavingShaders) sh.uniforms.uTime.value = elapsed;
+}
+
+/** Mât + drapeau, prêt à poser. */
+export function flagPole(poleHeight, flagWidth, flagHeight, poleColor, flagColor, opts = {}) {
+  const group = new THREE.Group();
+  const pole = pill(poleHeight, 0.12, poleColor, { outline: false });
+  pole.position.y = poleHeight / 2;
+  group.add(pole);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), toonMaterial(0xffd83d));
+  knob.position.y = poleHeight + 0.08;
+  group.add(knob);
+  const f = flag(flagWidth, flagHeight, flagColor, opts);
+  f.position.set(0.1, poleHeight - flagHeight / 2 - 0.35, 0);
+  group.add(f);
+  return group;
+}
+
+/** Oriflamme verticale : bannière étroite et haute, très lisible de loin. */
+export function pennant(poleHeight, width, height, poleColor, color, opts = {}) {
+  const group = new THREE.Group();
+  const pole = pill(poleHeight, 0.14, poleColor, { outline: false });
+  pole.position.y = poleHeight / 2;
+  group.add(pole);
+  const f = flag(width, height, color, { amplitude: 0.16, speed: 2.4, ...opts });
+  f.rotation.z = -Math.PI / 2;             // suspendue par le haut
+  f.position.set(0.08, poleHeight - 0.3, 0);
+  group.add(f);
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.5, 8), toonMaterial(0xffd83d));
+  cap.position.y = poleHeight + 0.22;
+  group.add(cap);
   return group;
 }

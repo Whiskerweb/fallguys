@@ -95,10 +95,14 @@ function mulberry32(a) {
 }
 
 export function createWorld() {
+  // ?lowfx desactive bloom et ombres. Indispensable pour l'inspection automatisee :
+  // le navigateur headless rend sans GPU, et les passes plein ecran y coutent
+  // cent fois leur prix reel. Ne change rien au jeu tel que le joueur le voit.
+  const lowFx = new URLSearchParams(location.search).has('lowfx');
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = !lowFx;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   // ACESFilmic desature et lave les aplats : un rendu cartoon veut des couleurs franches.
   renderer.toneMapping = THREE.NoToneMapping;
@@ -121,7 +125,7 @@ export function createWorld() {
 // violet apparaissait entierement blanc a 1.7.
   const sun = new THREE.DirectionalLight(0xfffaf0, 0.94);
   sun.position.set(26, 42, 18);
-  sun.castShadow = true;
+  sun.castShadow = !lowFx;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = 150;
@@ -135,8 +139,9 @@ export function createWorld() {
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.7, 0.92);
-  composer.addPass(bloom);
+  if (!lowFx) {
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.7, 0.92));
+  }
   composer.addPass(new OutputPass());
 
   addEventListener('resize', () => {

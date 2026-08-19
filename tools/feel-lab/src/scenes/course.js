@@ -2,9 +2,12 @@ import * as THREE from 'three';
 import { TUNING } from '../tuning.js';
 import { toonMaterial, addOutline } from '../world.js';
 import {
-  roundedBox, pill, rimGlow, banner, stripeTexture, checkerTexture, dotTexture,
-  inflatableArch, balloon, bollard, bunting,
+  roundedBox, pill, rimGlow, banner, inflatableArch, balloon, bollard, bunting,
+  flagPole, pennant, updateFlags,
 } from '../props.js';
+import {
+  quiltedVinyl, softChecker, hazardStripes, polkaStagger, grassTufts, scales, inflatedBands,
+} from '../textures.js';
 
 /**
  * La Course — mini-jeu 1 du spec.
@@ -108,7 +111,7 @@ export function buildCourse(RAPIER, assets) {
     const yc = (yFrom + yTo) / 2;
 
     const mesh = roundedBox(width, 1.2, len, color, {
-      radius: 0.45, map: stripeTexture('#ffffff', '#e0e0e0', 12, [3, 8]), outline: 0.008,
+      radius: 0.45, map: softChecker({ a: '#ffffff', b: '#e4e4e4', cells: 3, repeat: [3, 7] }), outline: 0.008,
     });
     mesh.rotation.x = angle;
     mesh.position.set(x, yc - 0.6, zc);
@@ -130,7 +133,7 @@ export function buildCourse(RAPIER, assets) {
   function spinner(x, y, z, length, speed, phase) {
     if (skipped('spinners')) return;
     const visual = roundedBox(length, 0.9, 0.9, 0xffffff, {
-      radius: 0.42, map: stripeTexture('#ffb01f', '#ff6a2b', 14, [7, 1]),
+      radius: 0.42, map: hazardStripes({ a: '#ffb01f', b: '#ff6a2b', bands: 7, repeat: [7, 1] }),
     });
     visual.position.set(x, y, z);
     group.add(visual);
@@ -190,7 +193,7 @@ export function buildCourse(RAPIER, assets) {
     const geo = new THREE.CylinderGeometry(radius, radius, length, 24);
     geo.rotateZ(Math.PI / 2);
     const visual = new THREE.Mesh(geo, toonMaterial(0xffffff));
-    visual.material.map = stripeTexture('#1fc9b8', '#f2fffd', 16, [1, 8]);
+    visual.material.map = inflatedBands({ a: '#1fc9b8', b: '#f2fffd', bands: 8, repeat: [1, 6] });
     visual.castShadow = true;
     visual.receiveShadow = true;
     for (const sx of [-1, 1]) {
@@ -217,7 +220,7 @@ export function buildCourse(RAPIER, assets) {
    * La règle de combinaison Max est indispensable — le collider du joueur a une
    * restitution nulle, et la règle par défaut (moyenne) annulerait le rebond.
    */
-  function bumper(x, y, z, radius = 1.15, height = 2.2) {
+  function bumper(x, y, z, radius = 0.92, height = 1.85) {
     if (skipped('bumpers')) return;
     const visual = bollard(height, radius, C.bumper);
     visual.position.set(x, y, z);
@@ -269,7 +272,7 @@ export function buildCourse(RAPIER, assets) {
     if (width <= 0) throw new Error(`swingDoor: largeur invalide (${width})`);
     const side = Math.sign(dir) || 1;
     const panel = roundedBox(width, 2.6, 0.4, 0xffffff, {
-      radius: 0.18, map: checkerTexture('#ffd83d', '#ff8a3d', 4, [3, 2]),
+      radius: 0.18, map: hazardStripes({ a: '#ffd83d', b: '#ff8a3d', bands: 4, repeat: [3, 2] }),
     });
     const holder = new THREE.Group();
     holder.position.set(x, y + 1.3, z);
@@ -297,7 +300,7 @@ export function buildCourse(RAPIER, assets) {
     if (skipped('conveyors')) { slab(x, y, zFrom, zTo, width, { rails: false }); return null; }
     const len = Math.abs(zTo - zFrom);
     const zc = (zFrom + zTo) / 2;
-    const map = stripeTexture('#5b8cff', '#c9dcff', 14, [2, 6]);
+    const map = inflatedBands({ a: '#5b8cff', b: '#c9dcff', bands: 7, repeat: [2, 6] });
     const mesh = roundedBox(width, 1.2, len, 0xffffff, { radius: 0.3, map, outline: 0.008 });
     addBody(mesh, x, y - 0.6, zc, RAPIER.ColliderDesc.cuboid(width / 2, 0.6, len / 2).setFriction(0.55));
     conveyors.push({ minX: x - width / 2, maxX: x + width / 2, minZ: Math.min(zFrom, zTo), maxZ: Math.max(zFrom, zTo), y, vx, vz });
@@ -326,14 +329,20 @@ export function buildCourse(RAPIER, assets) {
   // Sept zones, avec dénivelé et largeurs variables : un couloir plat de bout en bout
   // se lit comme un test, pas comme un niveau.
 
-  const P = { plain: dotTexture('#ffffff', '#ebebeb', [10, 22]), check: checkerTexture('#ffffff', '#d8d8d8', 6, [6, 12]) };
+  // Une texture différente par zone : le joueur sait où il est sans lire un panneau.
+  const P = {
+    quilt: quiltedVinyl({ cells: 5, repeat: [4, 9] }),
+    check: softChecker({ cells: 4, repeat: [5, 10] }),
+    polka: polkaStagger({ cells: 3, repeat: [7, 15] }),
+    scale: scales({ cells: 5, repeat: [5, 11] }),
+  };
 
   // 1 — Départ, large et plat
   slab(0, 0, 20, -4, 16, { map: P.check });
   checkpoints.push(new THREE.Vector3(0, 2.4, 12));
 
   // 2 — Entonnoir à bumpers : premier goulot, premier chaos
-  slab(0, 0, -4, -24, 13, { map: P.plain });
+  slab(0, 0, -4, -24, 13, { map: P.quilt });
   checkpoints.push(new THREE.Vector3(0, 2.4, -6));
   for (const [bx, bz] of [[-3.4, -9], [3.4, -9], [0, -13], [-4.2, -17], [4.2, -17], [-1.8, -21], [1.8, -21]]) {
     bumper(bx, 0, bz);
@@ -343,7 +352,7 @@ export function buildCourse(RAPIER, assets) {
 
   // 3 — Montée puis plateau des barreaux rotatifs
   ramp(0, 0, 4, -24, -33, 12);
-  slab(0, 4, -33, -54, 12, { color: C.groundHigh, map: P.plain });
+  slab(0, 4, -33, -54, 12, { color: C.groundHigh, map: P.scale });
   checkpoints.push(new THREE.Vector3(0, 6.4, -35));
   spinner(0, 5.05, -39, 11, 1.0, 0);
   spinner(0, 5.05, -47, 11, -1.25, Math.PI / 2);
@@ -352,7 +361,7 @@ export function buildCourse(RAPIER, assets) {
 
   // 4 — Descente vers le pont étroit
   ramp(0, 4, 1, -54, -62, 11);
-  slab(0, 1, -62, -84, 7.5, { color: C.ground, map: P.plain });
+  slab(0, 1, -62, -84, 7.5, { color: C.ground, map: P.polka });
   checkpoints.push(new THREE.Vector3(0, 3.4, -64));
   pendulum(0, 7.0, -68, 0);
   pendulum(0, 7.0, -74, Math.PI * 0.6);
@@ -367,17 +376,17 @@ export function buildCourse(RAPIER, assets) {
   roller(0, 1.9, -93, -3.4, 10.5);
 
   // 6 — Plateformes mobiles au-dessus du vide
-  slab(0, 1, -96, -101, 9, { map: P.plain, rails: false });
+  slab(0, 1, -96, -101, 9, { map: P.quilt, rails: false });
   checkpoints.push(new THREE.Vector3(0, 3.4, -98));
   movingPlatform(-105, 5.6, 2.2, 0.45, 1);
-  slab(0, 1, -110, -113, 6.5, { map: P.plain, rails: false });
+  slab(0, 1, -110, -113, 6.5, { map: P.quilt, rails: false });
   movingPlatform(-117, 5.6, -2.2, 0.62, 1);
-  slab(0, 1, -122, -127, 9, { map: P.plain, rails: false });
+  slab(0, 1, -122, -127, 9, { map: P.quilt, rails: false });
 
   // 7 — Dernière ligne : descente, barreau bas, sprint final
   checkpoints.push(new THREE.Vector3(0, 3.4, -124));
   ramp(0, 1, 0, -127, -132, 11);
-  slab(0, 0, -132, -148, 12, { map: stripeTexture('#ffc94a', '#ff8a3d', 12, [5, 14]), color: 0xffffff });
+  slab(0, 0, -132, -148, 12, { map: hazardStripes({ a: '#ffc94a', b: '#ff8a3d', bands: 5, repeat: [5, 14] }), color: 0xffffff });
   spinner(0, 1.05, -137, 10, 2.1, 0);
 
   // ─────────────────────────── habillage ───────────────────────────
@@ -414,9 +423,9 @@ export function buildCourse(RAPIER, assets) {
   }
 
   function dressScenery() {
-    // Terrain : sans lui, gradins et arbres flottent au-dessus du vide.
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(340, 420), toonMaterial(0x7bc95f));
-    ground.material.map = dotTexture('#ffffff', '#ececec', [30, 36]);
+    // Terrain : sans lui, gradins et décors flottent au-dessus du vide.
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(340, 460), toonMaterial(0x7bc95f));
+    ground.material.map = grassTufts({ repeat: [30, 40] });
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(0, -3.2, -60);
     ground.receiveShadow = true;
@@ -424,9 +433,9 @@ export function buildCourse(RAPIER, assets) {
 
     const hillGeo = new THREE.SphereGeometry(1, 14, 10);
     for (const [hx, hz, r, color] of [
-      [-78, -170, 36, 0x63b84e], [64, -190, 44, 0x55a843], [10, -220, 54, 0x4d9a3d],
+      [-78, -170, 36, 0x63b84e], [64, -190, 44, 0x55a843], [10, -230, 54, 0x4d9a3d],
       [-112, -110, 30, 0x6cc257], [104, -70, 32, 0x63b84e], [-124, -6, 26, 0x55a843],
-      [92, -150, 28, 0x6cc257],
+      [92, -150, 28, 0x6cc257], [-96, -210, 34, 0x4d9a3d],
     ]) {
       const hill = new THREE.Mesh(hillGeo, toonMaterial(color));
       hill.position.set(hx, -3.2, hz);
@@ -434,41 +443,99 @@ export function buildCourse(RAPIER, assets) {
       group.add(hill);
     }
 
-    // Arches gonflables au-dessus de la piste : jalonnent le parcours et donnent
-    // un repère de progression sans texte.
+    // Arches gonflables au-dessus de la piste : jalonnent la progression sans texte.
     for (const [az, ay, color] of [[-24, 0, 0x4fd1c5], [-54, 4, 0xffd83d], [-96, 1, 0xff5f7e], [-127, 1, 0x8b7bff]]) {
       const a = inflatableArch(14, 7, 0.55, color);
       a.position.set(0, ay, az);
       group.add(a);
     }
 
+    /** Pose un modèle généré : pas de contour, pas d'ombre — c'est du décor, pas du gameplay. */
+    function prop(name, size, x, z, { y = -3.2, rot = 0, tint = null, shadow = false } = {}) {
+      const m = assets.get(name, size, { outline: 0 });
+      if (!m) return null;
+      m.position.set(x, y, z);
+      m.rotation.y = rot;
+      m.traverse((c) => {
+        if (!c.isMesh || c.userData.isOutline) return;
+        c.castShadow = shadow;
+        if (tint && c.material?.color) c.material.color.setHex(tint);
+      });
+      group.add(m);
+      return m;
+    }
+
+    // ── Végétation : trois essences alternées plutôt qu'un seul arbre répété ──
+    const species = ['tree-round', 'tree-pine', 'tree-candy', 'bush-berry'];
+    const tints = [0x8fd66f, 0x6fc98f, 0x9ede6a, 0x7fd07a];
+    let n = 0;
+    for (let z = 6; z > -156; z -= 11) {
+      for (const side of [-1, 1]) {
+        const kind = species[n % species.length];
+        const isBush = kind === 'bush-berry';
+        prop(kind, isBush ? 2.6 : 4.2 + (n % 3) * 0.9,
+          side * (16 + ((n * 3.7) % 5)), z - (side > 0 ? 5 : 0),
+          { rot: n * 1.31, tint: tints[n % tints.length] });
+        n++;
+      }
+    }
+    for (const [x, z] of [[-13, -30], [13, -58], [-13, -90], [13, -120], [-13, -145]]) {
+      prop('flower-patch', 2.4, x, z);
+    }
+
+    // ── Éléments de décor caractéristiques, un par zone ──
+    prop('scoreboard', 11, -26, 8, { rot: 0.7 });
+    prop('speaker-stack', 6, 17, 10, { rot: -0.5 });
+    prop('speaker-stack', 6, -17, 10, { rot: 0.5 });
+    prop('food-stand', 9, 26, -18, { rot: -0.9 });
+    prop('camera-tower', 7, -26, -40, { rot: 1.2 });
+    prop('bounce-castle', 15, 34, -62, { rot: -1.0 });
+    prop('windmill', 16, -40, -96, { rot: 0.5 });
+    prop('windmill', 13, 44, -134, { rot: -0.6 });
+    prop('camera-tower', 7, 26, -108, { rot: -1.2 });
+    prop('food-stand', 9, -28, -124, { rot: 0.9 });
+    prop('camera-tower', 7, -24, -146, { rot: 1.4 });
+    prop('giant-trophy', 9, 0, finishZ - 12, { y: -3.2, shadow: true });
+
+    // ── Dirigeable : dérive lentement au-dessus du parcours ──
+    const blimp = prop('blimp', 22, -30, -70, { y: 34, rot: 0.3 });
+    if (blimp) {
+      animated.push((t) => {
+        blimp.position.x = -30 + Math.sin(t * 0.045) * 26;
+        blimp.position.y = 34 + Math.sin(t * 0.22) * 1.4;
+        blimp.rotation.y = 0.3 + Math.sin(t * 0.045) * 0.25;
+      });
+    }
+
+    // ── Drapeaux : mâts alternés le long de la piste, oriflammes aux zones clés ──
+    const flagColors = [0xff5f7e, 0x4fd1c5, 0xffd83d, 0x8b7bff, 0xff8a3d, 0x4ade80];
+    let f = 0;
+    for (let z = 4; z > -150; z -= 16) {
+      for (const side of [-1, 1]) {
+        const pole = flagPole(6.8 + (f % 3) * 0.7, 2.1, 1.15, 0xf0f0f5, flagColors[f % flagColors.length]);
+        pole.position.set(side * 15.2, -3.2, z);
+        // Tous les drapeaux flottent vers l'arrivee : un vent coherent, et ils ne
+        // font plus face au joueur comme des panneaux publicitaires.
+        pole.rotation.y = Math.PI / 2;
+        group.add(pole);
+        f++;
+      }
+    }
+    for (const [x, z] of [[-13.5, -22], [13.5, -52], [-13.5, -84], [13.5, -114], [-13.5, -142]]) {
+      const pen = pennant(8.8, 2.6, 0.9, 0xe8e8ef, flagColors[(f++) % flagColors.length]);
+      pen.position.set(x, -3.2, z);
+      group.add(pen);
+    }
+
     // Ballons géants en bord de piste
     for (const [bx, bz, r, color] of [
-      [-17, -12, 2.6, 0xff5f7e], [17, -40, 3.0, 0x4fd1c5], [-19, -70, 2.4, 0xffd83d],
-      [19, -104, 2.8, 0x8b7bff], [-18, -134, 2.6, 0xff8a3d],
+      [-24, -12, 2.2, 0xff5f7e], [24, -40, 2.4, 0x4fd1c5], [-26, -70, 2.0, 0xffd83d],
+      [26, -104, 2.3, 0x8b7bff], [-25, -134, 2.2, 0xff8a3d],
     ]) {
       const b = balloon(r, color);
       b.position.set(bx, -3.2, bz);
       group.add(b);
     }
-
-    const treeSpots = [];
-    for (let z = 4; z > -150; z -= 15) {
-      treeSpots.push([-15.5 - ((z * 0.31) % 3), z]);
-      treeSpots.push([15.5 + ((z * 0.17) % 4), z - 7]);
-    }
-    treeSpots.forEach(([x, z], i) => {
-      const tree = assets.get('tree-candy', 4.4 + (i % 3) * 0.9, { outline: 0 });
-      if (!tree) return;
-      tree.position.set(x, -3.2, z);
-      tree.rotation.y = i * 1.3;
-      tree.traverse((c) => {
-        if (!c.isMesh || c.userData.isOutline) return;
-        c.castShadow = false;
-        if (c.material?.color) c.material.color.setHex(0x8fd66f);
-      });
-      group.add(tree);
-    });
 
     for (const [x, z, ry] of [[-22, -20, 0.5], [22, -46, -0.5], [-22, -78, 0.5], [22, -112, -0.5], [-22, -140, 0.5]]) {
       grandstand(x, z, ry * Math.PI);
@@ -515,7 +582,7 @@ export function buildCourse(RAPIER, assets) {
 
   return {
     world, group, spawn, finishZ, killY: -12, checkpoints, conveyors,
-    update: (elapsed) => { for (const fn of animated) fn(elapsed); },
+    update: (elapsed) => { updateFlags(elapsed); for (const fn of animated) fn(elapsed); },
     checkpointFor(z) {
       let best = checkpoints[0];
       for (const cp of checkpoints) if (z <= cp.z + 1) best = cp;

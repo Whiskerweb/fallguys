@@ -1,5 +1,12 @@
 [
+  "blimp",
+  "bounce-castle",
+  "bush-berry",
+  "camera-tower",
   "finish-arch",
+  "flower-patch",
+  "food-stand",
+  "giant-trophy",
   "grandstand",
   "lobby-island",
   "lobby-podium",
@@ -7,7 +14,12 @@
   "player-blob",
   "player-rigged",
   "roller-log",
+  "scoreboard",
+  "speaker-stack",
   "spinner-arm",
   "tree-candy",
+  "tree-pine",
+  "tree-round",
+  "windmill",
   "wrecking-ball"
 ]

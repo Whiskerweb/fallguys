@@ -1,33 +1,136 @@
 {
   "assets": [
-    { "name": "player-blob", "polycount": 9000, "symmetry": "on",
-      "prompt": "cute chubby round blob mascot character, soft rounded capsule body, huge glossy cartoon eyes, tiny stubby arms and legs, glossy candy pink vinyl toy material, Fall Guys style, clean smooth silhouette, pastel colors, studio lighting" },
-
-    { "name": "spinner-arm", "polycount": 7000, "symmetry": "on",
-      "prompt": "cartoon carnival spinning obstacle arm, long padded yellow and orange striped bumper beam with rounded soft ends, chunky bolts, glossy toy plastic, game show prop, clean stylized shapes" },
-
-    { "name": "wrecking-ball", "polycount": 6000, "symmetry": "on",
-      "prompt": "cartoon wrecking ball obstacle, giant glossy orange rubber sphere with soft rounded spikes and a metal cap ring on top, bouncy toy material, game show prop, stylized cute menace" },
-
-    { "name": "roller-log", "polycount": 6000, "symmetry": "on",
-      "prompt": "cartoon rolling obstacle cylinder, glossy turquoise and white candy spiral striped roller with rounded rubber caps at both ends, toy playground equipment, clean stylized" },
-
-    { "name": "platform-hex", "polycount": 5000, "symmetry": "on",
-      "prompt": "cartoon floating hexagonal platform tile, thick rounded beveled edges, glossy lavender top surface with soft glowing rim light, candy plastic material, clean game asset, no scenery" },
-
-    { "name": "tree-candy", "polycount": 5000, "symmetry": "off",
-      "prompt": "cartoon stylized tree, fat rounded pastel green foliage blobs stacked like cotton candy, short chubby brown trunk, glossy toy material, whimsical game show garden prop" },
-
-    { "name": "grandstand", "polycount": 12000, "symmetry": "on",
-      "prompt": "cartoon stadium grandstand bleachers filled with tiny cheering blob spectators, curved rounded seating rows, colorful pastel panels, bunting flags on top, glossy toy diorama style" },
-
-    { "name": "finish-arch", "polycount": 9000, "symmetry": "on",
-      "prompt": "cartoon inflatable finish line arch gate, fat rounded balloon pillars in mint green and white, checkered flag banner on top, glossy inflatable vinyl material, game show prop" },
-
-    { "name": "lobby-podium", "polycount": 8000, "symmetry": "on",
-      "prompt": "cartoon three step winners podium, thick rounded glossy blocks with gold trim, confetti pattern, candy colors, trophy pedestal, game show stage prop, clean stylized" },
-
-    { "name": "lobby-island", "polycount": 14000, "symmetry": "off",
-      "prompt": "cartoon floating island platform, round grassy top with soft rounded pastel green hills, chunky rock underside tapering to a point, small pastel flowers, whimsical game hub world, glossy stylized" }
+    {
+      "name": "player-blob",
+      "polycount": 9000,
+      "symmetry": "on",
+      "prompt": "cute chubby round blob mascot character, soft rounded capsule body, huge glossy cartoon eyes, tiny stubby arms and legs, glossy candy pink vinyl toy material, Fall Guys style, clean smooth silhouette, pastel colors, studio lighting"
+    },
+    {
+      "name": "spinner-arm",
+      "polycount": 7000,
+      "symmetry": "on",
+      "prompt": "cartoon carnival spinning obstacle arm, long padded yellow and orange striped bumper beam with rounded soft ends, chunky bolts, glossy toy plastic, game show prop, clean stylized shapes"
+    },
+    {
+      "name": "wrecking-ball",
+      "polycount": 6000,
+      "symmetry": "on",
+      "prompt": "cartoon wrecking ball obstacle, giant glossy orange rubber sphere with soft rounded spikes and a metal cap ring on top, bouncy toy material, game show prop, stylized cute menace"
+    },
+    {
+      "name": "roller-log",
+      "polycount": 6000,
+      "symmetry": "on",
+      "prompt": "cartoon rolling obstacle cylinder, glossy turquoise and white candy spiral striped roller with rounded rubber caps at both ends, toy playground equipment, clean stylized"
+    },
+    {
+      "name": "platform-hex",
+      "polycount": 5000,
+      "symmetry": "on",
+      "prompt": "cartoon floating hexagonal platform tile, thick rounded beveled edges, glossy lavender top surface with soft glowing rim light, candy plastic material, clean game asset, no scenery"
+    },
+    {
+      "name": "tree-candy",
+      "polycount": 5000,
+      "symmetry": "off",
+      "prompt": "cartoon stylized tree, fat rounded pastel green foliage blobs stacked like cotton candy, short chubby brown trunk, glossy toy material, whimsical game show garden prop"
+    },
+    {
+      "name": "grandstand",
+      "polycount": 12000,
+      "symmetry": "on",
+      "prompt": "cartoon stadium grandstand bleachers filled with tiny cheering blob spectators, curved rounded seating rows, colorful pastel panels, bunting flags on top, glossy toy diorama style"
+    },
+    {
+      "name": "finish-arch",
+      "polycount": 9000,
+      "symmetry": "on",
+      "prompt": "cartoon inflatable finish line arch gate, fat rounded balloon pillars in mint green and white, checkered flag banner on top, glossy inflatable vinyl material, game show prop"
+    },
+    {
+      "name": "lobby-podium",
+      "polycount": 8000,
+      "symmetry": "on",
+      "prompt": "cartoon three step winners podium, thick rounded glossy blocks with gold trim, confetti pattern, candy colors, trophy pedestal, game show stage prop, clean stylized"
+    },
+    {
+      "name": "lobby-island",
+      "polycount": 14000,
+      "symmetry": "off",
+      "prompt": "cartoon floating island platform, round grassy top with soft rounded pastel green hills, chunky rock underside tapering to a point, small pastel flowers, whimsical game hub world, glossy stylized"
+    },
+    {
+      "name": "tree-round",
+      "polycount": 5000,
+      "symmetry": "off",
+      "prompt": "cartoon stylized tree, one big perfectly round pastel green foliage sphere with soft bumpy edges, short chubby glossy brown trunk, toy vinyl material, whimsical theme park garden prop, clean simple silhouette, saturated colours"
+    },
+    {
+      "name": "tree-pine",
+      "polycount": 4500,
+      "symmetry": "on",
+      "prompt": "cartoon stylized pine tree, three stacked rounded cone tiers in bright mint green, chubby short trunk, glossy toy plastic, soft rounded edges no sharp points, whimsical game asset, saturated colours"
+    },
+    {
+      "name": "bush-berry",
+      "polycount": 3500,
+      "symmetry": "off",
+      "prompt": "cartoon stylized bush, cluster of rounded green blobs with tiny pink berries, glossy toy vinyl, low wide silhouette, theme park landscaping prop, saturated pastel colours"
+    },
+    {
+      "name": "flower-patch",
+      "polycount": 4000,
+      "symmetry": "off",
+      "prompt": "cartoon flower patch, cluster of oversized rounded daisy and tulip flowers in pink yellow and white on short green stems, glossy toy material, whimsical game garden prop, flat base"
+    },
+    {
+      "name": "food-stand",
+      "polycount": 11000,
+      "symmetry": "on",
+      "prompt": "cartoon carnival food stand kiosk, rounded candy striped red and white awning, chubby wooden counter, tiny popcorn and drink cups on top, glossy toy diorama, theme park prop, front facing, no people"
+    },
+    {
+      "name": "camera-tower",
+      "polycount": 9000,
+      "symmetry": "off",
+      "prompt": "cartoon television broadcast camera on a chunky rounded tripod tower platform, big glossy lens, red recording light, toy plastic material, game show equipment prop, bright colours"
+    },
+    {
+      "name": "speaker-stack",
+      "polycount": 7000,
+      "symmetry": "on",
+      "prompt": "cartoon stack of oversized rounded concert loudspeakers, chunky boxes with big round speaker cones, glossy black and yellow toy plastic, festival stage prop, clean shapes"
+    },
+    {
+      "name": "giant-trophy",
+      "polycount": 8000,
+      "symmetry": "on",
+      "prompt": "cartoon giant golden trophy cup, fat rounded bowl with chunky handles on a thick pedestal base, glossy shiny gold toy material, confetti pattern base, game show prize prop"
+    },
+    {
+      "name": "blimp",
+      "polycount": 7000,
+      "symmetry": "on",
+      "prompt": "cartoon airship blimp balloon, fat rounded pastel blue and white striped envelope with tiny rounded gondola cabin and small fins, glossy inflatable vinyl, floating theme park prop"
+    },
+    {
+      "name": "windmill",
+      "polycount": 10000,
+      "symmetry": "off",
+      "prompt": "cartoon windmill tower, chubby rounded pastel pink and cream tower with a small dome roof and four fat rounded sails, glossy toy material, whimsical theme park prop"
+    },
+    {
+      "name": "scoreboard",
+      "polycount": 9000,
+      "symmetry": "on",
+      "prompt": "cartoon stadium scoreboard sign on two chunky rounded legs, big blank glossy dark display panel with a colourful rounded frame and small light bulbs around it, toy plastic, no text"
+    },
+    {
+      "name": "bounce-castle",
+      "polycount": 13000,
+      "symmetry": "on",
+      "prompt": "cartoon inflatable bouncy castle, fat rounded pastel pink turquoise and yellow inflatable towers with a big arched entrance, glossy vinyl material, tiny flags on top, theme park attraction prop"
+    }
   ]
 }

@@ -7,7 +7,8 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
 
-const URL = process.argv[2] ?? 'http://127.0.0.1:5273/';
+let URL = process.argv[2] ?? 'http://127.0.0.1:5273/';
+if (!URL.includes('lowfx')) URL += (URL.includes('?') ? '&' : '?') + 'lowfx';
 const OUT = 'shots';
 await fs.mkdir(OUT, { recursive: true });
 
@@ -63,10 +64,10 @@ console.log('2-depart.png');
 
 // Courir vers les premiers obstacles
 await page.keyboard.down('KeyW');
-await page.waitForTimeout(5000);
+await page.waitForTimeout(7000);
 await page.screenshot({ path: `${OUT}/3-course.png` });
 console.log('3-course.png');
-await page.waitForTimeout(5000);
+await page.waitForTimeout(7000);
 await page.screenshot({ path: `${OUT}/4-obstacles.png` });
 console.log('4-obstacles.png');
 await page.keyboard.up('KeyW');
@@ -81,6 +82,7 @@ console.log('5-retour-lobby.png');
 const state = await page.evaluate(() => ({
   fps: window.__fps ?? null,
   triangles: window.__tris ?? null,
+  drawCalls: window.__draws ?? null,
   timer: document.getElementById('timer')?.textContent,
   falls: document.getElementById('falls')?.textContent,
   canvas: (() => { const c = document.querySelector('canvas'); return c ? `${c.width}x${c.height}` : 'aucun'; })(),

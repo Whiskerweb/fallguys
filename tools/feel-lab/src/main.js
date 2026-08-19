@@ -4,6 +4,7 @@ import GUI from 'lil-gui';
 import { TUNING, TUNING_RANGES } from './tuning.js';
 import { createWorld } from './world.js';
 import { assets } from './assets.js';
+import { loadExternalTextures } from './textures.js';
 import { buildCourse } from './scenes/course.js';
 import { buildLobbyScreen, LOBBY } from './scenes/lobby.js';
 import { Character } from './character.js';
@@ -339,6 +340,9 @@ async function boot() {
   el('loading').textContent = 'Initialisation de la physique…';
   await RAPIER.init();
 
+  el('loading').textContent = 'Chargement des textures…';
+  await loadExternalTextures((d, t) => { el('loading').textContent = `Textures… ${d}/${t}`; });
+
   el('loading').textContent = 'Chargement des décors…';
   const count = await assets.load((done, total) => {
     el('loading').textContent = `Chargement des décors… ${done}/${total}`;
@@ -359,12 +363,15 @@ async function boot() {
   function frame() {
     requestAnimationFrame(frame);
     view.renderer.info.reset();
-    const dt = Math.min(clock.getDelta(), 0.05);
+    const rawDt = clock.getDelta();
+    const dt = Math.min(rawDt, 0.05);
     elapsed += dt;
     game.update(dt, elapsed);
     view.composer.render();
 
-    frames++; fpsAccum += dt;
+    // On accumule le temps REEL, pas le delta plafonne : sinon un jeu a 2 fps
+    // afficherait quand meme 20 fps, puisque chaque frame compterait pour 0,05 s.
+    frames++; fpsAccum += rawDt;
     // renderer.info se remet a zero a chaque passe : sans autoReset=false, on ne lirait
     // que la derniere passe de post-processing (un quad), pas la scene entiere.
     if (fpsAccum >= 0.5) {
@@ -372,6 +379,8 @@ async function boot() {
       el('perf').textContent = `${Math.round(frames / fpsAccum)} fps · ${info.triangles.toLocaleString('fr')} tris · ${info.calls} draws`;
       window.__fps = Math.round(frames / fpsAccum);
       window.__tris = info.triangles;
+      window.__draws = info.calls;
+      window.__objects = view.scene.children.length;
       frames = 0; fpsAccum = 0;
     }
   }

@@ -48,5 +48,65 @@
     "previewId": "01a019b5-f094-7b76-b9fc-2130496dff52",
     "refineId": "01a019b7-0002-7e00-bb29-5067b230c163",
     "done": true
+  },
+  "tree-pine": {
+    "previewId": "01a01a1e-4416-772e-bd53-1e1405e07827",
+    "refineId": "01a01a1f-0f7c-79d1-a0dc-0a25711b1006",
+    "done": true
+  },
+  "bush-berry": {
+    "previewId": "01a01a1e-4418-772f-9c8e-90177bfd6271",
+    "refineId": "01a01a1f-74e2-78b9-b988-d7b45a210b0a",
+    "done": true
+  },
+  "flower-patch": {
+    "previewId": "01a01a1e-441a-74bb-8284-479ba57ef634",
+    "refineId": "01a01a1f-326a-789f-af7c-a680f1c5334c",
+    "done": true
+  },
+  "tree-round": {
+    "previewId": "01a01a1e-441d-7730-8a88-2afac72da6e0",
+    "refineId": "01a01a1f-1101-74f9-a160-2cd74488abe2",
+    "done": true
+  },
+  "food-stand": {
+    "previewId": "01a01a1f-dda1-78e1-a51d-93072c90e994",
+    "refineId": "01a01a20-c701-7932-ac76-945a0e7339e0",
+    "done": true
+  },
+  "camera-tower": {
+    "previewId": "01a01a1f-ff64-7a1a-aeaf-b92d1c881b7a",
+    "refineId": "01a01a20-c798-7933-a520-6041bba09e42",
+    "done": true
+  },
+  "speaker-stack": {
+    "previewId": "01a01a20-23bf-78f1-a595-f73119736345",
+    "refineId": "01a01a21-3013-793f-8cb6-26098317ccfe",
+    "done": true
+  },
+  "giant-trophy": {
+    "previewId": "01a01a20-6601-77d2-b0e7-8905af271247",
+    "refineId": "01a01a21-3180-7a89-8ac5-cd531725ae5e",
+    "done": true
+  },
+  "blimp": {
+    "previewId": "01a01a21-bca8-7599-8ff1-b3a863268e7f",
+    "refineId": "01a01a22-a27f-75e3-9880-2f82152da428",
+    "done": true
+  },
+  "windmill": {
+    "previewId": "01a01a21-e016-7add-b87a-27b6a78c7be0",
+    "refineId": "01a01a22-c1b2-79b1-9a71-352364dab513",
+    "done": true
+  },
+  "scoreboard": {
+    "previewId": "01a01a22-1e01-7854-9d04-09d66655fd6e",
+    "refineId": "01a01a22-e566-78ac-84ff-9ca5a3688379",
+    "done": true
+  },
+  "bounce-castle": {
+    "previewId": "01a01a22-3f12-75b8-b8f2-8133a6125436",
+    "refineId": "01a01a23-26ef-79c4-8317-f3b55c452c18",
+    "done": true
   }
 }
