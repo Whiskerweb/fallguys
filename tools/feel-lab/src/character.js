@@ -209,6 +209,10 @@ export class Character {
     this.stateTimer = 0;
     this.squash = 1;
     this.squashVel = 0;
+    // Une teleportation produit une variation de vitesse enorme : on oublie l'historique,
+    // sinon le respawn declencherait immediatement une culbute.
+    this.prevVx = undefined;
+    this.prevVz = undefined;
   }
 
   checkGround() {
@@ -225,6 +229,7 @@ export class Character {
   update(dt, input, camYaw) {
     const T = TUNING;
     const v = this.body.linvel();
+    const vx0 = v.x, vz0 = v.z;   // vitesse AVANT nos corrections, pour mesurer la secousse
     this.wasGrounded = this.grounded;
     this.grounded = this.checkGround();
 
@@ -232,9 +237,26 @@ export class Character {
     const controllable = this.state === State.Grounded || this.state === State.Airborne;
 
     // --- Détection de culbute : un obstacle vient de nous expédier ---
-    if (controllable && speedH > T.maxSpeed * T.tumbleTrigger) {
-      this.enterTumble();
+    /**
+     * Detection de culbute par CHANGEMENT BRUTAL de vitesse.
+     *
+     * L'ancienne regle testait une vitesse absolue superieure a 1,55 fois la vitesse de
+     * course. Mesure faite : aucun obstacle du jeu ne projette aussi fort — le joueur
+     * plafonnait a 7,6 m/s pour un seuil a 11,8, et ne culbutait donc JAMAIS.
+     * Un impact ne se reconnait pas a une vitesse elevee mais a une variation soudaine :
+     * se faire faucher inverse ou devie brutalement la trajectoire, meme sans gain de
+     * vitesse. On compare donc la vitesse a celle du pas precedent.
+     */
+    if (this.prevVx !== undefined && controllable) {
+      const dvx = vx0 - this.prevVx, dvz = vz0 - this.prevVz;
+      const jolt = Math.hypot(dvx, dvz);
+      // La secousse doit venir de l'exterieur : on soustrait ce que le joueur pouvait
+      // produire lui-meme en un pas, sinon un simple demi-tour declencherait la culbute.
+      const selfMax = T.groundAccel * dt * 1.35;
+      if (jolt > Math.max(T.tumbleJolt, selfMax)) this.enterTumble();
     }
+    this.prevVx = vx0;
+    this.prevVz = vz0;
 
     // --- Atterrissage ---
     if (this.grounded && !this.wasGrounded) {

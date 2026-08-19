@@ -92,7 +92,7 @@ function buildGui(getWorld) {
     'Déplacement': ['maxSpeed', 'groundAccel', 'airAccel', 'groundFriction', 'turnSpeed'],
     'Saut': ['gravity', 'jumpHeight', 'coyoteTime', 'jumpBuffer', 'fallMultiplier'],
     'Plongeon': ['diveForward', 'diveUp', 'diveRecovery'],
-    'Culbute': ['tumbleTrigger', 'tumbleRecovery', 'getUpDuration'],
+    'Culbute': ['tumbleJolt', 'tumbleRecovery', 'getUpDuration'],
     'Squash & stretch': ['squashOnLand', 'stretchOnJump', 'squashSpring', 'squashDamping'],
     'Caméra': ['camLookAhead'],   // le reste appartient au panneau Parametres
   };
@@ -608,5 +608,8 @@ async function boot() {
   }
   frame();
 }
+
+// Sonde de test : expose le personnage courant au harnais d'animation. Sans effet en jeu.
+window.__probeCharacter = () => game?.character ?? null;
 
 boot().catch(fatal);

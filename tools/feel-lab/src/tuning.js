@@ -21,7 +21,7 @@ export const TUNING = {
   diveRecovery: 0.95,     // s avant de pouvoir se relever
 
   // --- Culbute (quand un obstacle t'envoie valser) ---
-  tumbleTrigger: 1.55,    // multiple de maxSpeed au-delà duquel on part en vrille
+  tumbleJolt: 5.2,        // variation de vitesse (m/s en un pas) qui envoie en vrille
   tumbleRecovery: 1.15,   // s au sol avant de se relever
   getUpDuration: 0.35,    // s d'animation de relevé
 
@@ -44,7 +44,7 @@ export const TUNING_RANGES = {
   maxSpeed: [3, 16], groundAccel: [10, 140], airAccel: [0, 60], groundFriction: [5, 120],
   turnSpeed: [2, 30], gravity: [10, 60], jumpHeight: [0.8, 5], coyoteTime: [0, 0.4],
   jumpBuffer: [0, 0.4], fallMultiplier: [1, 3], diveForward: [3, 25], diveUp: [0, 12],
-  diveRecovery: [0.2, 3], tumbleTrigger: [1.05, 4], tumbleRecovery: [0.2, 3],
+  diveRecovery: [0.2, 3], tumbleJolt: [1.5, 14], tumbleRecovery: [0.2, 3],
   getUpDuration: [0.1, 1.2], squashOnLand: [0.3, 1], stretchOnJump: [1, 1.8],
   squashSpring: [40, 400], squashDamping: [4, 40], camLookAhead: [0, 5],
 };
