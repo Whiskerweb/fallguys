@@ -1,0 +1,35 @@
+{
+  "char-tycoon": {
+    "model": "01a01c18-77f8-773d-bca3-491ebdb50eed",
+    "rig": "01a01c1d-9b05-785d-a7e4-adf3ea78ad7d",
+    "done": true
+  },
+  "char-bull": {
+    "model": "01a01c19-fe1c-7671-ba83-e4abe48c8a46",
+    "rig": "01a01c1c-945b-723d-9887-438b963109f4",
+    "done": true
+  },
+  "char-engineer": {
+    "model": "01a01c19-fe1c-7efd-84fd-d5dfc8b3e41a",
+    "rig": "01a01c1c-bc8d-7245-8521-a845a74ed284",
+    "done": true
+  },
+  "char-shiba": {
+    "model": "01a01c1d-75d7-7fad-a625-2dfccdcb4c9b",
+    "rig": "01a01c1f-c118-7798-92cd-f356e590dfcd",
+    "done": true
+  },
+  "char-penguin": {
+    "model": "01a01c25-d3c2-715f-9632-ac18e4aa550e",
+    "rig": "01a01c27-9634-7a1b-9782-79f570e3f13c",
+    "done": true
+  },
+  "char-whale": {
+    "model": "01a01c2c-126d-7a97-9220-ebdc0d1cc5ff",
+    "rig": "01a01c2d-b213-734c-97fa-e785b315fc5e",
+    "done": true
+  },
+  "char-frog": {
+    "model": "01a01c3d-c590-7dc1-8e9f-1c130e445d96"
+  }
+}

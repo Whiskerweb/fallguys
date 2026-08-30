@@ -20,10 +20,10 @@ export const ACTIONS = [
 ];
 
 const CAMERA_DEFAULTS = {
-  height: 5.6,        // hauteur de la caméra au-dessus du joueur
-  distance: 11.5,     // recul
-  lookHeight: 3.4,    // hauteur du point visé — c'est LUI qui règle l'inclinaison
-  fov: 50,
+  height: 3.9,        // hauteur de la caméra au-dessus du joueur
+  distance: 7.8,     // recul
+  lookHeight: 2.2,    // hauteur du point visé — c'est LUI qui règle l'inclinaison
+  fov: 55,
   smoothing: 7.5,
 };
 
@@ -45,6 +45,10 @@ export const CAMERA_LABELS = {
 
 const KEY_STORE = 'tumble-keys';
 const CAM_STORE = 'tumble-camera';
+// Version du cadrage par defaut. Les reglages sauvegardes ecrasent les defauts : sans
+// ce marqueur, un joueur ayant deja ouvert le panneau resterait bloque sur l'ancien
+// cadrage lointain, ou le personnage occupait 7 % de la hauteur d'ecran.
+const CAM_VERSION = 2;
 
 function loadKeys() {
   const out = {};
@@ -60,6 +64,7 @@ function loadCamera() {
   const out = { ...CAMERA_DEFAULTS };
   try {
     const saved = JSON.parse(localStorage.getItem(CAM_STORE) || '{}');
+    if (saved.v !== CAM_VERSION) return out;   // cadrage refondu : on repart des defauts
     for (const k of Object.keys(CAMERA_DEFAULTS)) {
       if (typeof saved[k] === 'number' && Number.isFinite(saved[k])) out[k] = saved[k];
     }
@@ -102,12 +107,12 @@ export const settings = {
 
   setCamera(k, v) {
     this.camera[k] = v;
-    localStorage.setItem(CAM_STORE, JSON.stringify(this.camera));
+    localStorage.setItem(CAM_STORE, JSON.stringify({ ...this.camera, v: CAM_VERSION }));
   },
 
   resetCamera() {
     Object.assign(this.camera, CAMERA_DEFAULTS);
-    localStorage.setItem(CAM_STORE, JSON.stringify(this.camera));
+    localStorage.setItem(CAM_STORE, JSON.stringify({ ...this.camera, v: CAM_VERSION }));
   },
 };
 

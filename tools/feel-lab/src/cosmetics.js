@@ -24,47 +24,23 @@ export const SKINS = [
  */
 export const MODELS = [
   {
-    id: 'player-rigged', name: 'Blob', rigged: true, rarity: 'commun', accent: 0xff5f7e,
-    desc: "Le personnage d'origine. Rond, souple, increvable — il rebondit sur tout ce qu'il croise.",
-    season: 'Disponible depuis : Saison 1',
-  },
-  // Personnages de la galerie crypto. Meme charte graphique, memes proportions,
-  // memes grands yeux : ce sont des variantes d'une seule famille, pas six styles.
-  // Tous rigges, donc animes par le squelette comme le blob.
-  {
-    id: 'char-tycoon', name: 'Le Magnat', rigged: true, rarity: 'épique', accent: 0xffc93c,
-    desc: "Il annonce la victoire avant le départ. Chevelure indomptable, cravate plus longue que la piste.",
-    season: 'Disponible depuis : Saison 1',
-  },
-  {
-    id: 'char-engineer', name: "L'Ingénieur", rigged: true, rarity: 'épique', accent: 0x31c7f0,
-    desc: "Il a calculé la trajectoire optimale. Il tombera quand même dans le premier trou.",
-    season: 'Disponible depuis : Saison 1',
-  },
-  {
-    id: 'char-penguin', name: 'Le Pingouin', rigged: true, rarity: 'légendaire', accent: 0x4fa8ff,
-    desc: "Édition Glacier — collaboration. Glisse mieux que les autres, tombe aussi bien.",
-    season: 'Édition limitée · 3 000 exemplaires',
-  },
-  {
-    id: 'char-shiba', name: 'Le Shiba', rigged: true, rarity: 'légendaire', accent: 0xffa63d,
-    desc: "Édition Meme — collaboration. Court vite, comprend rien, gagne quand même.",
+    /*
+     * Catalogue REMIS A ZERO : un seul personnage.
+     *
+     * Les huit precedents venaient d'un pipeline text-to-3D qui donnait des silhouettes
+     * inegales et aucune animation propre — ils etaient animes par un rig procedural
+     * faute de mieux. On repart de celui-ci, livre avec ses vraies animations, et les
+     * suivants seront refaits un par un au meme niveau plutot que gardes par habitude.
+     * Leurs fichiers sont conserves dans tools/meshy-pipeline/old-chars/.
+     */
+    id: 'char-runner', name: 'Le Maître de Piste', rigged: true, rarity: 'légendaire', accent: 0xd42b3a,
+    desc: "Costume impeccable, sourire immense, canne au poing. Il court avec ses propres animations.",
     season: 'Édition limitée',
   },
   {
-    id: 'char-frog', name: 'La Grenouille', rigged: true, rarity: 'légendaire', accent: 0x6ee86e,
-    desc: "Édition Marais — collaboration. Saute plus haut dans sa tête que dans le jeu.",
+    id: 'char-babytrump', name: 'BabyTrump', rigged: true, rarity: 'épique', accent: 0xf5a623,
+    desc: "Petit format, grosse colère. Il court et il marche avec ses propres animations.",
     season: 'Édition limitée',
-  },
-  {
-    id: 'char-bull', name: 'Le Taureau', rigged: true, rarity: 'épique', accent: 0xffd83d,
-    desc: "Il ne connaît qu'une direction : devant. Les obstacles sont un détail administratif.",
-    season: 'Disponible depuis : Saison 1',
-  },
-  {
-    id: 'player-custom', name: 'Perso importé', rigged: false, rarity: 'commun', accent: 0xff7a2f,
-    desc: "Modèle importé depuis un fichier. Sans squelette : il glisse au lieu de courir.",
-    season: 'Importé localement',
   },
 ];
 
@@ -80,7 +56,16 @@ const listeners = new Set();
 
 export const cosmetics = {
   hex: Number(localStorage.getItem(KEY)) || SKINS[0].hex,
-  model: localStorage.getItem(MODEL_KEY) || MODELS[0].id,
+  /*
+   * Le personnage memorise doit encore EXISTER.
+   *
+   * Un joueur ayant choisi un personnage retire du catalogue gardait son identifiant en
+   * memoire locale : le modele restait introuvable, et il se retrouvait avec le blob de
+   * secours sous une fiche qui annoncait tout autre chose. On retombe donc sur le
+   * premier du catalogue des que la selection n'y figure plus.
+   */
+  model: MODELS.some((m) => m.id === localStorage.getItem(MODEL_KEY))
+    ? localStorage.getItem(MODEL_KEY) : MODELS[0].id,
 
   setModel(id) {
     this.model = id;

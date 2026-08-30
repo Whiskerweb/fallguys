@@ -215,7 +215,21 @@ export function createWorld() {
   scene.add(sun);
   scene.add(sun.target);
 
-  const composer = new EffectComposer(renderer);
+  /*
+   * Cible de rendu MULTIECHANTILLONNEE.
+   *
+   * `antialias: true` sur le renderer ne vaut que pour le canevas : des qu'on passe par
+   * un EffectComposer, la scene est rendue dans une cible intermediaire qui, elle, n'a
+   * aucun echantillonnage. Tout le jeu ressortait donc crenele — bords en escalier sur
+   * les personnages, scintillement sur les aretes fines — alors que l'option semblait
+   * active. Quatre echantillons suffisent a effacer l'escalier.
+   */
+  const taille = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const cible = new THREE.WebGLRenderTarget(taille.x, taille.y, {
+    type: THREE.HalfFloatType,
+    samples: 4,
+  });
+  const composer = new EffectComposer(renderer, cible);
   composer.addPass(new RenderPass(scene, camera));
   if (!lowFx) {
     composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.26, 0.7, 0.9));
@@ -261,5 +275,12 @@ export function createWorld() {
     u.uWarm.value = GRADE.warmth;
   }
 
-  return { renderer, scene, camera, composer, followShadow, animateSky, sky, clouds, fog: scene.fog, applyGrade };
+  // Brouillard des maps spatiales : il fond la piste dans le noir plutot que dans le
+  // bleu ciel. Sans lui, une piste neon se decoupe net sur le fond et perd sa profondeur.
+  const fogNuit = new THREE.Fog(0x0a0620, 70, 280);
+
+  return {
+    renderer, scene, camera, composer, followShadow, animateSky, sky, clouds,
+    fog: scene.fog, fogNuit, applyGrade,
+  };
 }

@@ -54,7 +54,19 @@ async function loadState() {
 }
 async function saveState(s) { await fs.writeFile(STATE, JSON.stringify(s, null, 2)); }
 
+/**
+ * Meshy refuse au-dela de 800 caracteres, et le refus arrive apres un aller-retour
+ * reseau, une fois la file d'attente engagee. On tranche donc AVANT l'appel : quatre
+ * prompts trop longs ont deja coute une passe complete du pipeline.
+ */
+const PROMPT_MAX = 800;
+
 async function generate(asset, state) {
+  if (asset.prompt.length > PROMPT_MAX) {
+    const msg = `prompt de ${asset.prompt.length} caracteres, maximum ${PROMPT_MAX}`;
+    log(`FAIL ${asset.name}: ${msg}`);
+    return { name: asset.name, ok: false, error: msg };
+  }
   const dest = path.join(OUT, `${asset.name}.glb`);
   try { await fs.access(dest); log(`= ${asset.name} deja present, saute`); return { name: asset.name, ok: true, skipped: true }; }
   catch {}

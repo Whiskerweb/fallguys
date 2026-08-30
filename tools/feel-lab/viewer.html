@@ -1,0 +1,55 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Visualiseur GLB</title>
+<style>html,body{margin:0;height:100%;background:#20222c}canvas{display:block}
+#info{position:fixed;left:8px;top:8px;color:#fff;font:12px monospace;white-space:pre}</style>
+<div id="info">chargement…</div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+const file = new URLSearchParams(location.search).get('m') ?? '';
+const ren = new THREE.WebGLRenderer({ antialias: true });
+ren.setSize(innerWidth, innerHeight); document.body.append(ren.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x20222c);
+const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.01, 100);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 2.2));
+const d = new THREE.DirectionalLight(0xffffff, 2.0); d.position.set(3, 5, 4); scene.add(d);
+new GLTFLoader().load(`/models/${file}`, (g) => {
+  const root = g.scene; scene.add(root);
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  const r = Math.max(size.x, size.y, size.z);
+  root.position.sub(c);
+  cam.position.set(0, 0, r * 2.4); cam.lookAt(0, 0, 0);
+  let meshes = 0, tris = 0;
+  root.traverse((o) => { if (o.isMesh) { meshes++; tris += (o.geometry.index?.count ?? o.geometry.attributes.position.count) / 3; } });
+  document.getElementById('info').textContent =
+    `${file}\ndim ${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)}\n${meshes} maillages, ${Math.round(tris)} triangles`;
+  window.__root = root;
+  window.__gltf = g;
+  // Lecture des clips : c'est la seule facon de verifier qu'une animation deforme
+  // vraiment le maillage. Un GLB peut porter des pistes qui ne ciblent aucun os du
+  // squelette lie, et rien ne bouge alors sans qu'aucune erreur ne soit levee.
+  const mixer = new THREE.AnimationMixer(root);
+  window.__mixer = mixer;
+  window.__clips = g.animations.map((a) => a.name);
+  window.__jouer = (nom, t = 0) => {
+    mixer.stopAllAction();
+    const clip = g.animations.find((a) => a.name === nom) ?? g.animations[0];
+    if (!clip) return null;
+    const action = mixer.clipAction(clip);
+    action.play();
+    mixer.setTime(t);
+    return { nom: clip.name, duree: clip.duration, pistes: clip.tracks.length };
+  };
+  window.__cam = cam;
+  window.__scene = scene;
+  window.__ready = true;
+  const horloge = new THREE.Clock();
+  const tick = () => {
+    if (window.__anime) mixer.update(horloge.getDelta()); else horloge.getDelta();
+    ren.render(scene, cam); requestAnimationFrame(tick);
+  }; tick();
+}, undefined, (e) => { document.getElementById('info').textContent = 'ERREUR ' + e; });
+window.__tourner = (a) => { window.__root.rotation.y = a; };
+</script>

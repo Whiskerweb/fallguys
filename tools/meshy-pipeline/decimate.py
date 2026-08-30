@@ -38,9 +38,19 @@ print(f"[decimate] faces apres : {total_after}")
 for m in bpy.data.materials:
     m.use_backface_culling = True
 
+# Skinning et animations sont demandes EXPLICITEMENT. Ils sont actifs par defaut, mais
+# c'est precisement ce qu'on ne veut pas perdre en silence sur un personnage anime : un
+# modele qui ressort sans ses clips se voit seulement une fois dans le jeu, immobile.
 bpy.ops.export_scene.gltf(
     filepath=dst, export_format='GLB',
     export_texture_dir='', export_yup=True,
     export_apply=True,
+    export_skins=True,
+    export_animations=True,
+    export_anim_slide_to_zero=False,
 )
+
+clips = len(bpy.data.actions)
+armatures = [o for o in bpy.context.scene.objects if o.type == 'ARMATURE']
+print(f"[decimate] armatures conservees : {len(armatures)} · actions : {clips}")
 print(f"[decimate] ecrit : {dst}")

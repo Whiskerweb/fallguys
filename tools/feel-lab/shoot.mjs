@@ -22,6 +22,9 @@ const browser = await chromium.launch({
   ],
 });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
+// Le post-traitement rendu par swiftshader est lent : une capture peut depasser le
+// delai par defaut de 30 s. On l'allonge plutot que de perdre la planche entiere.
+page.setDefaultTimeout(90000);
 
 const logs = [];
 page.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
@@ -59,12 +62,14 @@ await page.click('#btn-wardrobe');
 await page.waitForTimeout(600);
 await page.screenshot({ path: `${OUT}/1b-garde-robe.png` });
 console.log('1b-garde-robe.png');
-const swatches = await page.$$('#wardrobe .swatch');
-// On choisit un skin CHAUD : un skin froid se confondrait avec le sol de depart.
-if (swatches[0]) { await swatches[0].click(); await page.waitForTimeout(900); }
+// Le choix de couleur a ete retire : les personnages sont fixes. On selectionne
+// desormais un personnage dans le casier. L'ancien code cliquait une pastille restee
+// dans un conteneur masque, et attendait donc indefiniment un element invisible.
+const tuiles = await page.$$('#skins-grid .tile:not(.locked)');
+if (tuiles[1]) { await tuiles[1].click(); await page.waitForTimeout(1200); }
 await page.screenshot({ path: `${OUT}/1c-skin.png` });
 console.log('1c-skin.png');
-await page.click('#btn-wardrobe');
+await page.click('.navbtn[data-tab="play"]');
 await page.waitForTimeout(300);
 
 // Panneau Parametres : ouverture, remappage d'une touche, fermeture
@@ -116,15 +121,15 @@ console.log('menu de pause visible :', pauseVisible);
 await page.click('#pause-quit');
 await page.waitForTimeout(1200);
 
-// Modele importe : on le selectionne et on relance une course
-await page.click('#btn-wardrobe');
+// Changement de personnage : on en prend un autre dans le casier et on relance.
+await page.click('.navbtn[data-tab="skins"]');
 await page.waitForTimeout(400);
-const modelBtns = await page.$$('#wardrobe .modelbtn');
-if (modelBtns[1]) { await modelBtns[1].click(); await page.waitForTimeout(1200); }
-await page.screenshot({ path: `${OUT}/7-modele-importe.png` });
-console.log('7-modele-importe.png · modele =', await page.evaluate(() => localStorage.getItem('tumble-model')));
-await page.click('#btn-wardrobe');
-await page.waitForTimeout(200);
+const autres = await page.$$('#skins-grid .tile:not(.locked):not(.on)');
+if (autres[2]) { await autres[2].click(); await page.waitForTimeout(1400); }
+await page.screenshot({ path: `${OUT}/7-autre-personnage.png` });
+console.log('7-autre-personnage.png · modele =', await page.evaluate(() => localStorage.getItem('tumble-model')));
+await page.click('.navbtn[data-tab="play"]');
+await page.waitForTimeout(300);
 
 // Retour au lobby : verifie que la bascule inverse fonctionne aussi
 await page.keyboard.press('Escape');

@@ -1,3 +1,4 @@
+import { ClipRig } from './cliprig.js';
 import * as THREE from 'three';
 
 /**
@@ -119,6 +120,9 @@ export class CharacterRig {
    */
   update(dt, speed, maxSpeed, state, vy) {
     if (!this.ok) return 0;
+    // Gel : permet de figer une pose imposee de l'exterieur (vitrine, diagnostic) sans
+    // que la boucle d'animation ne la reecrive a la frame suivante.
+    if (this.frozen) return 0;
     const R = RIG;
     const w = Math.min(1, dt * R.blend);
     const run = Math.min(1, speed / Math.max(0.5, maxSpeed));
@@ -206,9 +210,45 @@ export class CharacterRig {
  * Sans lui, un skin de la meme couleur que le sol rend le personnage invisible — et le
  * joueur doit pouvoir choisir n'importe quelle couleur sans disparaitre.
  */
+/**
+ * Plafond de densité pour le contour.
+ *
+ * Le contour DUPLIQUE la géométrie : il coûte exactement autant de triangles que le
+ * maillage qu'il souligne. Sur un personnage importé à 239 000 triangles, il en ajoutait
+ * autant — un demi-million pour un seul avatar, davantage que la scène entière. Au-delà
+ * de ce seuil on préfère un personnage sans liseré à un jeu qui rame, et on le dit.
+ */
+const OUTLINE_MAX_TRIS = 60000;
+
+/**
+ * Ajoute un emissif tire de la texture du modele, pour qu'il ne tombe pas au noir.
+ * `force` de 0 (aucun effet) a 1 (le modele s'auto-eclaire entierement).
+ */
+export function eclaircirPersonnage(root, force = 0.3) {
+  root.traverse((c) => {
+    if (!c.isMesh || c.userData.isOutline) return;
+    const mats = Array.isArray(c.material) ? c.material : [c.material];
+    for (const m of mats) {
+      if (!m || m.userData?.eclairci) continue;
+      if (m.map) { m.emissiveMap = m.map; m.emissive = new THREE.Color(0xffffff); }
+      else { m.emissive = new THREE.Color(m.color?.getHex?.() ?? 0xffffff); }
+      m.emissiveIntensity = force;
+      m.userData.eclairci = true;
+      m.needsUpdate = true;
+    }
+  });
+}
+
 export function addSkinnedOutline(root, thickness = 0.022, color = 0x14203a) {
   const targets = [];
   root.traverse((c) => { if (c.isSkinnedMesh && !c.userData.isOutline) targets.push(c); });
+  const total = targets.reduce((n, m) =>
+    n + (m.geometry.index?.count ?? m.geometry.attributes.position.count) / 3, 0);
+  if (total > OUTLINE_MAX_TRIS) {
+    console.warn(`[rig] contour ignore : ${Math.round(total)} triangles, au-dela de ${OUTLINE_MAX_TRIS}. `
+      + `Passer le modele par tools/meshy-pipeline/decimate.py.`);
+    return;
+  }
   for (const src of targets) {
     const mat = new THREE.MeshBasicMaterial({ color, side: THREE.BackSide });
     mat.onBeforeCompile = (sh) => {
@@ -227,10 +267,32 @@ export function addSkinnedOutline(root, thickness = 0.022, color = 0x14203a) {
   }
 }
 
-export function createRiggedCharacter(assets, targetHeight, name = 'player-rigged') {
+export function createRiggedCharacter(assets, targetHeight, name = 'char-runner') {
   const model = assets.get(name, null, { groundAlign: false, outline: 0 });
   if (!model) return null;
-  const rig = new CharacterRig(model);
+
+  /*
+   * Deux façons d'animer, choisies ici une fois pour toutes.
+   *
+   * Un modèle livré AVEC ses clips est joué tel quel : ses mouvements ont été conçus
+   * pour lui, et une animation procédurale plaquée par-dessus les écraserait pour un
+   * résultat moins bon. Les autres passent par le rig procédural, qui n'a besoin que
+   * d'un squelette reconnaissable.
+   *
+   * Les deux exposent la même interface : le reste du jeu ignore lequel tourne.
+   */
+  /*
+   * Attention : la PRESENCE de clips ne suffit pas.
+   *
+   * Tous les personnages rigges par Meshy embarquent un clip unique — une pose de
+   * liaison nommee « Armature|clip0|baselayer ». Basculer sur ClipRig des qu'un clip
+   * existe privait donc chaque personnage du catalogue de son animation : le lecteur
+   * refusait ce clip inutilisable, et le personnage repartait sans aucun rig.
+   * On exige un clip de LOCOMOTION, seul capable de porter le mouvement.
+   */
+  const clips = assets.clipsOf?.(name) ?? [];
+  const jouables = clips.some((c) => c.name === 'running' || c.name === 'walking');
+  const rig = jouables ? new ClipRig(model, clips) : new CharacterRig(model);
   if (!rig.ok) return null;
 
   /**
@@ -242,10 +304,13 @@ export function createRiggedCharacter(assets, targetHeight, name = 'player-rigge
    * varie selon la maniere dont chaque modele a ete rigge — on mesure, on corrige, on
    * remesure. Trois passes suffisent a converger a moins de 1 %.
    */
+  // La mesure appartient a CharacterRig ; un ClipRig emprunte le meme outil, qui ne
+  // depend que de la geometrie et pas de la facon d'animer.
+  const toise = rig.measureHeight ? rig : new CharacterRig(model);
   model.scale.setScalar(1);
   for (let pass = 0; pass < 4; pass++) {
     model.updateWorldMatrix(true, true);
-    const h = rig.measureHeight(model);
+    const h = toise.measureHeight(model);
     if (!(h > 0.00001)) break;
     const ratio = targetHeight / h;
     if (Math.abs(ratio - 1) < 0.01) break;          // deja a la bonne taille
@@ -253,10 +318,36 @@ export function createRiggedCharacter(assets, targetHeight, name = 'player-rigge
   }
   model.updateWorldMatrix(true, true);
 
-  addSkinnedOutline(model);
+  /*
+   * Remontee des zones sombres du PERSONNAGE, et de lui seul.
+   *
+   * L'eclairage du jeu est volontairement plus doux que celui d'un visualiseur : les
+   * decors sont clairs et satures, ils n'en demandent pas plus. Un personnage en costume
+   * bleu nuit, lui, y tombe au noir — mesure en jeu, il devenait une silhouette sans
+   * detail, et carrement invisible sur une map spatiale.
+   *
+   * On reinjecte donc sa propre texture en emissif, a faible dose : les zones sombres
+   * remontent, les claires ne bougent presque pas, et aucune couleur n'est inventee
+   * puisque la lumiere ajoutee EST celle du modele.
+   */
+  // 0,18 et non 0,34 : a forte dose l'emissif crame les zones deja claires — les gants
+  // blancs et les dents partaient en aplat sans relief. On remonte les ombres, on ne
+  // repeint pas les lumieres.
+  eclaircirPersonnage(model, 0.18);
+
+  /*
+   * Epaisseur du contour corrigee par l'ECHELLE du modele.
+   *
+   * L'extrusion se fait en espace local, avant la mise a l'echelle : un personnage
+   * agrandi voyait son liserE grandir d'autant, et sur un modele texture detaille cela
+   * donnait des paquets noirs autour des mains et du visage. En divisant par l'echelle,
+   * le trait garde la meme epaisseur A L'ECRAN quel que soit le modele.
+   */
+  const echelle = model.scale.x || 1;
+  addSkinnedOutline(model, 0.012 / echelle);
 
   // Recalage : le bas du modele vient sur y=0, mesure avec le meme outil que la hauteur.
-  model.position.y -= rig.measureFloor(model);
+  model.position.y -= toise.measureFloor(model);
 
   return { model, rig };
 }

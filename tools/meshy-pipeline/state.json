@@ -168,5 +168,45 @@
     "previewId": "01a01a6f-9056-74cb-8f72-0b9fe9cc9c8e",
     "refineId": "01a01a70-846d-7725-8206-68269899cee1",
     "done": true
+  },
+  "giant-foam-hand": {
+    "previewId": "01a01e8a-2718-7261-93f3-3d1a02cc8a10",
+    "refineId": "01a01e8a-fa5e-7297-9c8c-b422bb59f50d",
+    "done": true
+  },
+  "door-marquee-arch": {
+    "previewId": "01a01e8c-d781-7a15-91d2-77e69fdc6750",
+    "refineId": "01a01e8d-a938-7a4c-bb98-0a29a83981b0",
+    "done": true
+  },
+  "spotlight-mast": {
+    "previewId": "01a01e8c-d782-7a16-bc84-942149221fb3",
+    "refineId": "01a01e8d-8885-7a3e-9d9d-fe83cccf8461",
+    "done": true
+  },
+  "camera-crane-boom": {
+    "previewId": "01a01e8c-d787-7a17-82a1-2cb31b5fca49",
+    "refineId": "01a01e8d-8732-7a3d-9205-abb10275bb16",
+    "done": true
+  },
+  "crowd-terrace-bank": {
+    "previewId": "01a01e8c-d786-7024-a351-583526fb0a3e",
+    "refineId": "01a01e8d-a9ea-7a4d-9d4c-470b27048d99",
+    "done": true
+  },
+  "neon-drone": {
+    "previewId": "01a02420-5e80-7b2c-8bb8-ff6a2207fb2a",
+    "refineId": "01a02421-313d-71be-b87d-b8501e1b7b07",
+    "done": true
+  },
+  "neon-pylon": {
+    "previewId": "01a02420-5e81-7682-b517-086160f42c07",
+    "refineId": "01a02421-5375-71c7-a36a-4030e02a819e",
+    "done": true
+  },
+  "neon-gate-arch": {
+    "previewId": "01a02420-5e80-7b2b-8c54-e1cd02a4720e",
+    "refineId": "01a02421-318f-71bf-a0ef-08ac5b1d51d7",
+    "done": true
   }
 }

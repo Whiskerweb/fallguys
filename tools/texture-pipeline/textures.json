@@ -72,6 +72,34 @@
     {
       "name": "dot-cluster-speckle",
       "prompt": "Seamless tileable square texture. Strictly orthographic top-down view of a flat painted matte floor, absolutely no perspective, no camera tilt, no cast shadow, no ambient occlusion, uniform flat lighting everywhere. Content: perfectly round dots grouped into clusters of 3 to 6 dots, about 10 clusters spread evenly over the square with wide empty space between clusters, dots inside a cluster nearly touching but never overlapping, dot diameter between 2 and 4 percent of the image width and varying inside each cluster, total coverage about 7 percent. Dots are flat pure white #FFFFFF on a flat light neutral grey #D2D2D2 field, hard clean circular edges, no gradient, no shading, no ring, no outline, no glow, no grain. MOTIF layer: near neutral values only, hue supplied later by the material. Clusters touching an edge continue exactly on the opposite edge for an invisible repeat. No border, no frame, no text, no watermark. High resolution, 1:1."
+    },
+    {
+      "name": "door-paper",
+      "prompt": "Subject: a large sheet of thin tissue paper stretched taut across a frame, seen from directly in front. Very fine long paper fibres running through it, a few soft slack creases radiating inward from the edges, and a faint horizontal fold line. The surface is almost pure white with only very light warm grey shading, so it can be tinted any colour afterwards. No frame, no border, no tape, no holes, no tears, no crumpling, no shadow."
+    },
+    {
+      "name": "wall-plating",
+      "prompt": "Subject: an inflatable vinyl wall made of fat vertical tubes welded side by side, each tube bulging with a soft highlight down its middle and a deep welded valley groove between neighbours, plus a thin dashed stitching line running along every seam. Almost white with light grey shading only, so it can be tinted any colour afterwards. No metal, no bolts, no text, no shadow."
+    },
+    {
+      "name": "ground-runway",
+      "prompt": "Subject: a painted running track surface seen from directly above, made of wide straight lanes separated by crisp thin lines, each lane filled with a dense field of tiny rounded rubber grip pebbles. Almost white with very light grey lane lines and pebbles, so it can be tinted any colour afterwards. The lanes run top to bottom and continue perfectly across the top and bottom edges. No numbers, no text, no arrows, no shadow."
+    },
+    {
+      "name": "foam-pit",
+      "prompt": "Subject: a pit packed edge to edge with soft rounded foam cubes and balls of many sizes, jumbled at slightly different angles, seen from directly above, each block with heavily rounded corners and a soft highlight. Almost white with light grey shading between blocks, so it can be tinted any colour afterwards. No gaps, no floor visible, no text, no shadow."
+    },
+    {
+      "name": "crowd-tier",
+      "prompt": "Subject: a stadium grandstand packed with tiny cartoon spectators, seen straight from the front. Rows of simple rounded capsule bodies with no faces, each one a single flat saturated colour taken from magenta, turquoise, golden yellow, orange, lime and lavender, sitting on stepped bench rows in glossy white and pale grey vinyl. The rows run left to right and continue perfectly across the left and right edges. Flat even lighting, no shadow, no text, no banner, no railing."
+    },
+    {
+      "name": "starfield",
+      "prompt": "Subject: a real astronomical starfield photographed from deep space. A very dark navy-black field filled with hundreds of tiny round points of light of many different sizes and brightnesses, mostly white with a few faint blue and warm amber ones, scattered irregularly with no pattern. Extremely dark overall. Absolutely no clouds, no cartoon cloud shapes, no four-pointed sparkle or star-shaped glyphs, no nebula, no planets, no moon, no sun, no constellation lines, no grid, no text. Only round dots of light on near-black."
+    },
+    {
+      "name": "neon-panel",
+      "prompt": "Subject: a glossy dark panel surface for a neon arcade floor, near-black with a faint soft sheen and very subtle fine scratches catching light, plus a few barely visible darker rectangular plate seams. Almost uniform and very dark so a bright grid can be drawn on top of it afterwards. No grid lines, no glow, no text, no reflection of objects."
     }
   ]
 }

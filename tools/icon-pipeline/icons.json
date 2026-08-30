@@ -72,6 +72,10 @@
     {
       "name": "port-player-custom",
       "prompt": "A smooth featureless bean shaped mascot bust facing forward, warm orange vinyl, two big glossy eyes, neutral expression"
+    },
+    {
+      "name": "port-char-whale",
+      "prompt": "A cartoon mascot bust facing forward with a deep blue whale head, pale cream muzzle, friendly smile, tiny light blue water spout on top of the head, small teal t-shirt collar, big glossy eyes"
     }
   ]
 }

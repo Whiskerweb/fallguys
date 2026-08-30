@@ -203,6 +203,42 @@
       "polycount": 7000,
       "symmetry": "on",
       "prompt": "Inflatable confetti cannon prop flanking a checkpoint in a cartoon obstacle course. A fat tapered tube barrel with a wide flared fully rounded muzzle, tilted upward at forty-five degrees, mounted on a squat rounded drum base. Barrel is orange #FB7813 with two thick cream #FFD15D stripes wrapping around it, the flared muzzle rim in magenta #FE2A96, the drum base in golden yellow #FEC809 with a fat rolled rim. All shapes are inflated air-filled vinyl, glossy, with welded seam valleys and soft pressure bulges, every radius very generous, no visible right angle. No metal, no rivets, no wheels, no wood, no rope, no trigger, no gauges, no wires, no text, no logo, no tiny mechanical part. Bold simple silhouette, flat saturated colors, clean toon game asset, no ground plane."
+    },
+    {
+      "name": "door-marquee-arch",
+      "polycount": 12000,
+      "symmetry": "on",
+      "prompt": "Inflatable TV stage marquee arch, cartoon party game. Two fat vertical tube columns hold a wide horizontal header beam topped by nine rounded scalloped lobes; portal three times wider than tall, inner opening a blank flat panel. Columns magenta #FE2A96 with three golden yellow #FEC809 ring collars each; header turquoise #3ED0D8; lobes alternating white #FFFFFF and orange #FB7813; a fat sphere caps each column. Glossy air-filled vinyl, thick welded seams, soft pressure bulges, very generous radii, no right angle. No fabric, no rope, no metal truss, no bulbs, no cables, no wood, no text, no letters, no logo. Bold silhouette readable from far, flat saturated colors, clean toon game asset, no ground plane."
+    },
+    {
+      "name": "spotlight-mast",
+      "polycount": 8000,
+      "symmetry": "off",
+      "prompt": "Cartoon stage lighting mast for a TV game show, built from chunky rounded toy shapes. One smooth white #FFFFFF capsule pole six times taller than wide, on a fat inflated donut base in magenta #FE2A96. Near the top three short rounded arms hold three lamp heads: squat truncated cones with very wide fully rounded flared front rims, bodies golden yellow #FEC809, rims turquoise #3ED0D8, all tilted down forty degrees and fanned apart. Glossy toy plastic, soft bulges, every edge heavily rounded. No metal truss, no lattice, no bolts, no cables, no wires, no clamps, no barn doors, no glass, no text, no logo. Simple readable silhouette, flat saturated colors, clean toon game asset, no ground plane."
+    },
+    {
+      "name": "giant-foam-hand",
+      "polycount": 6000,
+      "symmetry": "off",
+      "prompt": "Giant foam cheering hand prop for a cartoon party game. One oversized mitten-shaped hand with a thick index finger pointing straight up and all other fingers fused into one single rounded rounded mitt, mounted on a short fat rounded handle grip. Hand body is flat saturated magenta #FE2A96 with a broad golden yellow #FEC809 cuff band at the wrist and a plain white #FFFFFF oval patch on the palm, handle in turquoise #3ED0D8. Soft foam volume, everything very thick and puffy, every corner and fingertip fully rounded, no seams, no stitching, no fabric wrinkles. No text, no letters, no numbers, no logo, no fingernails, no skin texture, no separated fingers, no thumb detail, no ground plane. Extremely simple bold silhouette readable from fifty meters, flat colors, clean toon game asset."
+    },
+    {
+      "name": "camera-crane-boom",
+      "polycount": 10000,
+      "symmetry": "off",
+      "prompt": "Cartoon TV camera crane for a game show stage, all chunky rounded toy shapes. A long straight white #FFFFFF capsule boom arm lies across a fat rounded pivot drum in magenta #FE2A96, on a squat wide cylinder base in golden yellow #FEC809 with a rolled rim. One boom end carries a rounded box camera body in turquoise #3ED0D8 with one big smooth circular lens disc in charcoal #33334D and a small orange #FB7813 sphere light on top; the other end a fat orange #FB7813 counterweight sphere. Glossy toy plastic, soft bulges, every edge heavily rounded, no right angle. No lattice, no tripod legs, no wheels, no cables, no wires, no screws, no text, no logo. Simple readable silhouette, flat saturated colors, clean toon game asset, no ground plane."
+    },
+    {
+      "name": "neon-pylon",
+      "polycount": 6000,
+      "symmetry": "off",
+      "prompt": "Glowing marker pylon for a neon arcade course in space. One tall slender tapered obelisk, five times taller than wide, in deep charcoal #1B1030, wrapped by five thin bright emissive rings evenly spaced along its height, alternating cyan #22E8FF and magenta #FF2ED2, and capped by a small glowing sphere in white #FFFFFF. It stands on a squat hexagonal base in charcoal with one luminous cyan edge line. Glossy dark plastic, luminous edges only, everything else matte dark. No wires, no cables, no screws, no antenna, no text, no logo, no small parts, no ground plane. Simple readable silhouette, clean toon game asset."
+    },
+    {
+      "name": "neon-drone",
+      "polycount": 7000,
+      "symmetry": "on",
+      "prompt": "Small hovering camera drone for a neon arcade course in space. A rounded lozenge body in deep charcoal #1B1030 with one bright emissive cyan #22E8FF stripe wrapping its middle, a single big smooth circular lens disc in magenta #FF2ED2 on the front, and two short stubby fins on the sides tipped with small glowing violet #8B5CF6 spheres. Underneath, three tiny luminous cyan dots. Glossy dark plastic, luminous accents only. No propellers, no rotors, no wires, no cables, no landing gear, no antenna, no text, no logo, no ground plane. Compact readable silhouette, clean toon game asset."
     }
   ]
 }

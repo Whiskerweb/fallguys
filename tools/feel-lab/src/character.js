@@ -10,6 +10,8 @@ import { createRiggedCharacter } from './rig.js';
 const RADIUS = 0.45;
 const HALF_HEIGHT = 0.35;          // hauteur totale = 2*HALF_HEIGHT + 2*RADIUS = 1.6 m
 const FOOT = HALF_HEIGHT + RADIUS;
+/** Frottement du collider en adherence normale. Sert aussi de base a la glisse. */
+const FRICTION = 0.25;
 
 export const State = { Grounded: 'grounded', Airborne: 'airborne', Diving: 'diving', Tumbling: 'tumbling', GettingUp: 'gettingUp' };
 
@@ -77,7 +79,7 @@ export class Character {
     this.body.setEnabledRotations(false, false, false, true);
 
     const colDesc = RAPIER.ColliderDesc.capsule(HALF_HEIGHT, RADIUS)
-      .setFriction(0.25)
+      .setFriction(FRICTION)
       .setRestitution(0.0)
       .setDensity(1.4);
     this.collider = world.createCollider(colDesc, this.body);
@@ -212,7 +214,11 @@ export class Character {
     // Une teleportation produit une variation de vitesse enorme : on oublie l'historique,
     // sinon le respawn declencherait immediatement une culbute.
     this.prevVx = undefined;
+    this.landGrace = 0;
     this.prevVz = undefined;
+    // Adherence de la surface sous les pieds, renseignee par la scene a chaque image.
+    this.glisse = 0;
+    this._glisseAppliquee = 0;
   }
 
   checkGround() {
@@ -220,6 +226,28 @@ export class Character {
     const ray = new this.RAPIER.Ray({ x: t.x, y: t.y, z: t.z }, { x: 0, y: -1, z: 0 });
     const hit = this.world.castRay(ray, FOOT + 0.18, true, undefined, undefined, this.collider);
     return hit !== null;
+  }
+
+  /**
+   * La glisse doit passer par le CONTACT, pas seulement par le controleur.
+   *
+   * Reduire la seule acceleration ne suffisait pas : le frottement du collider s'oppose
+   * a la vitesse qu'on impose, et avec 31 m/s2 de gravite il pese a lui seul 13 m/s2 de
+   * freinage — davantage que l'acceleration deja divisee d'une patinoire. Resultat, la
+   * glace ne rendait pas glissant, elle rendait IMMOBILE : touche enfoncee, le
+   * personnage ne demarrait pas du tout.
+   *
+   * On bascule donc aussi le contact. Regle Min des qu'il y a de la glisse — la surface
+   * la plus lisse l'emporte, ce qui est le comportement attendu d'une plaque de glace.
+   * En adherence normale on revient a la moyenne, pour ne rien changer au reglage
+   * historique du personnage sur tout le reste du parcours.
+   */
+  appliquerGlisse() {
+    if (this.glisse === this._glisseAppliquee) return;
+    this._glisseAppliquee = this.glisse;
+    const R = this.RAPIER.CoefficientCombineRule;
+    this.collider.setFrictionCombineRule(this.glisse > 0.01 ? R.Min : R.Average);
+    this.collider.setFriction(FRICTION * (1 - this.glisse));
   }
 
   bump(amount) {
@@ -232,6 +260,7 @@ export class Character {
     const vx0 = v.x, vz0 = v.z;   // vitesse AVANT nos corrections, pour mesurer la secousse
     this.wasGrounded = this.grounded;
     this.grounded = this.checkGround();
+    this.appliquerGlisse();
 
     const speedH = Math.hypot(v.x, v.z);
     const controllable = this.state === State.Grounded || this.state === State.Airborne;
@@ -247,7 +276,17 @@ export class Character {
      * se faire faucher inverse ou devie brutalement la trajectoire, meme sans gain de
      * vitesse. On compare donc la vitesse a celle du pas precedent.
      */
-    if (this.prevVx !== undefined && controllable) {
+    // Un atterrissage est lui aussi une secousse : au contact, le solveur corrige d'un
+    // coup la vitesse horizontale, ce qui depassait le seuil. Resultat mesure : TOUT
+    // saut se terminait en culbute. On neutralise donc la detection le temps que le
+    // contact se stabilise, et on repart d'un historique vierge.
+    if (this.grounded && !this.wasGrounded) {
+      this.landGrace = 0.18;
+      this.prevVx = undefined;
+    }
+    if (this.landGrace > 0) this.landGrace -= dt;
+
+    if (this.prevVx !== undefined && controllable && this.landGrace <= 0) {
       const dvx = vx0 - this.prevVx, dvz = vz0 - this.prevVz;
       const jolt = Math.hypot(dvx, dvz);
       // La secousse doit venir de l'exterieur : on soustrait ce que le joueur pouvait
@@ -284,7 +323,20 @@ export class Character {
       const wishZ = input.x * sin + input.z * cos;
       const wishLen = Math.hypot(wishX, wishZ);
 
-      const accel = this.grounded ? T.groundAccel : T.airAccel;
+      /**
+       * GLISSE. 0 = adherence normale, 1 = patinoire.
+       *
+       * Elle divise l'acceleration au sol ET le freinage, jamais la vitesse maximale :
+       * sur la glace on met du temps a se lancer, et bien plus a s'arreter, mais on
+       * finit par aller aussi vite qu'ailleurs. Baisser la vitesse maximale aurait
+       * donne une zone lente, pas une zone glissante — et le joueur aurait subi la
+       * difference sans jamais la reconnaitre.
+       *
+       * Reglee par la scene a chaque image (voir `glisseAt` du parcours) : c'est la
+       * SURFACE qui decide, pas le personnage.
+       */
+      const prise = this.grounded ? 1 - this.glisse * 0.84 : 1;
+      const accel = (this.grounded ? T.groundAccel : T.airAccel) * prise;
       if (wishLen > 0.01) {
         const nx = wishX / wishLen, nz = wishZ / wishLen;
         const targetX = nx * T.maxSpeed, targetZ = nz * T.maxSpeed;
@@ -292,7 +344,7 @@ export class Character {
         vz += Math.max(-accel * dt, Math.min(accel * dt, targetZ - vz));
         this.yaw = this.approachAngle(this.yaw, Math.atan2(nx, nz), T.turnSpeed * dt);
       } else if (this.grounded) {
-        const drop = T.groundFriction * dt;
+        const drop = T.groundFriction * dt * (1 - this.glisse * 0.94);
         const sp = Math.hypot(vx, vz);
         if (sp <= drop) { vx = 0; vz = 0; }
         else { const k = (sp - drop) / sp; vx *= k; vz *= k; }
@@ -350,7 +402,19 @@ export class Character {
     const T = TUNING;
     if (this.state === State.Diving && this.stateTimer > T.diveRecovery && this.grounded) {
       this.beginGetUp();
-    } else if (this.state === State.Tumbling && this.stateTimer > T.tumbleRecovery && this.grounded && speedH < 3.5) {
+    } else if (this.state === State.Tumbling && this.stateTimer > T.tumbleRecovery && this.grounded
+               && (speedH < 3.5 || this.stateTimer > T.tumbleRecovery * 2)) {
+      /*
+       * On se releve TOUJOURS, meme si l'on glisse encore vite.
+       *
+       * La condition « vitesse inferieure a 3,5 m/s » vise le joueur qui vole encore
+       * apres l'impact — il ne doit pas se relever en plein vol. Mais un obstacle qui
+       * POUSSE en continu maintient cette vitesse indefiniment : mesure sur Block Dash,
+       * un personnage cueilli par un portique a 4,4 m/s est reste couche six secondes,
+       * bulldoze sur trente metres jusqu'a tomber du pont, sans jamais pouvoir agir.
+       * Passe le double du delai de relevage, on se releve donc quoi qu'il arrive :
+       * subir un obstacle doit couter du temps, jamais la main.
+       */
       this.beginGetUp();
     } else if (this.state === State.GettingUp && this.stateTimer > T.getUpDuration) {
       this.state = this.grounded ? State.Grounded : State.Airborne;

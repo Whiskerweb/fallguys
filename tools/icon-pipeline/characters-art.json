@@ -1,0 +1,33 @@
+{
+  "charte": "Full body character concept art for a 3D game, front view, perfectly centered, standing in a wide A-pose with both arms held away from the body and legs slightly apart, feet flat and visible. Chunky cartoon mascot proportions: large rounded head, soft bean shaped torso, short thick arms and legs, big glossy expressive eyes. Glossy vinyl toy material with soft rounded forms and a clean bold silhouette. Saturated colours, even studio lighting, no cast shadow. PURE FLAT WHITE background, nothing else in the frame. No text, no logo, no watermark, no props in the hands, no ground plane, no border. The whole character fits inside the frame with a small margin.",
+  "characters": [
+    {
+      "name": "art-tycoon",
+      "prompt": "A confident business tycoon mascot: voluminous swept-back golden blond hair, navy blue suit jacket over a white shirt, long bright red necktie reaching past the waist, slight orange tan, smug smirk"
+    },
+    {
+      "name": "art-engineer",
+      "prompt": "A deadpan tech entrepreneur mascot: short dark brown hair, black bomber jacket over a dark t-shirt, flat unimpressed expression, small rocket emblem on the chest"
+    },
+    {
+      "name": "art-penguin",
+      "prompt": "A cheerful mascot with a round penguin head: sky blue head and back, white belly, small orange beak, rosy cheeks, striped knitted scarf around the neck, orange webbed feet Anthropomorphic body plan: a distinct neck, two clearly separated arms detached from the torso with a visible gap of background between each arm and the body, and two clearly separated straight legs with a visible gap of background between the thighs. The legs are separate limbs attached under the hips, not fused into the body"
+    },
+    {
+      "name": "art-shiba",
+      "prompt": "A cheerful shiba inu mascot: warm orange and cream fur, pointed triangular ears, wide happy smile with tongue out, tiny black nose, small green bomber jacket"
+    },
+    {
+      "name": "art-frog",
+      "prompt": "A chunky cartoon frog mascot. FACE, IMPORTANT: two VERY LARGE round eyes, each as wide as a quarter of the face, placed HIGH on the head near the top, white eyeballs with big black pupils, flush with the head surface and inside its silhouette, NOT bulging outside it. A VERY WIDE dark mouth line curving into a smile, stretching all the way across the lower face from one cheek to the other. Two small nostril dots above the mouth. Bright grass green skin, small red collared shirt, dark green trousers, green feet. PROPORTIONS: a rounded head NO WIDER than the shoulders, joined to the torso by a short visible green neck; a tall torso; two thick arms; two thick legs as long as the torso. POSE, MANDATORY: a wide A-pose. Both arms point outward and downward at 45 degrees, well away from the torso, with plain white background clearly visible under each armpit. The legs are straight and set apart with plain white background visible between the thighs. The character is clearly TALLER than it is wide"
+    },
+    {
+      "name": "art-bull",
+      "prompt": "A triumphant bull mascot: shiny metallic gold body, short curved horns, small ring in the nose, determined grin, tiny green cape on the back"
+    },
+    {
+      "name": "art-whale",
+      "prompt": "A cheerful mascot with a blue whale head: deep blue skin, pale cream belly, friendly smile, tiny water spout on top of the head, small teal t-shirt and shorts, dark blue boots. Anthropomorphic build with a distinct neck, two long separate arms and two long separate legs POSE, MANDATORY: both arms are raised outward and downward at 45 degrees, far away from the torso, forming a clear letter A silhouette; a wide gap of plain white background is visible under each armpit between the arm and the ribs. Legs are straight and set apart with white background visible between the thighs. PROPORTIONS: the head is no wider than the torso, the legs are as long as the torso"
+    }
+  ]
+}

@@ -63,6 +63,110 @@ export class PuffSystem {
 }
 
 /**
+ * Gerbe de PAPIER : les éclats projetés quand une porte cède.
+ *
+ * Pourquoi pas PuffSystem : ses bouffées sont des sphères blanches qui GROSSISSENT en
+ * vieillissant — c'est de la poussière, et une porte en papier qui explose en nuages de
+ * fumée blanche ne se lit pas comme du papier déchiré. Ici, des rectangles plats, teintés
+ * comme la porte, qui culbutent en tombant.
+ *
+ * Un seul lot instancié : soixante-quatre éclats coûtent UN appel de dessin, là où un
+ * maillage par éclat en coûterait soixante-quatre. La couleur est portée par l'instance,
+ * ce qui permet à chaque porte d'éclater dans SA teinte sans matériau supplémentaire.
+ *
+ * Il n'y a pas de fondu : une instance ne peut pas avoir sa propre opacité. Les éclats
+ * rapetissent donc jusqu'à disparaître, ce qui se lit aussi bien sur un objet de vingt
+ * centimètres qui tourne sur lui-même.
+ */
+export class PaperBurst {
+  constructor(parent, { count = 64 } = {}) {
+    const geo = new THREE.PlaneGeometry(1, 1);
+    const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+    this.mesh = new THREE.InstancedMesh(geo, mat, count);
+    this.mesh.frustumCulled = false;
+    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.mesh.castShadow = false;
+    parent.add(this.mesh);
+    this.dummy = new THREE.Object3D();
+    this.col = new THREE.Color();
+    this.cursor = 0;
+    this.pool = [];
+    for (let i = 0; i < count; i++) {
+      this.pool.push({
+        pos: new THREE.Vector3(), vel: new THREE.Vector3(),
+        rot: new THREE.Euler(), spin: new THREE.Vector3(),
+        life: 0, max: 1, taille: 0.2, ratio: 1,
+      });
+      this.mesh.setColorAt(i, this.col.setHex(0xffffff));
+      this._poser(i, 0);
+    }
+    this.mesh.instanceMatrix.needsUpdate = true;
+    this.mesh.instanceColor.needsUpdate = true;
+  }
+
+  _poser(i, echelle) {
+    const p = this.pool[i], d = this.dummy;
+    d.position.copy(p.pos);
+    d.rotation.copy(p.rot);
+    d.scale.set(echelle * p.ratio, echelle, echelle);
+    d.updateMatrix();
+    this.mesh.setMatrixAt(i, d.matrix);
+  }
+
+  /** `couleurs` : teintes tirées au hasard pour chaque éclat (la porte et son blanc). */
+  emit(pos, { count = 16, couleurs = [0xffffff], vers = -1, taille = 0.26, life = 0.9 } = {}) {
+    for (let k = 0; k < count; k++) {
+      const i = this.cursor;
+      this.cursor = (this.cursor + 1) % this.pool.length;
+      const p = this.pool[i];
+      const a = (k / count) * Math.PI * 2 + Math.random() * 0.6;
+      p.pos.copy(pos);
+      // La gerbe part DEVANT, dans le sens de la course : c'est le joueur qui a traversé
+      // la feuille, le papier ne peut pas repartir vers lui.
+      p.vel.set(Math.cos(a) * (1.6 + Math.random() * 2.4),
+        1.4 + Math.random() * 3.4,
+        vers * (2.6 + Math.random() * 3.6));
+      p.rot.set(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3);
+      p.spin.set((Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16);
+      p.taille = taille * (0.6 + Math.random() * 0.8);
+      p.ratio = 0.45 + Math.random() * 0.5;          // des bandes, pas des carrés
+      p.life = p.max = life * (0.7 + Math.random() * 0.6);
+      this.mesh.setColorAt(i, this.col.setHex(couleurs[k % couleurs.length]));
+      this._poser(i, p.taille);
+    }
+    this.mesh.instanceMatrix.needsUpdate = true;
+    this.mesh.instanceColor.needsUpdate = true;
+  }
+
+  update(dt) {
+    let bouge = false;
+    for (let i = 0; i < this.pool.length; i++) {
+      const p = this.pool[i];
+      if (p.life <= 0) continue;
+      bouge = true;
+      p.life -= dt;
+      if (p.life <= 0) { this._poser(i, 0); continue; }
+      p.vel.y -= 11 * dt;
+      // Traînée : un morceau de papier perd sa vitesse presque aussitôt, et c'est ce
+      // freinage qui le distingue d'un éclat de pierre.
+      p.vel.multiplyScalar(1 - Math.min(0.9, dt * 2.2));
+      p.pos.addScaledVector(p.vel, dt);
+      p.rot.x += p.spin.x * dt; p.rot.y += p.spin.y * dt; p.rot.z += p.spin.z * dt;
+      const t = p.life / p.max;
+      this._poser(i, p.taille * Math.min(1, t * 4));
+    }
+    if (bouge) this.mesh.instanceMatrix.needsUpdate = true;
+  }
+
+  dispose() {
+    this.mesh.removeFromParent();
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+    this.pool.length = 0;
+  }
+}
+
+/**
  * Confettis qui tombent en continu autour du joueur.
  * Ils suivent la caméra plutôt que de couvrir les 152 mètres : cent confettis autour du
  * joueur donnent la même impression qu'un millier répartis sur toute la piste, pour un

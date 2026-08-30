@@ -31,6 +31,10 @@ export const TEXTURE_SLOTS = [
   // peint etait impossible par construction.
   'ground-dash', 'ground-maze', 'ground-swoosh',
   'hazard-stripes', 'grass', 'inflatable-bands', 'confetti',
+  // Mini-jeu « Les Portes ».
+  'door-paper', 'wall-plating', 'ground-runway', 'foam-pit', 'crowd-tier',
+  // Mini-jeu « Block Dash ».
+  'starfield',
 ];
 
 export async function loadExternalTextures(onProgress = () => {}) {
@@ -73,6 +77,9 @@ function make(key, size, draw, repeat) {
   const k = `${key}|${repeat}`;
   if (cache.has(k)) return cache.get(k);
   const c = document.createElement('canvas');
+  // La cle reste attachee au canevas : les scripts de diagnostic peuvent ainsi savoir
+  // QUELLE texture porte un materiau, ce que l'uuid ne dit pas.
+  c.dataset.cle = k;
   c.width = c.height = size;
   const ctx = c.getContext('2d');
   draw(ctx, size);
@@ -278,6 +285,132 @@ export function inflatedBands({ a = '#1fc9b8', b = '#f2fffd', bands = 8, repeat 
   }, repeat);
 }
 
+/**
+ * SIGNAL — tapis roulant. Des chevrons qui montrent OU la bande pousse.
+ *
+ * Les tapis reprenaient la texture des rouleaux : les deux tapis se ressemblaient donc
+ * entre eux, ET ressemblaient au rouleau pose dessus. Impossible de savoir de quel cote
+ * on allait etre chasse avant de l'avoir subi. Cette fabrique n'a volontairement PAS de
+ * slot peint : une surface dont la lecture decide de la trajectoire ne doit pas pouvoir
+ * etre remplacee par une image qui ne dit plus rien.
+ *
+ * Les chevrons pointent vers +X de la texture. Pour le tapis oppose, on retourne la
+ * repetition horizontale plutot que de dessiner un second canevas.
+ */
+export function conveyorArrows({ base = '#2f6bff', arrow = '#dce8ff', rows = 3, cols = 3, repeat = [1, 1] } = {}) {
+  return make(`belt-${base}-${arrow}-${rows}-${cols}`, 512, (ctx, s) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, s, s);
+    // Lattes claires en travers du sens de poussee : elles donnent le grain du tapis,
+    // les chevrons donnent son sens.
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    for (let i = 0; i < rows; i++) ctx.fillRect(0, (i + 0.94) * s / rows, s, s / rows * 0.12);
+    ctx.strokeStyle = arrow;
+    ctx.lineWidth = s * 0.05;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const w = s / cols, h = s / rows;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = (c + 0.5) * w, y = (r + 0.45) * h;
+        wrap(ctx, s, x, y, w, (px, py) => {
+          ctx.beginPath();
+          ctx.moveTo(px - w * 0.16, py - h * 0.2);
+          ctx.lineTo(px + w * 0.16, py);
+          ctx.lineTo(px - w * 0.16, py + h * 0.2);
+          ctx.stroke();
+        });
+      }
+    }
+  }, repeat);
+}
+
+/**
+ * SIGNAL — patinoire. Une surface qui ANNONCE qu'elle ne tient pas.
+ *
+ * Un sol glissant qui ressemble a un sol normal n'est pas une difficulte, c'est une
+ * trahison : le joueur perd sans avoir eu la moindre chance de lire le piege. Il faut
+ * donc que la glace se voie de loin — teinte froide, reflets francs, et les TRACES DE
+ * PATINS qui disent, avant meme d'y poser le pied, que ca part de cote.
+ *
+ * Pas de slot peint, comme pour les tapis : une surface dont la lecture decide de la
+ * trajectoire ne doit pas pouvoir etre remplacee par une image qui ne dit plus rien.
+ */
+export function iceRink({ base = '#dff2ff', trace = '#ffffff', reflet = '#b6e3ff', arcs = 5, repeat = [1, 1] } = {}) {
+  return make(`ice-${base}-${trace}-${reflet}-${arcs}`, 512, (ctx, s) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, s, s);
+
+    // Plaques froides : la glace n'est jamais d'une seule teinte, elle prend par zones.
+    const r = rng(23);
+    ctx.fillStyle = reflet;
+    ctx.globalAlpha = 0.5;
+    for (let i = 0; i < 7; i++) {
+      const x = r() * s, y = r() * s, rad = s * (0.1 + r() * 0.16);
+      wrap(ctx, s, x, y, rad, (px, py) => {
+        ctx.beginPath(); ctx.ellipse(px, py, rad, rad * 0.62, r() * 3, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+    ctx.globalAlpha = 1;
+
+    // Traces de patins : des arcs, jamais des droites. Une rayure droite se lit comme
+    // une fissure ; c'est la courbe qui dit « ici, on derape ».
+    ctx.strokeStyle = trace;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < arcs; i++) {
+      const x = r() * s, y = r() * s, rad = s * (0.14 + r() * 0.2);
+      const a0 = r() * Math.PI * 2, arc = 0.7 + r() * 1.5;
+      ctx.lineWidth = s * (0.008 + r() * 0.012);
+      ctx.globalAlpha = 0.5 + r() * 0.35;
+      wrap(ctx, s, x, y, rad, (px, py) => {
+        ctx.beginPath(); ctx.arc(px, py, rad, a0, a0 + arc); ctx.stroke();
+        ctx.beginPath(); ctx.arc(px, py, rad * 0.86, a0 + 0.15, a0 + arc - 0.1); ctx.stroke();
+      });
+    }
+    ctx.globalAlpha = 1;
+
+    // Eclats brillants : quelques points francs, pour que la surface accroche la lumiere
+    // meme en aplat toon, ou aucun reflet speculaire ne viendra la sauver.
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 14; i++) {
+      const x = r() * s, y = r() * s, rad = s * (0.006 + r() * 0.012);
+      wrap(ctx, s, x, y, rad, (px, py) => {
+        ctx.beginPath(); ctx.arc(px, py, rad, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+  }, repeat);
+}
+
+/**
+ * SIGNAL — toboggan. Des filets de vitesse dans le SENS de la descente.
+ *
+ * La piste et le motif partagent le meme axe : les filets suivent la pente, donc ils
+ * disent ou l'on va etre emporte. Un damier ou des pois, sur une glissade, ne disent
+ * rien du tout et la descente se lit comme un sol ordinaire.
+ */
+export function slideStreaks({ base = '#9fd8ff', streak = '#ffffff', lanes = 7, repeat = [1, 1] } = {}) {
+  return make(`slide-${base}-${streak}-${lanes}`, 512, (ctx, s) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, s, s);
+    const r = rng(77);
+    ctx.strokeStyle = streak;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < lanes * 3; i++) {
+      const x = ((i % lanes) + 0.5) * s / lanes + (r() - 0.5) * s / lanes * 0.6;
+      const y = r() * s, len = s * (0.16 + r() * 0.3);
+      ctx.lineWidth = s * (0.01 + r() * 0.02);
+      ctx.globalAlpha = 0.3 + r() * 0.4;
+      wrap(ctx, s, x, y, len, (px, py) => {
+        ctx.beginPath();
+        ctx.moveTo(px, py - len / 2);
+        ctx.lineTo(px, py + len / 2);
+        ctx.stroke();
+      });
+    }
+    ctx.globalAlpha = 1;
+  }, repeat);
+}
+
 /** MOTIF — écailles arrondies, pour varier des pois et du damier. */
 export function scales({ base = '#ffffff', line = '#dedede', cells = 5, repeat = [6, 12] } = {}) {
   const hand = painted('ground-scale', repeat);
@@ -448,5 +581,413 @@ export function swoosh({ base = '#ffffff', line = '#ededed', repeat = [2, 5] } =
         ctx.stroke();
       }
     }
+  }, repeat);
+}
+
+// ───────────────────────── Mini-jeu « Les Portes » ─────────────────────────
+
+/**
+ * MOTIF — papier de soie tendu sur un cadre.
+ * Les fibres sont TRÈS fines et le grain quasi nul : ce panneau porte l'indice qui dit
+ * au joueur si la porte cède. Une texture bruyante noierait ce signal, qui doit rester
+ * lisible à vingt mètres.
+ */
+export function tissuePaper({ base = '#ffffff', fiber = '#ebebeb', repeat = [1, 1] } = {}) {
+  const hand = painted('door-paper', repeat);
+  if (hand) return hand;
+  return make(`paper-${base}-${fiber}`, 512, (ctx, s) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, s, s);
+    const r = rng(0x9a17);
+    ctx.strokeStyle = fiber;
+    ctx.lineWidth = 1;
+    // Fibres longues et presque horizontales, rebouclées en haut et en bas : une fibre
+    // qui sort par un bord rentre par l'autre, donc aucune couture.
+    for (let i = 0; i < 130; i++) {
+      const y = r() * s, amp = 2 + r() * 5, phase = r() * Math.PI * 2;
+      ctx.globalAlpha = 0.25 + r() * 0.4;
+      ctx.beginPath();
+      for (let x = 0; x <= s; x += 8) {
+        const yy = (y + Math.sin(x / s * Math.PI * 2 + phase) * amp + s) % s;
+        x === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // Deux plis mous : ils suffisent à faire lire « feuille tendue » plutôt que « mur ».
+    for (const cy of [s * 0.34, s * 0.71]) {
+      const g = ctx.createLinearGradient(0, cy - s * 0.06, 0, cy + s * 0.06);
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(0.5, 'rgba(0,0,0,0.05)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, cy - s * 0.06, s, s * 0.12);
+    }
+  }, repeat);
+}
+
+/** MOTIF — paroi gonflable en tubes verticaux soudés. Le mur qui porte les portes. */
+export function weldedTubes({ base = '#ffffff', groove = '#d2d2d2', tubes = 6, repeat = [1, 1] } = {}) {
+  const hand = painted('wall-plating', repeat);
+  if (hand) return hand;
+  return make(`tubes-${base}-${groove}-${tubes}`, 512, (ctx, s) => {
+    const w = s / tubes;
+    for (let i = 0; i < tubes; i++) {
+      const g = ctx.createLinearGradient(i * w, 0, (i + 1) * w, 0);
+      g.addColorStop(0, groove);
+      g.addColorStop(0.18, base);
+      g.addColorStop(0.42, '#ffffff');
+      g.addColorStop(0.82, base);
+      g.addColorStop(1, groove);
+      ctx.fillStyle = g;
+      ctx.fillRect(i * w, 0, w + 1, s);
+    }
+    // Piqûre pointillée le long de chaque soudure.
+    ctx.strokeStyle = 'rgba(0,0,0,0.13)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([7, 9]);
+    for (let i = 0; i <= tubes; i++) {
+      ctx.beginPath(); ctx.moveTo(i * w, 0); ctx.lineTo(i * w, s); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }, repeat);
+}
+
+/** MOTIF — couloirs de piste : bandes longitudinales et grains antidérapants. */
+export function runwayLanes({ base = '#ffffff', line = '#dcdcdc', lanes = 4, repeat = [2, 8] } = {}) {
+  const hand = painted('ground-runway', repeat);
+  if (hand) return hand;
+  return make(`runway-${base}-${line}-${lanes}`, 512, (ctx, s) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, s, s);
+    const r = rng(0x51ab);
+    ctx.fillStyle = 'rgba(0,0,0,0.045)';
+    for (let i = 0; i < 900; i++) {
+      const x = r() * s, y = r() * s, rad = 1 + r() * 2.2;
+      ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+    }
+    const w = s / lanes;
+    ctx.strokeStyle = line;
+    ctx.lineWidth = 4;
+    for (let i = 0; i <= lanes; i++) {
+      ctx.beginPath(); ctx.moveTo(i * w, 0); ctx.lineTo(i * w, s); ctx.stroke();
+    }
+  }, repeat);
+}
+
+/** MOTIF — fosse de mousse : cubes empilés, sol d'amortissement. */
+export function foamPit({ base = '#ffffff', edge = '#dadada', cells = 4, repeat = [3, 3] } = {}) {
+  const hand = painted('foam-pit', repeat);
+  if (hand) return hand;
+  return make(`foam-${base}-${edge}-${cells}`, 512, (ctx, s) => {
+    ctx.fillStyle = edge;
+    ctx.fillRect(0, 0, s, s);
+    const step = s / cells;
+    const r = rng(0x30fa);
+    for (let gy = 0; gy < cells; gy++) {
+      for (let gx = 0; gx < cells; gx++) {
+        // Décalage borné à un quart de case : le bloc reste dans sa case, donc les
+        // blocs du bord ne débordent jamais et le raccord tient.
+        const pad = step * 0.09;
+        const cx = gx * step + pad + (r() - 0.5) * step * 0.12;
+        const cy = gy * step + pad + (r() - 0.5) * step * 0.12;
+        const size = step - pad * 2;
+        ctx.fillStyle = r() > 0.5 ? base : '#f4f4f4';
+        ctx.beginPath();
+        ctx.roundRect(cx, cy, size, size, size * 0.3);
+        ctx.fill();
+      }
+    }
+  }, repeat);
+}
+
+/**
+ * SIGNAL — gradins garnis de spectateurs. Matériau blanc attendu.
+ * Le repli procédural n'a pas d'ambition : il évite un mur gris si la texture peinte
+ * manque, sur une surface qu'on ne voit jamais de près.
+ */
+export function crowdTier({ rows = 5, repeat = [6, 1] } = {}) {
+  const hand = painted('crowd-tier', repeat);
+  if (hand) return hand;
+  const teintes = ['#ff4fa3', '#2dd9d9', '#ffee7a', '#ff8a1f', '#a5d440', '#b072ff'];
+  return make(`crowd-${rows}`, 512, (ctx, s) => {
+    ctx.fillStyle = '#f0f0f4';
+    ctx.fillRect(0, 0, s, s);
+    const r = rng(0x77cd);
+    const h = s / rows;
+    for (let row = 0; row < rows; row++) {
+      const y = s - (row + 1) * h;
+      ctx.fillStyle = row % 2 ? '#ffffff' : '#e8e8ee';
+      ctx.fillRect(0, y, s, h);
+      const per = 9 + row;
+      const w = s / per;
+      for (let i = 0; i < per; i++) {
+        ctx.fillStyle = teintes[Math.floor(r() * teintes.length)];
+        const cw = w * 0.62, ch = h * 0.72;
+        ctx.beginPath();
+        ctx.roundRect(i * w + (w - cw) / 2, y + h - ch, cw, ch, cw / 2);
+        ctx.fill();
+      }
+    }
+  }, repeat);
+}
+
+/**
+ * SIGNAL — emblème peint au centre d'une porte. Fond transparent.
+ *
+ * Purement DÉCORATIF, et c'est une exigence, pas une facilité : l'emblème dépend de la
+ * POSITION de la porte dans le mur, jamais de son état. Il donne au mur sa variété et
+ * un vocabulaire commun aux joueurs (« la porte à l'étoile »), sans jamais dire laquelle
+ * cède. Toute corrélation avec l'état ferait de ce mur une devinette à réponse affichée.
+ */
+export function doorCrest(kind, { color = '#ffffff', alpha = 0.5 } = {}) {
+  return make(`crest-${kind}-${color}-${alpha}`, 256, (ctx, s) => {
+    ctx.clearRect(0, 0, s, s);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = s * 0.055;
+    ctx.lineJoin = 'round';
+    const c = s / 2, r = s * 0.3;
+
+    const polygone = (branches, rExt, rInt) => {
+      ctx.beginPath();
+      for (let i = 0; i < branches * 2; i++) {
+        const a = (i / (branches * 2)) * Math.PI * 2 - Math.PI / 2;
+        const rad = i % 2 ? rInt : rExt;
+        const x = c + Math.cos(a) * rad, y = c + Math.sin(a) * rad;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+    };
+
+    if (kind === 'disque') {
+      ctx.beginPath(); ctx.arc(c, c, r, 0, Math.PI * 2); ctx.fill();
+    } else if (kind === 'anneau') {
+      ctx.beginPath(); ctx.arc(c, c, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(c, c, r * 0.45, 0, Math.PI * 2); ctx.fill();
+    } else if (kind === 'etoile') {
+      polygone(5, r * 1.15, r * 0.48);
+    } else if (kind === 'fleur') {
+      polygone(6, r * 1.1, r * 0.62);
+    } else if (kind === 'triangle') {
+      ctx.beginPath();
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
+        const x = c + Math.cos(a) * r * 1.1, y = c + Math.sin(a) * r * 1.1;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.closePath(); ctx.fill();
+    } else if (kind === 'losange') {
+      ctx.beginPath();
+      ctx.moveTo(c, c - r * 1.15); ctx.lineTo(c + r * 0.82, c);
+      ctx.lineTo(c, c + r * 1.15); ctx.lineTo(c - r * 0.82, c);
+      ctx.closePath(); ctx.fill();
+    } else {   // 'barres'
+      const w = s * 0.11;
+      for (const dx of [-w * 2.1, 0, w * 2.1]) {
+        ctx.fillRect(c + dx - w / 2, c - r, w, r * 2);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }, [1, 1]);
+}
+
+export const DOOR_CRESTS = ['disque', 'anneau', 'etoile', 'fleur', 'triangle', 'losange', 'barres'];
+
+/**
+ * MOTIF — papier de soie AVEC son emblème déjà peint dessus.
+ *
+ * L'emblème était un second plan posé devant le panneau : un maillage et un appel de
+ * dessin de plus par porte, soit quarante-sept appels pour une décoration. Peint dans la
+ * même texture, il ne coûte plus rien — les textures sont mises en cache par clé, donc
+ * les sept emblèmes ne font que sept textures pour toute la map.
+ */
+/** Éclaircit ou assombrit une couleur `#rrggbb`. `k > 1` éclaircit vers le blanc. */
+function teinter(hex, k) {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (v) => Math.max(0, Math.min(255, Math.round(k <= 1 ? v * k : v + (255 - v) * (k - 1))));
+  return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`;
+}
+
+/**
+ * MOTIF — panneau de porte COMPLET : couronne festonnée, chevrons, emblème, plinthe.
+ *
+ * Le panneau ne portait qu'un papier uni et un emblème pâle : de loin, un mur de portes
+ * ressemblait à une palissade de draps. La référence tire toute sa lisibilité d'un motif
+ * à FORT CONTRASTE — chevrons blancs sur couleur vive — encadré par une couronne et une
+ * plinthe qui donnent au panneau une silhouette de porte, et non de bâche.
+ *
+ * Tout est peint dans une seule texture, donc un seul appel de dessin par porte. Les
+ * textures étant mises en cache par clé, un mur entier de portes identiques n'en coûte
+ * qu'une.
+ *
+ * `aspect` = largeur/hauteur du panneau. Il pré-compense l'étirement : sans lui, un
+ * chevron dessiné à 45° sur une texture carrée arrive à 30° sur un panneau deux fois plus
+ * haut que large, et le motif part en biais mou.
+ *
+ * ATTENTION — cette texture ne doit JAMAIS dépendre de l'état de la porte. Elle ne reçoit
+ * que la teinte du mur et l'emblème de la case, tous deux tirés sur la position.
+ */
+export function doorPanel(kind, { teinte = '#ff5fa8', aspect = 0.7 } = {}) {
+  const papier = painted('door-paper', [1, 1]);
+  return make(`porte-${kind}-${teinte}-${aspect.toFixed(2)}`, 512, (ctx, s) => {
+    const clair = teinter(teinte, 1.55);
+    const fonce = teinter(teinte, 0.78);
+    const hCouronne = s * 0.2, hPlinthe = s * 0.085;
+
+    ctx.fillStyle = '#fffdfa';
+    ctx.fillRect(0, 0, s, s);
+
+    // --- chevrons, cantonnés entre couronne et plinthe ---
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, hCouronne, s, s - hCouronne - hPlinthe);
+    ctx.clip();
+    ctx.fillStyle = teinte;
+    const bande = s * 0.135;   // épais : la référence compte cinq ou six chevrons par porte,
+                               // pas douze. Trop fins, ils moirent dès qu'on s'éloigne.
+    // La pente est divisée par l'aspect : le panneau étant plus haut que large, un
+    // chevron dessiné trop plat sur la texture s'écrase encore à l'affichage.
+    const pente = 0.62 / Math.max(0.25, aspect);
+    for (let k = -8; k < 22; k++) {
+      const y0 = hCouronne + k * bande * 2;
+      const dy = (s / 2) * pente;
+      ctx.beginPath();
+      ctx.moveTo(0, y0);
+      ctx.lineTo(s / 2, y0 - dy);
+      ctx.lineTo(s, y0);
+      ctx.lineTo(s, y0 + bande);
+      ctx.lineTo(s / 2, y0 + bande - dy);
+      ctx.lineTo(0, y0 + bande);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // --- emblème : PÂLE, il donne au mur son vocabulaire sans dominer le motif ---
+    // Emblème SOMBRE et non blanc : posé sur des chevrons blancs, un emblème blanc
+    // disparaissait une bande sur deux et ne se lisait plus du tout.
+    const crest = doorCrest(kind, { color: fonce, alpha: 0.95 });
+    if (crest?.image) {
+      const t = s * 0.32, x = (s - t) / 2, y = hCouronne + (s - hCouronne - hPlinthe - t) / 2;
+      ctx.globalAlpha = 0.42;
+      ctx.drawImage(crest.image, x, y, t, t);
+      ctx.globalAlpha = 1;
+    }
+
+    // --- couronne festonnée ---
+    ctx.fillStyle = fonce;
+    ctx.fillRect(0, 0, s, hCouronne);
+    const lobes = 7, r = s / (lobes * 2);
+    ctx.beginPath();
+    for (let i = 0; i < lobes; i++) ctx.arc((i + 0.5) * (s / lobes), hCouronne, r, 0, Math.PI);
+    ctx.fill();
+    // Pastilles : le petit détail sucré de la référence, qui casse l'aplat.
+    ctx.fillStyle = clair;
+    for (let i = 0; i < lobes; i++) {
+      ctx.beginPath();
+      ctx.arc((i + 0.5) * (s / lobes), hCouronne * 0.44, s * 0.026, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = clair;
+    ctx.fillRect(0, hCouronne * 0.78, s, s * 0.012);
+
+    // --- plinthe, festonnée vers le haut ---
+    ctx.fillStyle = fonce;
+    ctx.fillRect(0, s - hPlinthe, s, hPlinthe);
+    ctx.beginPath();
+    for (let i = 0; i < lobes; i++) ctx.arc((i + 0.5) * (s / lobes), s - hPlinthe, r * 0.7, Math.PI, 0);
+    ctx.fill();
+
+    // --- fibres du papier, en multiplication : le panneau reste une FEUILLE tendue ---
+    if (papier?.image) {
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.globalAlpha = 0.5;
+      ctx.drawImage(papier.image, 0, 0, s, s);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // --- galbe : lumière en haut, ombre en bas, comme sur les autres pièces gonflées ---
+    const g = ctx.createLinearGradient(0, 0, 0, s);
+    g.addColorStop(0, 'rgba(255,255,255,0.20)');
+    g.addColorStop(0.42, 'rgba(255,255,255,0.03)');
+    g.addColorStop(1, 'rgba(0,0,0,0.14)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, s, s);
+  }, [1, 1]);
+}
+
+export function doorSheet(kind, { repeat = [1, 1] } = {}) {
+  const papier = painted('door-paper', repeat);
+  return make(`sheet-${kind}`, 512, (ctx, s) => {
+    if (papier?.image) ctx.drawImage(papier.image, 0, 0, s, s);
+    else {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, s, s);
+    }
+    // L'emblème reste PÂLE : il donne au mur sa variété sans jamais dominer le panneau,
+    // et surtout il ne doit pas se confondre avec un signal de jeu.
+    const crest = doorCrest(kind, { color: '#b9a2c8', alpha: 0.5 });
+    if (crest?.image) {
+      const t = s * 0.46, x = (s - t) / 2, y = (s - t) / 2 - s * 0.04;
+      ctx.globalAlpha = 0.62;
+      ctx.drawImage(crest.image, x, y, t, t);
+      ctx.globalAlpha = 1;
+    }
+  }, repeat);
+}
+
+// ───────────────────────── Mini-jeu « Block Dash » ─────────────────────────
+
+/**
+ * SIGNAL — grille néon lumineuse. Matériau blanc attendu.
+ *
+ * Volontairement PROCÉDURALE, contrairement aux autres surfaces de ce fichier. Une grille
+ * est un motif géométrique exact : ses lignes doivent tomber au pixel près et se raccorder
+ * sans la moindre dérive, sinon la piste ondule sous les pieds du joueur. Un générateur
+ * d'images ne peut pas offrir cette garantie, et un raccord approximatif se verrait
+ * d'autant plus que le motif est régulier.
+ */
+export function neonGrid({
+  fond = '#0d0826', ligne = '#3a2fd8', lueur = '#7c6bff', cells = 4, repeat = [6, 6],
+} = {}) {
+  return make(`neon-${fond}-${ligne}-${lueur}-${cells}`, 512, (ctx, s) => {
+    ctx.fillStyle = fond;
+    ctx.fillRect(0, 0, s, s);
+    const step = s / cells;
+    // Deux passes : un halo large et diffus, puis le trait net par-dessus. C'est ce
+    // qui fait « tube lumineux » plutôt que « trait de crayon ».
+    for (const [couleur, epaisseur, flou] of [[lueur, step * 0.16, 0.16], [ligne, 5, 0], ['#ffffff', 1.6, 0]]) {
+      ctx.strokeStyle = couleur;
+      ctx.lineWidth = epaisseur;
+      ctx.globalAlpha = flou ? 0.34 : (couleur === '#ffffff' ? 0.7 : 1);
+      for (let i = 0; i <= cells; i++) {
+        const d = i * step;
+        ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d, s); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, d); ctx.lineTo(s, d); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }, repeat);
+}
+
+/** SIGNAL — champ d'étoiles pour le fond des maps spatiales. */
+export function starfield({ repeat = [1, 1] } = {}) {
+  const hand = painted('starfield', repeat);
+  if (hand) return hand;
+  return make('starfield-proc', 512, (ctx, s) => {
+    ctx.fillStyle = '#0a0620';
+    ctx.fillRect(0, 0, s, s);
+    const r = rng(0x5eed);
+    for (let i = 0; i < 520; i++) {
+      const x = r() * s, y = r() * s, rad = r() * 1.6 + 0.35;
+      ctx.globalAlpha = 0.25 + r() * 0.75;
+      ctx.fillStyle = r() > 0.82 ? '#9fd8ff' : '#ffffff';
+      ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
   }, repeat);
 }

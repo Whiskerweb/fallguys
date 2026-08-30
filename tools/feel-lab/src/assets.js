@@ -14,6 +14,10 @@ export class AssetLibrary {
   constructor() {
     this.loader = new GLTFLoader();
     this.models = new Map();
+    // Les clips d'animation vivent A COTE de la scene dans un glTF, et `gltf.scene` ne
+    // les emporte pas : sans ce second registre, un personnage livre avec ses animations
+    // arrivait dans le jeu parfaitement muet, sans qu'aucune erreur ne le signale.
+    this.clips = new Map();
     this.loaded = false;
   }
 
@@ -36,6 +40,7 @@ export class AssetLibrary {
       try {
         const gltf = await this.loader.loadAsync(`/models/${name}.glb`);
         this.models.set(name, this.prepare(gltf.scene));
+        if (gltf.animations?.length) this.clips.set(name, gltf.animations);
       } catch (err) {
         console.warn(`[assets] ${name} illisible :`, err.message);
       } finally {
@@ -76,6 +81,13 @@ export class AssetLibrary {
   }
 
   has(name) { return this.models.has(name); }
+
+  /**
+   * Clips d'animation livrés avec un modèle, ou tableau vide.
+   * Ils sont partagés entre toutes les copies : un AnimationClip est une donnée figée,
+   * seul le mixer qui le joue est propre à chaque personnage.
+   */
+  clipsOf(name) { return this.clips.get(name) ?? []; }
 
   /**
    * Renvoie une copie du modèle, recentrée et mise à l'échelle pour tenir

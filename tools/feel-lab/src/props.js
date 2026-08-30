@@ -119,6 +119,27 @@ export function inflatableArch(width, height, radius, color) {
   return group;
 }
 
+/**
+ * Balle roulante : sphere CENTREE sur son origine, sans embase.
+ * `balloon` ne convient pas : son maillage est decale vers le haut et porte un noeud,
+ * donc il ne coincide plus avec son collider des qu'il roule.
+ */
+export function ballMesh(radius, color) {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 18), toonMaterial(color));
+  mesh.castShadow = true;
+  // Deux calottes claires : sans reperes de surface, une sphere unie parait immobile
+  // meme lancee a pleine vitesse.
+  const cap = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 1.004, 20, 8, 0, Math.PI * 2, 0, 0.5),
+    toonMaterial(0xffffff));
+  mesh.add(cap);
+  const cap2 = cap.clone();
+  cap2.rotation.x = Math.PI;
+  mesh.add(cap2);
+  addOutline(mesh, 0.02);
+  return mesh;
+}
+
 /** Ballon géant de décor : gonflé, mat, posé au sol par une petite embase. */
 export function balloon(radius, color) {
   const group = new THREE.Group();
@@ -162,15 +183,33 @@ export function bunting(width, count = 14, colors = [0xff5f7e, 0x4fd1c5, 0xffd83
     toonMaterial(0xffffff)
   );
   group.add(rope);
+
+  /*
+   * Les fanions sont INSTANCIÉS, pas créés un par un.
+   *
+   * Une guirlande de quatorze fanions coûtait quinze appels de dessin à elle seule, et
+   * il y en a cinq sur le parcours. En instances, la guirlande entière n'en coûte que
+   * deux — la corde et le lot de fanions — pour un rendu identique. Les couleurs sont
+   * portées par instance, donc la variété est conservée.
+   */
+  const geo = new THREE.ConeGeometry(0.26, 0.62, 3);
+  const flags = new THREE.InstancedMesh(geo, toonMaterial(0xffffff), count);
+  const dummy = new THREE.Object3D();
+  const teinte = new THREE.Color();
   for (let i = 0; i < count; i++) {
     const t = i / (count - 1);
     const x = -width / 2 + t * width;
     const sag = -Math.sin(t * Math.PI) * width * 0.055;
-    const flag = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.62, 3), toonMaterial(colors[i % colors.length]));
-    flag.position.set(x, sag - 0.32, 0);
-    flag.rotation.x = Math.PI;
-    group.add(flag);
+    dummy.position.set(x, sag - 0.32, 0);
+    dummy.rotation.set(Math.PI, 0, 0);
+    dummy.updateMatrix();
+    flags.setMatrixAt(i, dummy.matrix);
+    flags.setColorAt(i, teinte.setHex(colors[i % colors.length]));
   }
+  flags.instanceMatrix.needsUpdate = true;
+  if (flags.instanceColor) flags.instanceColor.needsUpdate = true;
+  flags.castShadow = false;
+  group.add(flags);
   return group;
 }
 
@@ -392,5 +431,284 @@ export function mountainRange(groundY) {
       group.add(peak);
     }
   });
+  return group;
+}
+
+// ───────────────────────── Mini-jeu « Les Portes » ─────────────────────────
+
+/**
+ * Panneau de porte en papier tendu, découpé en QUATRE QUARTIERS jointifs.
+ *
+ * Le découpage n'est pas décoratif : il existe pour que la porte se déchire à la
+ * traversée. Un panneau d'une seule pièce ne pourrait que disparaître, et une porte qui
+ * s'évapore ne dit pas au joueur qu'il vient de la traverser — c'est ce retour qui lui
+ * apprend qu'il a lu le bon indice.
+ *
+ * Le bombement est calculé dans le repère du PANNEAU ENTIER, pas du quartier : les
+ * quartiers se raccordent donc exactement, et la couture est invisible.
+ */
+export function paperPanel(width, height, color, { map = null, bulge = 0 } = {}) {
+  const geo = new THREE.PlaneGeometry(width, height, 10, 10);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const X = pos.getX(i), Y = pos.getY(i);
+    pos.setZ(i, bulge * Math.cos(Math.PI * X / width) * Math.cos(Math.PI * Y / height));
+  }
+  geo.computeVertexNormals();
+  const mat = toonMaterial(color);
+  if (map) mat.map = map;
+  mat.side = THREE.DoubleSide;
+  mat.transparent = true;                 // requis par le fondu de la déchirure
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = false;                // une feuille de papier ne porte pas d'ombre
+  mesh.receiveShadow = true;
+  mesh.userData.taille = { width, height, bulge };
+  return mesh;
+}
+
+/**
+ * Déchire un panneau en quatre quartiers qui s'écartent.
+ *
+ * Les quartiers ne sont créés QU'ICI, au moment où la porte cède. Les construire
+ * d'avance coûtait quatre maillages par porte en permanence — cent quatre-vingt-huit
+ * appels de dessin pour une découpe que la plupart des portes ne subissent jamais.
+ *
+ * Le bombement est recalculé dans le repère du panneau ENTIER : les quartiers se
+ * raccordent donc exactement, et la couture reste invisible le temps qu'ils s'écartent.
+ */
+/** Bruit déterministe : même rupture, même éclat, sur toutes les machines. */
+function bruit(i) {
+  const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+/**
+ * Éclatement d'un panneau de porte.
+ *
+ * Trois défauts de la version à quatre quartiers, tous visibles à l'écran :
+ *
+ *  1. CHAQUE MORCEAU MONTRAIT LE PANNEAU ENTIER. Les quartiers héritaient d'un plan neuf,
+ *     donc d'un jeu de coordonnées de texture complet : on voyait quatre portes
+ *     miniatures s'envoler au lieu d'une porte en morceaux. Le défaut passait inaperçu
+ *     sur un papier uni ; avec un motif à chevrons, il saute aux yeux. Les coordonnées
+ *     sont maintenant redécoupées case par case.
+ *  2. QUATRE MORCEAUX, ÇA NE CASSE PAS, ÇA SE DÉPLIE. Neuf morceaux donnent une gerbe.
+ *  3. LE FONDU COMMENÇAIT À L'INSTANT DE LA RUPTURE. Les morceaux étaient à demi
+ *     transparents avant même d'avoir quitté le cadre, et l'impact n'existait pas. Ils
+ *     restent maintenant pleins pendant les deux tiers de leur vol.
+ *
+ * `vers` est le sens de la course (-1 vers le fond) : le papier part DEVANT le joueur,
+ * pas dans toutes les directions. C'est ce qui donne l'impression de l'avoir traversé.
+ */
+export function dechirerPanneau(panneau, { vers = -1, cases = 3 } = {}) {
+  const { width, height, bulge } = panneau.userData.taille;
+  const parent = panneau.parent;
+  const n = Math.max(2, cases);
+  const morceaux = [];
+  // Un seul matériau pour toute la gerbe : neuf clones par porte brisée, c'était neuf
+  // fois le même fondu calculé et neuf états de rendu pour une seconde d'animation.
+  const mat = panneau.material.clone();
+  mat.transparent = true;
+  mat.opacity = 1;
+
+  for (let ix = 0; ix < n; ix++) {
+    for (let iy = 0; iy < n; iy++) {
+      // Léger débord : deux morceaux strictement jointifs laissent voir un fil de fond
+      // dès que la caméra bouge, à cause de l'arrondi à l'écran.
+      const qw = (width / n) * 1.03, qh = (height / n) * 1.03;
+      const cx = (ix - (n - 1) / 2) * (width / n);
+      const cy = (iy - (n - 1) / 2) * (height / n);
+
+      const geo = new THREE.PlaneGeometry(qw, qh, 2, 2);
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const X = pos.getX(i) + cx, Y = pos.getY(i) + cy;
+        pos.setZ(i, bulge * Math.cos(Math.PI * X / width) * Math.cos(Math.PI * Y / height));
+      }
+      // Redécoupage des coordonnées de texture sur la case : le morceau montre la
+      // portion du motif qu'il occupait, et la porte se recompose à l'œil.
+      const uv = geo.attributes.uv;
+      for (let i = 0; i < uv.count; i++) {
+        uv.setXY(i, (ix + uv.getX(i)) / n, (iy + uv.getY(i)) / n);
+      }
+      geo.computeVertexNormals();
+
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(cx, cy, panneau.position.z);
+      m.castShadow = false;
+      const a = bruit(ix * 31 + iy * 17), b = bruit(ix * 13 + iy * 71);
+      // Gerbe : chaque morceau part de son propre côté, et d'autant plus vite qu'il
+      // était loin du centre — c'est ce qui fait une déchirure et non une explosion.
+      const rx = cx / Math.max(0.001, width / 2), ry = cy / Math.max(0.001, height / 2);
+      m.userData.vitesse = new THREE.Vector3(
+        rx * (2.4 + a * 1.6),
+        ry * 1.5 + 1.9 + b * 1.1,
+        vers * (4.2 + a * 2.2));
+      m.userData.spin = new THREE.Vector3(
+        (a - 0.5) * 11, (b - 0.5) * 11, (a - b) * 11);
+      parent.add(m);
+      morceaux.push(m);
+    }
+  }
+  panneau.visible = false;
+  return morceaux;
+}
+
+export function grandstand(longueur, {
+  rangees = 4,
+  profondeurRangee = 2.2,
+  hauteurRangee = 1.35,
+  couleurs = [0x3ed0d8, 0xfec809, 0xfe2a96, 0xfb7813],
+  publicCouleurs = [0xff4fa3, 0x2dd9d9, 0xffee7a, 0xff8a1f, 0xa5d440, 0xb072ff],
+  seed = 1,
+} = {}) {
+  const group = new THREE.Group();
+  let a = seed >>> 0 || 1;
+  const rnd = () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+
+  // Bancs : chaque rangée est un matelas gonflé, décalé vers l'arrière et vers le haut.
+  for (let r = 0; r < rangees; r++) {
+    const banc = roundedBox(longueur, hauteurRangee, profondeurRangee, couleurs[r % couleurs.length],
+      { radius: 0.34, outline: 0 });
+    banc.position.set(0, (r + 0.5) * hauteurRangee, -r * profondeurRangee);
+    group.add(banc);
+  }
+
+  // Garde-corps devant la première rangée : il ferme la tribune par le bas.
+  const rambarde = pill(longueur, 0.3, 0xffffff, { outline: false });
+  rambarde.rotation.z = Math.PI / 2;
+  rambarde.position.set(0, hauteurRangee + 0.5, profondeurRangee * 0.45);
+  group.add(rambarde);
+
+  // Public.
+  const rayon = 0.34, hauteur = 0.95;
+  const parRangee = Math.max(2, Math.floor(longueur / (rayon * 3.4)));
+  const total = parRangee * rangees;
+  const geo = new THREE.CapsuleGeometry(rayon, hauteur - rayon * 2, 3, 8);
+  const mesh = new THREE.InstancedMesh(geo, toonMaterial(0xffffff), total);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
+
+  const bases = [];
+  const dummy = new THREE.Object3D();
+  const couleur = new THREE.Color();
+  let i = 0;
+  for (let r = 0; r < rangees; r++) {
+    for (let k = 0; k < parRangee; k++) {
+      const x = -longueur / 2 + (k + 0.5) * (longueur / parRangee);
+      const y = (r + 1) * hauteurRangee + hauteur / 2;
+      const z = -r * profondeurRangee + (rnd() - 0.5) * 0.4;
+      // La phase dépend de la POSITION : c'est ce qui fait une ola qui traverse la
+      // tribune, au lieu d'une foule qui sautille toute ensemble.
+      bases.push({ x, y, z, phase: x * 0.22 + r * 0.5, ampl: 0.16 + rnd() * 0.2 });
+      dummy.position.set(x, y, z);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+      mesh.setColorAt(i, couleur.setHex(publicCouleurs[Math.floor(rnd() * publicCouleurs.length)]));
+      i++;
+    }
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  group.add(mesh);
+
+  return {
+    group,
+    update(t) {
+      for (let j = 0; j < bases.length; j++) {
+        const b = bases[j];
+        const saut = Math.max(0, Math.sin(t * 2.4 - b.phase)) * b.ampl;
+        dummy.position.set(b.x, b.y + saut, b.z);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(j, dummy.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+    },
+  };
+}
+
+/**
+ * Portique néon : un demi-tore lumineux sur deux pieds, découpé en segments colorés.
+ *
+ * Construit en code plutôt que généré. Le modèle Meshy correspondant avait la bonne
+ * forme mais est ressorti entièrement gris anthracite, sans la moindre bande lumineuse :
+ * invisible dans une scène noire. Tout ce décor repose sur l'émissif, et c'est
+ * précisément ce qu'un pipeline text-to-3D ne garantit pas — alors qu'un
+ * MeshBasicMaterial, lui, brille toujours.
+ */
+export function neonArch(rayon, tube, couleurs = [0x22e8ff, 0xff2ed2, 0x8b5cf6]) {
+  const group = new THREE.Group();
+  const segments = couleurs.length * 2;
+  const arc = Math.PI / segments;
+  for (let i = 0; i < segments; i++) {
+    const geo = new THREE.TorusGeometry(rayon, tube, 10, 14, arc);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      color: couleurs[i % couleurs.length], toneMapped: false,
+    }));
+    // Les segments partent de la droite et couvrent le demi-cercle supérieur.
+    mesh.rotation.z = i * arc;
+    group.add(mesh);
+  }
+  // Pieds : ils ancrent le portique sans le faire flotter.
+  for (const sx of [-1, 1]) {
+    const pied = new THREE.Mesh(
+      new THREE.CylinderGeometry(tube * 1.9, tube * 2.6, tube * 3, 10),
+      new THREE.MeshBasicMaterial({ color: 0x1b1030, toneMapped: false }));
+    pied.position.set(sx * rayon, -tube * 1.5, 0);
+    group.add(pied);
+  }
+  return group;
+}
+
+/**
+ * Champ de plots INSTANCIÉ : un seul lot pour tous les plots d'un parcours.
+ *
+ * Un plot pèse trois maillages — corps, contour, anneau — et le parcours en aligne une
+ * quarantaine le long des rambardes : près de cent quarante appels de dessin pour un
+ * élément purement décoratif, plus que tout le reste du décor réuni. Instanciés, ils
+ * n'en coûtent plus que trois, quel que soit leur nombre.
+ *
+ * `positions` est un tableau de [x, y, z].
+ */
+export function bollardField(positions, height, radius, color) {
+  const group = new THREE.Group();
+  if (!positions.length) return group;
+  const n = positions.length;
+  const dummy = new THREE.Object3D();
+
+  const corps = new THREE.InstancedMesh(
+    new THREE.CapsuleGeometry(radius, Math.max(0.01, height - radius * 2), 6, 14),
+    toonMaterial(color), n);
+  corps.castShadow = true;
+
+  // Le contour est lui aussi instancié : une capsule légèrement grossie, vue de
+  // l'intérieur. Le même effet que addOutline, pour un seul appel de dessin.
+  const contour = new THREE.InstancedMesh(
+    new THREE.CapsuleGeometry(radius + 0.026, Math.max(0.01, height - radius * 2) + 0.05, 6, 14),
+    new THREE.MeshBasicMaterial({ color: 0x2a1b45, side: THREE.BackSide }), n);
+  contour.castShadow = false;
+
+  const anneau = new THREE.InstancedMesh(
+    new THREE.TorusGeometry(radius * 1.04, radius * 0.16, 8, 16),
+    toonMaterial(0xffffff), n);
+
+  positions.forEach(([x, y, z], i) => {
+    dummy.position.set(x, y + height / 2, z);
+    dummy.rotation.set(0, 0, 0);
+    dummy.updateMatrix();
+    corps.setMatrixAt(i, dummy.matrix);
+    contour.setMatrixAt(i, dummy.matrix);
+    dummy.position.set(x, y + height * 0.62, z);
+    dummy.rotation.set(Math.PI / 2, 0, 0);
+    dummy.updateMatrix();
+    anneau.setMatrixAt(i, dummy.matrix);
+  });
+  for (const m of [corps, contour, anneau]) { m.instanceMatrix.needsUpdate = true; group.add(m); }
   return group;
 }
