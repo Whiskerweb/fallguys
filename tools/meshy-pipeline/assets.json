@@ -229,16 +229,40 @@
       "prompt": "Cartoon TV camera crane for a game show stage, all chunky rounded toy shapes. A long straight white #FFFFFF capsule boom arm lies across a fat rounded pivot drum in magenta #FE2A96, on a squat wide cylinder base in golden yellow #FEC809 with a rolled rim. One boom end carries a rounded box camera body in turquoise #3ED0D8 with one big smooth circular lens disc in charcoal #33334D and a small orange #FB7813 sphere light on top; the other end a fat orange #FB7813 counterweight sphere. Glossy toy plastic, soft bulges, every edge heavily rounded, no right angle. No lattice, no tripod legs, no wheels, no cables, no wires, no screws, no text, no logo. Simple readable silhouette, flat saturated colors, clean toon game asset, no ground plane."
     },
     {
-      "name": "neon-pylon",
+      "name": "palm-jungle",
       "polycount": 6000,
       "symmetry": "off",
-      "prompt": "Glowing marker pylon for a neon arcade course in space. One tall slender tapered obelisk, five times taller than wide, in deep charcoal #1B1030, wrapped by five thin bright emissive rings evenly spaced along its height, alternating cyan #22E8FF and magenta #FF2ED2, and capped by a small glowing sphere in white #FFFFFF. It stands on a squat hexagonal base in charcoal with one luminous cyan edge line. Glossy dark plastic, luminous edges only, everything else matte dark. No wires, no cables, no screws, no antenna, no text, no logo, no small parts, no ground plane. Simple readable silhouette, clean toon game asset."
+      "prompt": "Stylized cartoon palm tree for a bright jungle party game. One slightly curved trunk made of eight stacked rounded ring segments tapering from 100 percent width at the base to 60 percent at the top, trunk height four times its base width, in flat warm tan #C98A4B with slightly darker ring grooves #A96F38. On top, seven broad rounded fronds in flat saturated leaf green #3FBF3F, each frond one smooth paddle shape with three soft notches per edge, arching outward and drooping at the tips, spread evenly all around. Absolutely no coconuts, no fruit, no roots, no bark detail, no thin spiky leaves, no vines, no text, no ground plane. Chunky rounded volumes, large radii, simple silhouette readable from 50 meters, clean toon game asset."
     },
     {
-      "name": "neon-drone",
+      "name": "fern-cluster-jungle",
+      "polycount": 6000,
+      "symmetry": "off",
+      "prompt": "Stylized cartoon fern cluster for a bright jungle party game. Five broad leaves fanning out from one short hidden base, each leaf a thick rounded paddle with four soft rounded lobes per side, leaf length three times its width, arching outward and curling slightly at the tip. Two tall leaves in flat deep green #2E9E44, two medium in flat mid green #46C24E, one short in flat pale lime #86D96A. Absolutely no flowers, no berries, no soil, no pot, no roots, no thin stems, no leaf veins, no text, no ground plane. Fully rounded thick volumes, very large corner radii, no sharp point anywhere, simple closed silhouette readable from 40 meters, clean toon game asset."
+    },
+    {
+      "name": "lily-pads-lotus",
+      "polycount": 5000,
+      "symmetry": "off",
+      "prompt": "Stylized cartoon lily pad group for a bright jungle party game lagoon. Four flat round pads of different sizes lying in one plane, each a smooth disc with one narrow V notch cut into its edge, thickness 6 percent of its diameter, with a soft raised rim. Pads in flat saturated green #4FC93F and #6FD95A. One lotus flower sits on the largest pad: eight fat rounded petals in flat pink #FF8FC0 around a small yellow #FFD84A dome. Absolutely no water, no ripples, no stems under the pads, no insects, no veins, no realistic plant detail, no text, no ground plane. Chunky rounded volumes, simple flat silhouette readable from above, clean toon game asset."
+    },
+    {
+      "name": "jungle-rock-plateau",
+      "polycount": 5000,
+      "symmetry": "off",
+      "prompt": "Stylized cartoon stone plateau for a bright jungle party game. One squat rock block with a slightly irregular six sided outline, width twice its height, its top face perfectly flat and level. The side is made of three stacked bands stepping slightly inward going up, every edge very heavily rounded like worn river stone. Flat cool grey #8E9AA6 for the sides, lighter grey #B4BEC7 for the top face, with two or three soft darker grey #6E7A87 patches. Absolutely no moss, no grass, no plants, no cracks, no rubble, no sharp facets, no crystal shapes, no text, no ground plane. Massive rounded volumes, simple silhouette readable from 60 meters, clean toon game asset."
+    },
+    {
+      "name": "bamboo-clump",
+      "polycount": 6000,
+      "symmetry": "off",
+      "prompt": "Stylized cartoon bamboo clump for a bright jungle party game. Seven straight vertical stalks of different heights standing close together, the tallest six times the width of the group, each stalk a smooth cylinder divided by five slightly swollen rounded rings into even segments. Stalks in flat yellow green #9ED44B, rings in darker green #7CB534. A few short rounded leaf paddles in flat deep green #2E9E44 sprout near the tops. Absolutely no roots, no soil, no thin spiky leaves, no fine grain, no text, no ground plane. Thick rounded volumes, no sharp edge anywhere, simple readable silhouette from 50 meters, clean toon game asset."
+    },
+    {
+      "name": "jungle-finish-gate",
       "polycount": 7000,
       "symmetry": "on",
-      "prompt": "Small hovering camera drone for a neon arcade course in space. A rounded lozenge body in deep charcoal #1B1030 with one bright emissive cyan #22E8FF stripe wrapping its middle, a single big smooth circular lens disc in magenta #FF2ED2 on the front, and two short stubby fins on the sides tipped with small glowing violet #8B5CF6 spheres. Underneath, three tiny luminous cyan dots. Glossy dark plastic, luminous accents only. No propellers, no rotors, no wires, no cables, no landing gear, no antenna, no text, no logo, no ground plane. Compact readable silhouette, clean toon game asset."
+      "prompt": "Stylized cartoon finish gate for a bright jungle party game. Two thick vertical wooden posts in flat warm tan #C98A4B carrying one horizontal beam across the top, gate twice as wide as tall, every post and beam a rounded cylinder with softly bevelled ends. The beam is bound to each post by three turns of flat rope in cream #EBD9A8. Hanging from the beam, five short leafy garlands in flat saturated green #3FBF3F. A wide flat banner plate in bright turquoise #2DD9D9 is fixed under the beam, completely blank. Absolutely no text, no letters, no flags, no checkered pattern, no nails, no wood grain, no ground plane. Chunky rounded volumes, simple silhouette readable from 60 meters, clean toon game asset."
     }
   ]
 }

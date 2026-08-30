@@ -28,7 +28,7 @@ parallèle.
 |---|---|
 | **La Course** | Parcours d'obstacles serpentant, avec embranchement et ballons déterministes. |
 | **Les Portes** | Sept murs percés de portes en papier : certaines cèdent, les autres sont condamnées. |
-| **Block Dash** | Une passerelle néon au-dessus du vide : barrières à sauter, piliers à contourner, fossés à franchir avec de l'élan, balayeuses à esquiver. |
+| **Le Rondin** | Quatre troncs géants qui tournent au-dessus d'un lagon : fagots à sauter, palissades à contourner, trous percés de part en part. |
 
 ### La graine de manche
 
@@ -181,53 +181,113 @@ et savoir quand suivre plutôt que mener est une compétence à part entière.
 La disposition dérive de la graine de manche (voir plus haut) : tirée au sort à chaque
 partie, mais unique pour tous les joueurs d'une même manche.
 
-### Block Dash
+### Le Rondin
 
-Une passerelle néon suspendue au-dessus du vide, sans garde-corps. **Quatre mécaniques**,
-qui appellent chacune une réponse différente :
+Quatre troncs géants alignés au-dessus d'un lagon, et qui **tournent**.
+
+Un rondin qui tourne emporte le joueur sur le côté. Rester en haut n'est donc pas un état,
+c'est une correction permanente : on court en biais contre la rotation. Toute la difficulté
+vient de là, et les obstacles ne font que la révéler — un fagot se saute facilement quand on
+est centré, beaucoup moins quand on dérive déjà vers le flanc.
 
 | Obstacle | Cote | Réponse | Ce qu'il impose |
 |---|---|---|---|
-| **Barrière** (jaune) | 1,05 m | se saute | le *rythme* |
-| **Pilier** (magenta) | 2,90 m | se contourne | la *trajectoire* |
-| **Fossé** | 3,1 et 4,4 m | de l'élan | la *vitesse* |
-| **Balayeuse** (violet) | 0,75 m, mobile | l'esquive ou le saut | l'*instant* |
+| **Fagot** (rouge, bleu) | 1,05 m, anneau complet | se saute | le *rythme* |
+| **Palissade** (violet) | 2,60 m, arc de 50° | se contourne | la *trajectoire* |
+| **Trou** | 2,2 m, traversant | s'anticipe | la *lecture* |
 
-Chaque section introduit une mécanique isolément avant que la finale ne les combine : un
-joueur doit pouvoir comprendre un obstacle avant de le rencontrer mêlé aux autres, sinon
-un échec ne lui apprend rien. La difficulté vient de la combinaison — un fossé seul est
-facile, un fossé avec une balayeuse qui arrive ne l'est plus.
+Le fagot fait le tour du tronc : on ne le contourne pas. La palissade n'en couvre qu'une
+portion : trop haute pour être sautée, elle oblige à quitter la crête, c'est-à-dire à
+accepter la pente. Ce sont deux réponses opposées, et c'est ce qui les rend lisibles.
 
-Les **fossés** ont un rôle à part : ce sont les seuls obstacles qui punissent la
-**lenteur**. Les trois autres se négocient à l'arrêt ; sans eux, on traverserait la map
-au pas en attendant chaque ouverture.
+**L'ouverture de la palissade n'est pas choisie, elle est déduite.** Au-delà de 40°
+d'inclinaison, la paroi emporte le joueur plus vite qu'il ne peut corriger : c'est la
+largeur pratique du terrain. On exige qu'il reste, d'un côté au moins, 1,2 largeur de corps
+de terrain libre à l'intérieur de cette bande — d'où 50° d'ouverture, et 1,23 m de passage
+résiduel. Une première version ouvrait à 66°, plus large que la bande entière : quand elle
+passait par la crête elle ne se contournait plus, elle barrait, et il ne restait qu'à
+attendre que le tronc tourne. Un obstacle qui impose l'attente dans une course n'est pas un
+obstacle, c'est une panne.
 
-Les **piliers mobiles** coulissent latéralement plutôt que de jaillir du sol. Le joueur
-voit le passage se refermer et décide de forcer ou d'attendre ; un obstacle qui surgit
-sous les pieds ne laisse aucun choix et se lit comme un piège.
+**Toutes les cotes dérivent du personnage** — 0,90 m de
+large, 1,60 m de haut, saut de 2,15 m, portée de 5,27 m. Le rayon du tronc, 5,5 m, donne une
+crête utile de 4,6 m sous 25° d'inclinaison, soit cinq largeurs de corps.
 
-#### Les cotes viennent du personnage
+#### La difficulté monte sur trois leviers, jamais un seul
 
-La première version fut dimensionnée à l'œil, et ses cotes ne correspondaient à rien :
-des blocs de 1,75 m pour un corps de 1,60 m — à peine plus hauts que lui — et des
-passages de 2,68 m pour une largeur de 0,90 m. Elle n'offrait d'ailleurs qu'une seule
-décision, répétée : se placer latéralement devant un mur.
-
-Tout dérive désormais de trois mesures relevées sur le personnage : **0,90 m de large,
-1,60 m de haut**, saut de **2,15 m** culminant en 0,74 s de vol, soit **5,66 m de portée**
-à pleine vitesse.
-
-| Cote | Valeur | Règle |
+| Tronçon | Rotation | Ce qu'il apprend |
 |---|---|---|
-| Barrière | 1,05 m | franchement sous le saut |
-| Pilier | 2,90 m | franchement au-dessus |
-| Passage large | 2,16 m | 2,4 × la largeur du corps |
-| Passage serré | 1,44 m | 1,6 × — il faut viser |
-| Fossé facile | 3,1 m | 55 % de la portée |
-| Fossé dur | 4,4 m | 78 % de la portée, 1,2 m de marge |
+| 1 | 0,10 rad/s | la dérive seule — deux fagots, aucun trou |
+| 2 | 0,16 rad/s, **sens inverse** | il faut se réadapter : la dérive change de côté |
+| 3 | 0,21 rad/s | les trous entrent en jeu |
+| 4 | 0,26 rad/s, sens inverse | tout ensemble, resserré |
 
-`diag/blockdash.mjs` vérifie ces règles **avant même de jouer**, puis franchit chaque
-obstacle isolément. Les anciennes cotes n'en passaient aucune.
+Entre deux tronçons, un îlot de pierre fixe : une seconde de répit, et le point de reprise.
+Une difficulté croissante a besoin de paliers — sans eux, elle se lit comme une seule longue
+punition et le joueur n'a jamais l'occasion de constater qu'il a progressé.
+
+Monter la seule vitesse aurait donné quatre fois la même épreuve, en plus dur. C'est
+l'inversion du **sens** qui coûte le plus au joueur : le geste appris au tronçon précédent
+devient exactement le mauvais.
+
+#### Le sentier dit l'angle
+
+La bande de terre battue est peinte à un angle fixe **du tronc**, donc elle tourne avec lui.
+Voir le sentier dériver, c'est voir de combien le rondin a tourné, et de quel côté. Sans ce
+repère, l'écorce est uniforme et la rotation ne se lit plus qu'aux obstacles — trop tard, et
+seulement par intermittence. Elle est calée pour être en haut au départ de la manche : tirée
+au sort, elle se serait parfois trouvée sous le tronc, c'est-à-dire invisible.
+
+#### Une coque, pas un tube plein
+
+`src/rondin.js` engendre une grille cylindrique et en tire le maillage visible **et** un
+trimesh bâti sur les mêmes sommets — le même principe que la piste, et la même exigence.
+
+La paroi n'a pas d'épaisseur : le trimesh de Rapier arrête des deux côtés, donc la face
+qu'on voit est exactement celle qui porte. Il n'existe aucune seconde surface qui pourrait
+diverger de la première.
+
+**Un trou est double.** Chaque percement retire aussi les cellules diamétralement opposées.
+Le joueur qui tombe dans le trou du dessus traverse l'intérieur, glisse au fond de la coque
+— dont le point bas *est* la seconde ouverture, puisqu'elle lui fait face — et ressort dans
+le lagon. Un trou borgne l'aurait piégé à l'intérieur d'un tronc qui tourne, vivant et
+immobile : il n'aurait pas su s'il était mort ou coincé.
+
+Un tronçon entier est **un seul corps cinématique** portant le trimesh de la paroi et les
+colliders de ses obstacles. Une rotation par image fait tourner le tout d'un bloc : les
+fagots suivent le tronc gratuitement, sans une ligne de synchronisation.
+
+#### Le portage de surface — ce qu'il a fallu changer au contrôleur
+
+Rien de tout cela ne se sentait avant une retouche de trois lignes dans `src/character.js`.
+
+Le personnage est un corps dynamique dont la vitesse horizontale est **réécrite à chaque
+sous-pas en repère monde**, et dont le freinage au sol le ramène vers le zéro *du monde*. Un
+rondin qui tourne faisait donc défiler sa surface sous ses pieds sans jamais l'emporter : la
+rotation ne se sentait pas, elle ne faisait que gêner.
+
+Désormais, **au sol, la référence est la surface** : la vitesse voulue et le freinage
+s'expriment par rapport à elle. En l'air on retrouve le repère du monde, donc on garde
+l'élan pris sur le tronc — c'est ce qui rend un saut depuis un rondin qui tourne
+satisfaisant plutôt que frustrant.
+
+La scène le renseigne par `surfaceAt(pos)`, à côté de `glisseAt`. Aucune boîte, aucune zone :
+pour une rotation ω autour de l'axe, la vitesse d'un point de la paroi vaut ω × r, soit une
+poussée purement latérale de ω·R à la crête qui s'annule sur les flancs. La formule *est* la
+physique.
+
+La détection de culbute a suivi. Elle se déclenche sur une **secousse** de 5,2 m/s en un pas ;
+poser le pied sur une surface qui défile à 1,4 m/s en produit une. Mesurée dans le repère de
+surface, elle ne se déclenche plus — sans quoi chaque atterrissage sur le rondin aurait fini
+au sol.
+
+Effet de bord assumé : la plateforme mobile de La Course est devenue réellement porteuse.
+
+`diag/rondin.mjs` rend onze verdicts. Les cotes d'abord, sur les nombres et avant de
+jouer — un pilote qui passe ne prouve pas qu'une cote est juste, il peut passer par chance.
+Puis la mesure : le collider colle au visuel à 0,66 cm près sur 864 tirs,
+les trous traversent (et seulement eux), la dérive vaut 1,36 m/s pour 1,43 attendus, aucune
+culbute parasite, et un pilote traverse les quatre tronçons sans une chute.
 
 ### Fin de manche
 

@@ -219,6 +219,8 @@ export class Character {
     // Adherence de la surface sous les pieds, renseignee par la scene a chaque image.
     this.glisse = 0;
     this._glisseAppliquee = 0;
+    // Vitesse de la surface sous les pieds ({vx, vz}), ou null si elle est immobile.
+    this.surface = null;
   }
 
   checkGround() {
@@ -265,6 +267,25 @@ export class Character {
     const speedH = Math.hypot(v.x, v.z);
     const controllable = this.state === State.Grounded || this.state === State.Airborne;
 
+    /**
+     * REPERE DE SURFACE.
+     *
+     * Au sol, la reference n'est pas le monde mais ce qu'on a sous les pieds. Sur un
+     * rondin qui tourne, rester immobile PAR RAPPORT AU RONDIN n'est pas avoir une
+     * vitesse nulle dans le monde. Sans cette correction, le freinage au sol ramenerait
+     * le personnage vers le zero du monde : la surface se contenterait de defiler sous
+     * lui, et la rotation ne se sentirait pas — elle ne ferait que gener.
+     *
+     * En l'air, la reference redevient le monde : on garde l'elan pris sur la surface.
+     * C'est ce qui rend un saut depuis un rondin qui tourne satisfaisant plutot que
+     * frustrant, et c'est aussi la seule facon de franchir un trou en travers.
+     *
+     * Renseigne par la scene a chaque image (`surfaceAt`), exactement comme la glisse :
+     * c'est la SURFACE qui decide, pas le personnage.
+     */
+    const sx = this.grounded && this.surface ? this.surface.vx : 0;
+    const sz = this.grounded && this.surface ? this.surface.vz : 0;
+
     // --- Détection de culbute : un obstacle vient de nous expédier ---
     /**
      * Detection de culbute par CHANGEMENT BRUTAL de vitesse.
@@ -287,15 +308,18 @@ export class Character {
     if (this.landGrace > 0) this.landGrace -= dt;
 
     if (this.prevVx !== undefined && controllable && this.landGrace <= 0) {
-      const dvx = vx0 - this.prevVx, dvz = vz0 - this.prevVz;
+      // Mesuree dans le repere de surface : poser le pied sur un rondin qui defile a
+      // 1,4 m/s produit sinon un saut de vitesse qui ressemble a un impact, et chaque
+      // atterrissage finirait en culbute.
+      const dvx = (vx0 - sx) - this.prevVx, dvz = (vz0 - sz) - this.prevVz;
       const jolt = Math.hypot(dvx, dvz);
       // La secousse doit venir de l'exterieur : on soustrait ce que le joueur pouvait
       // produire lui-meme en un pas, sinon un simple demi-tour declencherait la culbute.
       const selfMax = T.groundAccel * dt * 1.35;
       if (jolt > Math.max(T.tumbleJolt, selfMax)) this.enterTumble();
     }
-    this.prevVx = vx0;
-    this.prevVz = vz0;
+    this.prevVx = vx0 - sx;
+    this.prevVz = vz0 - sz;
 
     // --- Atterrissage ---
     if (this.grounded && !this.wasGrounded) {
@@ -339,15 +363,17 @@ export class Character {
       const accel = (this.grounded ? T.groundAccel : T.airAccel) * prise;
       if (wishLen > 0.01) {
         const nx = wishX / wishLen, nz = wishZ / wishLen;
-        const targetX = nx * T.maxSpeed, targetZ = nz * T.maxSpeed;
+        const targetX = sx + nx * T.maxSpeed, targetZ = sz + nz * T.maxSpeed;
         vx += Math.max(-accel * dt, Math.min(accel * dt, targetX - vx));
         vz += Math.max(-accel * dt, Math.min(accel * dt, targetZ - vz));
         this.yaw = this.approachAngle(this.yaw, Math.atan2(nx, nz), T.turnSpeed * dt);
       } else if (this.grounded) {
         const drop = T.groundFriction * dt * (1 - this.glisse * 0.94);
-        const sp = Math.hypot(vx, vz);
-        if (sp <= drop) { vx = 0; vz = 0; }
-        else { const k = (sp - drop) / sp; vx *= k; vz *= k; }
+        // On freine vers la vitesse de la SURFACE, pas vers celle du monde.
+        const rx = vx - sx, rz = vz - sz;
+        const sp = Math.hypot(rx, rz);
+        if (sp <= drop) { vx = sx; vz = sz; }
+        else { const k = (sp - drop) / sp; vx = sx + rx * k; vz = sz + rz * k; }
       }
 
       // Saut

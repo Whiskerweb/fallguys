@@ -11,11 +11,11 @@ process.on('exit', () => { try { browser?.close(); } catch {} });
 browser = await chromium.launch({ args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: 700, height: 460 } });
 page.setDefaultTimeout(600000);
-await page.goto('http://127.0.0.1:5273/?lowfx&noassets&skip=scenery&actes=2', { waitUntil: 'domcontentloaded' });
+await page.goto('http://127.0.0.1:5273/?lowfx&noassets&skip=scenery', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => { const l=document.getElementById('loading'); return l && getComputedStyle(l).display==='none'; }, { timeout: 600000 });
 await page.evaluate(() => {
   const g = window.__probeGame();
-  g.partie = { parcours: [window.__MINIGAMES.find((m) => m.id === 'blockdash')], index: 0, temps: [], chutes: 0 };
+  g.partie = { parcours: [window.__MINIGAMES.find((m) => m.id === 'course')], index: 0, temps: [], chutes: 0 };
   g.startRace();
 });
 await page.waitForFunction(() => parseFloat(document.getElementById('timer')?.textContent ?? '0') > 0.3, { timeout: 600000 });

@@ -18,7 +18,7 @@ port 5273) : `node diag/<script>.mjs [arguments]`. Les captures vont dans `shots
 | `axistest.mjs <modele…>` | Quel axe de rotation rabat le bras le long du corps. |
 | `skintest.mjs` | Le rig pilote-t-il le squelette auquel le maillage est attache ? |
 | `apercu.mjs` | Vues d'ensemble du parcours : dessus, profil, zooms sur chaque RACCORD, et vues a hauteur de course. C'est la vue de dessus qui a revele que l'ancien trace etait une ligne droite, puis qu'il n'etait qu'un tas de dalles qui se chevauchaient. |
-| `traversee.mjs` | Traverse tout le parcours avec la CAMERA DE JEU en deplacant le joueur d'etape en etape. Chaque etape est decrite par (voie, cote Z) et sa position exacte est LUE sur le trace. Seule facon de voir les masquages a hauteur de course. |
+| `traversee.mjs` | Traverse **Le Rondin** avec la CAMERA DE JEU en deplacant le joueur d'etape en etape. Chaque etape est decrite par (voie, cote Z) et sa position exacte est LUE sur le trace. Seule facon de voir les masquages a hauteur de course. |
 | `continuite.mjs` | Tire un rayon vers le bas tous les metres le long des trajectoires jouables — sur l'AXE ET SUR LES DEUX BORDS — et signale tout trou dans le sol. Les trajectoires sont lues sur `course.trajectoires`, donc le test suit le trace quand il bouge au lieu de sonder une carte imaginaire. |
 | `finparcours.mjs [skip]` | Le dernier tiers est-il JOUABLE ? Pilote vraiment le personnage : la grande cote se monte-t-elle, et la patinoire glisse-t-elle ? Le verdict de la cote compare la hauteur du personnage a celle du RUBAN sous lui, pas un nombre de metres — la simulation tourne au ralenti en rendu logiciel. Argument optionnel : la liste `?skip=` (par defaut `balls,pendulums`, pour mesurer la pente sans se faire ecraser). |
 | `ballons.mjs` | Verifie que les ballons devalent bien la rampe, et dans le bon sens. |
@@ -33,7 +33,7 @@ port 5273) : `node diag/<script>.mjs [arguments]`. Les captures vont dans `shots
 | `perf.mjs` | Budget de rendu map par map : draw calls, triangles, temps de construction, et poids telecharge au demarrage. Les DRAW CALLS comptent plus que les triangles — un GPU avale des millions de triangles, mais chaque appel de dessin coute un aller-retour avec le pilote. Budget vise : 100 a 300. |
 | `portrait.mjs <modele>` | Fabrique le portrait de vitrine A PARTIR DU MODELE, pas d'une image generee : la tuile et l'avatar sont ainsi garantis identiques, et le portrait ne peut pas dater d'une version anterieure. |
 | `animchar.mjs [modele]` | Personnage anime par ses PROPRES clips : verifie que les clips sont bien charges (ils vivent a cote de la scene dans un glTF et se perdent en silence), que le melange repos/marche/course suit la vitesse, et que le personnage ne PEDALE PAS en l'air. Le controle en vol appelle le rig directement, avec un temoin au sol : sans lui, un rig completement fige passerait le test. |
-| `blockdash.mjs` | Diagnostic de **Block Dash** : sens de deplacement des portiques et absence de rebouclage VISIBLE (les machines naissent derriere les hangars), horloge propre a la scene (en pause, plus rien ne bouge), cycle des voies, fidelite des colliders au sol comme au ciel, hauteur des linteaux (on doit passer dessous EN COURANT), invariants des figures verifies sur 24 donnes tirees au sort, et traversee complete par un pilote qui LIT les voies et ne saute que sous un ciel ouvert. |
+| `rondin.mjs` | Diagnostic du **Rondin**, en onze verdicts. Les cotes d'abord, verifiees sur les NOMBRES avant de jouer (fagot sous le saut, palissade au-dessus, passage residuel autour d'une palissade, largeur d'un trou) : un pilote qui passe peut passer par chance. Puis la mesure : le collider colle-t-il au visuel (864 rayons tires sur la paroi, tolerance 1 cm) ; les trous traversent-ils, ET SEULEMENT EUX (des temoins juste a cote doivent trouver la paroi intacte) ; la rotation EMPORTE-T-ELLE le joueur, touches lachees, a hauteur de w*R — c'est le seul test qui prouve le portage de surface, et il ne se voit sur aucune capture ; un temoin immobile sur l'ilot ; aucune culbute parasite en tombant sur le troncon le plus rapide ; un pilote traverse les quatre troncons ; et deux graines identiques donnent la meme carte. Les tirs de geometrie tournent en `?skip=fagots` : un rayon rencontre le fagot AVANT la paroi, et comptait quatre parois percees qui n'etaient qu'un anneau de batons. |
 
 `viewer.html` (a la racine) est la page utilisee par `voirglb.mjs` :
 `http://127.0.0.1:5273/viewer.html?m=mon-modele.glb`.
@@ -62,3 +62,16 @@ jamais `browser.close()`. Les navigateurs restes ouverts consomment le processeu
 ralentissent le rendu logiciel au point de faire echouer des scenes parfaitement saines —
 le symptome ressemble alors a une regression de la map. Les harnais recents fixent donc un
 `process.on('exit')` qui ferme le navigateur quoi qu'il arrive.
+
+**Ne jamais tirer un rayon depuis l'interieur du joueur.** `castRay` en mode solide renvoie
+une distance NULLE quand son origine est deja dans une forme — et le collider du personnage
+en est une. Un pilote qui sondait devant lui depuis son propre centre voyait donc un obstacle
+colle en permanence : il sautait a chaque image et ne franchissait jamais rien. Le symptome
+ressemblait a une carte infranchissable, la cause etait dans le harnais. Les rayons partent
+desormais au moins 1,2 m devant, ou au-dessus de la tete comme le fait `traversee.mjs`.
+
+**Une grille de sondes ne trouve pas un petit trou.** La premiere version de `rondin.mjs`
+balayait six cotes par troncon pour verifier les percements : un trou fait 2,2 m sur 45, et
+aucune sonde n'en a touche un seul. Le test annoncait « aucun trou bouche » sur zero mesure,
+c'est-a-dire rien du tout. On tire desormais AU DROIT de chaque trou, a sa cote exacte, avec
+des temoins juste a cote. Un test qui ne peut pas echouer ne prouve rien.

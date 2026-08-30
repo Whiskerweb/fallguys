@@ -48,7 +48,7 @@ console.log('');
 console.log('map          construction   triangles   draw calls   corps');
 
 const bilan = [];
-for (const id of ['course', 'doors', 'blockdash']) {
+for (const id of ['course', 'doors', 'rondin']) {
   const t1 = Date.now();
   await page.evaluate((x) => {
     const g = window.__probeGame();

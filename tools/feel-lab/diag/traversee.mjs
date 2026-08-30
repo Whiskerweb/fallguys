@@ -26,14 +26,14 @@ const erreurs = [];
 page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
 page.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text().slice(0, 160)); });
 
-await page.goto(`http://127.0.0.1:5273/?lowfx&noassets&skip=scenery&actes=${ACTES}`, { waitUntil: 'domcontentloaded' });
+await page.goto(`http://127.0.0.1:5273/?lowfx&noassets&skip=scenery`, { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => {
   const l = document.getElementById('loading');
   return l && getComputedStyle(l).display === 'none';
 }, { timeout: 600000 });
 await page.evaluate(() => {
   const g = window.__probeGame();
-  const jeu = window.__MINIGAMES.find((m) => m.id === 'blockdash');
+  const jeu = window.__MINIGAMES.find((m) => m.id === 'rondin');
   g.partie = { parcours: [jeu], index: 0, temps: [], chutes: 0 };
   g.startRace();
 });

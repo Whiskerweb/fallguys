@@ -1,6 +1,6 @@
 import { buildCourse } from './course.js';
 import { buildDoors } from './doors.js';
-import { buildBlockDash } from './blockdash.js';
+import { buildRondin } from './rondin.js';
 
 /**
  * Registre des épreuves et déroulement d'une PARTIE.
@@ -33,12 +33,12 @@ export const MINIGAMES = [
     build: buildDoors,
   },
   {
-    id: 'blockdash',
-    name: 'Block Dash',
-    tagline: 'Des portiques remontent la passerelle en cadence. Esquive, et ne saute pas n’importe où.',
-    duree: '≈ 40 s',
-    accent: '#22e8ff',
-    build: buildBlockDash,
+    id: 'rondin',
+    name: 'Le Rondin',
+    tagline: 'Quatre troncs qui tournent au-dessus du lagon. Reste en haut.',
+    duree: '≈ 50 s',
+    accent: '#c98a4b',
+    build: buildRondin,
   },
 ];
 

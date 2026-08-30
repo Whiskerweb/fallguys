@@ -435,7 +435,11 @@ class Game {
     // Graine TIREE AU SORT a chaque manche : deux parties ne se ressemblent pas, et un
     // parcours appris par coeur ne vaut plus rien. Une seule graine par manche, pas une
     // par joueur — en multijoueur le serveur la tire et l'impose aux seize.
-    this.manche = graineDeManche();
+    // `?graine=N` impose la graine : c'est le seul moyen de PROUVER qu'une meme donne
+    // redonne la meme carte, et c'est exactement ce que fera le serveur en multijoueur —
+    // le harnais emprunte donc le vrai chemin de code, pas une porte derobee.
+    const forcee = Number(new URLSearchParams(location.search).get('graine'));
+    this.manche = Number.isFinite(forcee) && forcee > 0 ? forcee >>> 0 : graineDeManche();
     // Ordre imperatif, le meme que dans enterLobby : le personnage detient un corps dans
     // le monde physique de l'arene sortante. Liberer ce monde avant lui laisserait
     // `character.dispose()` retirer un corps d'un monde deja detruit — un pointeur wasm
@@ -641,6 +645,12 @@ class Game {
     // personnage ne connait qu'un chiffre, ce qui laisse chaque epreuve libre de
     // dessiner ses propres zones sans rien changer au controleur.
     this.character.glisse = this.arena.glisseAt?.(pos) ?? 0;
+    // Surfaces MOBILES : meme principe, mais c'est une vitesse et non un coefficient.
+    // Un tapis roulant se decrit par une boite alignee sur les axes ; un rondin qui
+    // tourne, non — sa vitesse tangentielle depend de l'endroit ou l'on se tient sur
+    // sa circonference. La scene renvoie donc directement la vitesse sous les pieds,
+    // et le controleur s'en sert comme repere plutot que d'encaisser une poussee.
+    this.character.surface = this.arena.surfaceAt?.(pos) ?? null;
 
     if (this.character.grounded) {
       for (const c of this.arena.conveyors) {

@@ -33,7 +33,7 @@ await page.screenshot({ path: `shots/anim-${modele}-lobby.png` });
 
 await page.evaluate(() => {
   const g = window.__probeGame();
-  const jeu = window.__MINIGAMES.find((m) => m.id === 'blockdash');
+  const jeu = window.__MINIGAMES.find((m) => m.id === 'course');
   g.partie = { parcours: [jeu], index: 0, temps: [], chutes: 0 };
   g.startRace();
 });

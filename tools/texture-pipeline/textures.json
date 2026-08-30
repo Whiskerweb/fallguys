@@ -94,12 +94,20 @@
       "prompt": "Subject: a stadium grandstand packed with tiny cartoon spectators, seen straight from the front. Rows of simple rounded capsule bodies with no faces, each one a single flat saturated colour taken from magenta, turquoise, golden yellow, orange, lime and lavender, sitting on stepped bench rows in glossy white and pale grey vinyl. The rows run left to right and continue perfectly across the left and right edges. Flat even lighting, no shadow, no text, no banner, no railing."
     },
     {
-      "name": "starfield",
-      "prompt": "Subject: a real astronomical starfield photographed from deep space. A very dark navy-black field filled with hundreds of tiny round points of light of many different sizes and brightnesses, mostly white with a few faint blue and warm amber ones, scattered irregularly with no pattern. Extremely dark overall. Absolutely no clouds, no cartoon cloud shapes, no four-pointed sparkle or star-shaped glyphs, no nebula, no planets, no moon, no sun, no constellation lines, no grid, no text. Only round dots of light on near-black."
+      "name": "log-bark",
+      "prompt": "Subject: the bark of a giant smooth cartoon tree trunk seen from directly above, covered in long soft vertical grooves of irregular width running the full height, the grooves gently wavy and rounded, never sharp, with a few wider shallow dents between them. Near-white background with light grey grooves so it can be tinted any colour afterwards. MOTIF layer: values only, near neutral. No knots, no moss, no insects, no leaves, no fibre detail, no colour."
     },
     {
-      "name": "neon-panel",
-      "prompt": "Subject: a glossy dark panel surface for a neon arcade floor, near-black with a faint soft sheen and very subtle fine scratches catching light, plus a few barely visible darker rectangular plate seams. Almost uniform and very dark so a bright grid can be drawn on top of it afterwards. No grid lines, no glow, no text, no reflection of objects."
+      "name": "log-path",
+      "prompt": "Subject: bare trodden earth filling the entire square edge to edge, seen from directly above, the beaten ground of a well used path. SIGNAL texture, it carries its own colours: flat warm sand #E8C88F covers the whole surface as the base, with soft irregular rounded patches of slightly darker tan #D2A868 spread evenly over about a third of it, and a few smaller pale cream #F6E3BC patches over a sixth. Every patch is a smooth flat colour area with a clean rounded edge. The earth reaches all four edges. No band, no strip, no stripe, no white background, no empty area, no border, no stones, no grass, no cracks, no speckle, no gradient, no shading, no outline."
+    },
+    {
+      "name": "lagoon-water",
+      "prompt": "Subject: the calm surface of a shallow tropical lagoon seen from directly above, filling the entire square. SIGNAL texture, it carries its own colours: flat bright turquoise #35C8C0 covers the whole surface as the base, scattered with MANY small thin elongated ripple marks, each between 4 and 9 percent of the image width, in lighter aqua #6FE0D6 and a few in pale cream #DFF7F2. The ripples are slim smooth curved slivers lying in various directions, spread evenly and densely with no visible grid and no large empty area. No big blobs, no large patches, no islands, no foam, no fish, no plants, no lily pads, no rocks, no sand, no reflection, no gradient, no shading, no sun glare."
+    },
+    {
+      "name": "jungle-canopy",
+      "prompt": "Subject: a dense jungle canopy seen from directly above, packed edge to edge with big rounded clumps of foliage. SIGNAL texture, it carries its own colours: three flat tones only, deep green #2E9E44 as the dominant base, brighter leaf green #46C24E for about a third of the clumps, pale lime #86D96A for about a sixth. Each clump is a single flat colour area with a smooth rounded cloud outline, clump size between 10 and 20 percent of the image width, packed irregularly with no visible grid. No trunks, no branches, no flowers, no individual leaves, no shading, no gradient, no outline, no gap showing ground."
     }
   ]
 }

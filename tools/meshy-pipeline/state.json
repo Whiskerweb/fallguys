@@ -208,5 +208,35 @@
     "previewId": "01a02420-5e80-7b2b-8c54-e1cd02a4720e",
     "refineId": "01a02421-318f-71bf-a0ef-08ac5b1d51d7",
     "done": true
+  },
+  "palm-jungle": {
+    "previewId": "01a05256-3297-77f2-922b-3abf13c38aad",
+    "refineId": "01a05257-8ebe-7509-a25b-cd5f1fdf844a",
+    "done": true
+  },
+  "jungle-rock-plateau": {
+    "previewId": "01a05256-3295-7485-ad3e-965de606fe92",
+    "refineId": "01a05257-49ed-7112-bff9-0744a11b010b",
+    "done": true
+  },
+  "fern-cluster-jungle": {
+    "previewId": "01a05256-3294-740b-ab37-4df6dfa8389e",
+    "refineId": "01a05257-8ebb-779f-9b50-771e57481526",
+    "done": true
+  },
+  "lily-pads-lotus": {
+    "previewId": "01a05256-3294-7059-81f2-16e6797382ab",
+    "refineId": "01a05257-6c80-71b8-a83e-2e78c395afd4",
+    "done": true
+  },
+  "bamboo-clump": {
+    "previewId": "01a05258-425f-72ff-8db9-b38494b95180",
+    "refineId": "01a05259-5456-7682-bb5d-815e2d0fba6d",
+    "done": true
+  },
+  "jungle-finish-gate": {
+    "previewId": "01a05258-60d1-752d-8462-3f20e7b9d4c3",
+    "refineId": "01a05259-9734-774e-b289-fa4af68f5b83",
+    "done": true
   }
 }

@@ -33,8 +33,11 @@ export const TEXTURE_SLOTS = [
   'hazard-stripes', 'grass', 'inflatable-bands', 'confetti',
   // Mini-jeu « Les Portes ».
   'door-paper', 'wall-plating', 'ground-runway', 'foam-pit', 'crowd-tier',
-  // Mini-jeu « Block Dash ».
-  'starfield',
+  // Mini-jeu « Le Rondin ».
+  'log-bark', 'log-path', 'lagoon-water', 'jungle-canopy',
+  // Deja genere et livre de longue date, mais absent de cette liste : il n'avait donc
+  // jamais ete charge une seule fois. Les berges du lagon lui donnent enfin un emploi.
+  'foam-moss-turf',
 ];
 
 export async function loadExternalTextures(onProgress = () => {}) {
@@ -940,54 +943,124 @@ export function doorSheet(kind, { repeat = [1, 1] } = {}) {
   }, repeat);
 }
 
-// ───────────────────────── Mini-jeu « Block Dash » ─────────────────────────
+// ───────────────────────── Mini-jeu « Le Rondin » ─────────────────────────
 
-/**
- * SIGNAL — grille néon lumineuse. Matériau blanc attendu.
- *
- * Volontairement PROCÉDURALE, contrairement aux autres surfaces de ce fichier. Une grille
- * est un motif géométrique exact : ses lignes doivent tomber au pixel près et se raccorder
- * sans la moindre dérive, sinon la piste ondule sous les pieds du joueur. Un générateur
- * d'images ne peut pas offrir cette garantie, et un raccord approximatif se verrait
- * d'autant plus que le motif est régulier.
- */
-export function neonGrid({
-  fond = '#0d0826', ligne = '#3a2fd8', lueur = '#7c6bff', cells = 4, repeat = [6, 6],
-} = {}) {
-  return make(`neon-${fond}-${ligne}-${lueur}-${cells}`, 512, (ctx, s) => {
-    ctx.fillStyle = fond;
+/** MOTIF — écorce du rondin : sillons verticaux, la teinte vient du matériau. */
+export function logBark({ base = '#ffffff', sillon = '#e6e6e6', repeat = [1, 1] } = {}) {
+  const hand = painted('log-bark', repeat);
+  if (hand) return hand;
+  return make(`bark-${base}-${sillon}`, 512, (ctx, s) => {
+    ctx.fillStyle = base;
     ctx.fillRect(0, 0, s, s);
-    const step = s / cells;
-    // Deux passes : un halo large et diffus, puis le trait net par-dessus. C'est ce
-    // qui fait « tube lumineux » plutôt que « trait de crayon ».
-    for (const [couleur, epaisseur, flou] of [[lueur, step * 0.16, 0.16], [ligne, 5, 0], ['#ffffff', 1.6, 0]]) {
-      ctx.strokeStyle = couleur;
-      ctx.lineWidth = epaisseur;
-      ctx.globalAlpha = flou ? 0.34 : (couleur === '#ffffff' ? 0.7 : 1);
-      for (let i = 0; i <= cells; i++) {
-        const d = i * step;
-        ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d, s); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, d); ctx.lineTo(s, d); ctx.stroke();
+    ctx.strokeStyle = sillon;
+    ctx.lineCap = 'round';
+    // Sillons verticaux d'epaisseur variable. La phase est un multiple entier de la
+    // periode, donc le motif se raccorde d'un bord a l'autre par construction.
+    for (let i = 0; i < 26; i++) {
+      const x0 = (i / 26) * s;
+      ctx.lineWidth = Math.max(1.5, s / 220) * (1 + (i % 4) * 0.55);
+      ctx.beginPath();
+      for (let y = 0; y <= s; y += 4) {
+        const x = x0 + Math.sin((y / s) * Math.PI * 2 * (2 + (i % 3)) + i) * s * 0.012;
+        if (y === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
+      ctx.stroke();
     }
-    ctx.globalAlpha = 1;
+    grain(ctx, s, 17, 0.03, 90);
   }, repeat);
 }
 
-/** SIGNAL — champ d'étoiles pour le fond des maps spatiales. */
-export function starfield({ repeat = [1, 1] } = {}) {
-  const hand = painted('starfield', repeat);
+/** SIGNAL — terre battue du sentier de crête. Matériau blanc attendu. */
+export function logPath({ repeat = [1, 1] } = {}) {
+  const hand = painted('log-path', repeat);
   if (hand) return hand;
-  return make('starfield-proc', 512, (ctx, s) => {
-    ctx.fillStyle = '#0a0620';
+  return make('path-proc', 512, (ctx, s) => {
+    ctx.fillStyle = '#e8c88f';
     ctx.fillRect(0, 0, s, s);
-    const r = rng(0x5eed);
-    for (let i = 0; i < 520; i++) {
-      const x = r() * s, y = r() * s, rad = r() * 1.6 + 0.35;
-      ctx.globalAlpha = 0.25 + r() * 0.75;
-      ctx.fillStyle = r() > 0.82 ? '#9fd8ff' : '#ffffff';
-      ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+    for (const [teinte, n, r] of [['#d2a868', 26, 0.055], ['#f6e3bc', 14, 0.038]]) {
+      ctx.fillStyle = teinte;
+      for (let i = 0; i < n; i++) {
+        const x = ((i * 97) % 100) / 100 * s, y = ((i * 61) % 100) / 100 * s;
+        const rad = s * r * (0.7 + ((i * 37) % 10) / 14);
+        // Repete sur les quatre cotes : une tache qui deborde revient de l'autre bord.
+        for (const dx of [-s, 0, s]) for (const dy of [-s, 0, s]) {
+          ctx.beginPath(); ctx.arc(x + dx, y + dy, rad, 0, Math.PI * 2); ctx.fill();
+        }
+      }
     }
-    ctx.globalAlpha = 1;
+  }, repeat);
+}
+
+/** SIGNAL — surface du lagon. Matériau blanc attendu. */
+export function lagoonWater({ repeat = [1, 1] } = {}) {
+  const hand = painted('lagoon-water', repeat);
+  if (hand) return hand;
+  return make('lagoon-proc', 512, (ctx, s) => {
+    ctx.fillStyle = '#35c8c0';
+    ctx.fillRect(0, 0, s, s);
+    ctx.strokeStyle = '#6fe0d6';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(2, s / 150);
+    for (let i = 0; i < 90; i++) {
+      const x = ((i * 53) % 100) / 100 * s, y = ((i * 89) % 100) / 100 * s;
+      const a = ((i * 41) % 100) / 100 * Math.PI, len = s * 0.05;
+      for (const dx of [-s, 0, s]) for (const dy of [-s, 0, s]) {
+        ctx.beginPath();
+        ctx.moveTo(x + dx - Math.cos(a) * len, y + dy - Math.sin(a) * len);
+        ctx.lineTo(x + dx + Math.cos(a) * len, y + dy + Math.sin(a) * len);
+        ctx.stroke();
+      }
+    }
+  }, repeat);
+}
+
+/** SIGNAL — canopée vue de dessus, pour les berges et le rideau lointain. */
+export function jungleCanopy({ repeat = [1, 1] } = {}) {
+  const hand = painted('jungle-canopy', repeat);
+  if (hand) return hand;
+  return make('canopy-proc', 512, (ctx, s) => {
+    ctx.fillStyle = '#2e9e44';
+    ctx.fillRect(0, 0, s, s);
+    for (const [teinte, n] of [['#46c24e', 40], ['#86d96a', 20]]) {
+      ctx.fillStyle = teinte;
+      for (let i = 0; i < n; i++) {
+        const x = ((i * 73) % 100) / 100 * s, y = ((i * 29) % 100) / 100 * s;
+        const rad = s * 0.06 * (0.7 + ((i * 17) % 10) / 12);
+        for (const dx of [-s, 0, s]) for (const dy of [-s, 0, s]) {
+          ctx.beginPath(); ctx.arc(x + dx, y + dy, rad, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+  }, repeat);
+}
+
+/** SIGNAL — tapis de mousse des berges. */
+export function mossTurf({ repeat = [1, 1] } = {}) {
+  const hand = painted('foam-moss-turf', repeat);
+  if (hand) return hand;
+  return jungleCanopy({ repeat });
+}
+
+/**
+ * SIGNAL — cernes de la tranche d'un rondin.
+ *
+ * Volontairement PROCÉDURALE. Un motif de cernes est centré : il ne se raccorde pas, et
+ * le lissage de bord du pipeline de textures le détruirait en tentant de le rendre
+ * répétable. Or il n'est jamais répété — il couvre un disque, une fois.
+ */
+export function logRings({ repeat = [1, 1] } = {}) {
+  return make('rings-proc', 512, (ctx, s) => {
+    ctx.fillStyle = '#efcb94';
+    ctx.fillRect(0, 0, s, s);
+    const cx = s * 0.52, cy = s * 0.47;
+    for (let r = s * 0.5; r > 0; r -= s * 0.021) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * (0.97 + Math.sin(r * 0.09) * 0.03), 0, Math.PI * 2);
+      ctx.fillStyle = (Math.round(r / (s * 0.021)) % 2) ? '#d9a05b' : '#efcb94';
+      ctx.fill();
+    }
+    ctx.strokeStyle = '#b57f42';
+    ctx.lineWidth = s * 0.035;
+    ctx.beginPath(); ctx.arc(cx, cy, s * 0.48, 0, Math.PI * 2); ctx.stroke();
   }, repeat);
 }

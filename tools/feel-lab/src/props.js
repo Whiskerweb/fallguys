@@ -633,49 +633,6 @@ export function grandstand(longueur, {
   };
 }
 
-/**
- * Portique néon : un demi-tore lumineux sur deux pieds, découpé en segments colorés.
- *
- * Construit en code plutôt que généré. Le modèle Meshy correspondant avait la bonne
- * forme mais est ressorti entièrement gris anthracite, sans la moindre bande lumineuse :
- * invisible dans une scène noire. Tout ce décor repose sur l'émissif, et c'est
- * précisément ce qu'un pipeline text-to-3D ne garantit pas — alors qu'un
- * MeshBasicMaterial, lui, brille toujours.
- */
-export function neonArch(rayon, tube, couleurs = [0x22e8ff, 0xff2ed2, 0x8b5cf6]) {
-  const group = new THREE.Group();
-  const segments = couleurs.length * 2;
-  const arc = Math.PI / segments;
-  for (let i = 0; i < segments; i++) {
-    const geo = new THREE.TorusGeometry(rayon, tube, 10, 14, arc);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-      color: couleurs[i % couleurs.length], toneMapped: false,
-    }));
-    // Les segments partent de la droite et couvrent le demi-cercle supérieur.
-    mesh.rotation.z = i * arc;
-    group.add(mesh);
-  }
-  // Pieds : ils ancrent le portique sans le faire flotter.
-  for (const sx of [-1, 1]) {
-    const pied = new THREE.Mesh(
-      new THREE.CylinderGeometry(tube * 1.9, tube * 2.6, tube * 3, 10),
-      new THREE.MeshBasicMaterial({ color: 0x1b1030, toneMapped: false }));
-    pied.position.set(sx * rayon, -tube * 1.5, 0);
-    group.add(pied);
-  }
-  return group;
-}
-
-/**
- * Champ de plots INSTANCIÉ : un seul lot pour tous les plots d'un parcours.
- *
- * Un plot pèse trois maillages — corps, contour, anneau — et le parcours en aligne une
- * quarantaine le long des rambardes : près de cent quarante appels de dessin pour un
- * élément purement décoratif, plus que tout le reste du décor réuni. Instanciés, ils
- * n'en coûtent plus que trois, quel que soit leur nombre.
- *
- * `positions` est un tableau de [x, y, z].
- */
 export function bollardField(positions, height, radius, color) {
   const group = new THREE.Group();
   if (!positions.length) return group;
