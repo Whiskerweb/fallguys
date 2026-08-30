@@ -16,6 +16,10 @@ game/[Rr]ecordings/
 *.csproj
 *.unityproj
 *.sln
+# ... sauf le noyau de regles C#, qui doit se cloner et se builder tel quel
+!Fallguys.sln
+!src/**/*.csproj
+!tests/**/*.csproj
 *.suo
 *.user
 *.booproj
@@ -44,8 +48,13 @@ replays/
 
 # Banc d'essai
 tools/feel-lab/dist/
-# Modeles generes par Meshy : regenerables via tools/meshy-pipeline/state.json
-tools/feel-lab/public/models/*.glb
-tools/feel-lab/shots/
+# Les modeles et textures livres au jeu SONT versionnes : regenerer coute des credits
+# Meshy et ne redonne pas les memes assets. Le depot doit pouvoir relancer le jeu tel quel.
 tools/texture-pipeline/raw/
-tools/feel-lab/public/textures/*.png
+
+# Sorties de diagnostic : regenerables a la commande, aucune valeur a conserver
+tools/feel-lab/shots/
+tools/feel-lab/diag/vues/
+
+# Assets ecartes : gardes en local, trop lourds pour le depot (146 Mo)
+tools/meshy-pipeline/unused/
