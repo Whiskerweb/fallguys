@@ -34,10 +34,27 @@ export const TEXTURE_SLOTS = [
   // Mini-jeu « Les Portes ».
   'door-paper', 'wall-plating', 'ground-runway', 'foam-pit', 'crowd-tier',
   // Mini-jeu « Le Rondin ».
-  'log-bark', 'log-path', 'lagoon-water', 'jungle-canopy',
+  //
+  // Le tronc, ses arêtes et ses anneaux n'ont PLUS de texture peinte : la référence est un
+  // aplat, et cinq PNG générés pesaient plus de quatre mégaoctets pour un résultat trop
+  // détaillé qui jurait avec le reste du jeu. Ils sont remplacés par `boisLisse`,
+  // `sentierBois` et `anneauxBois`, procéduraux et gratuits. Pas de 'finish-checker' non
+  // plus : un damier se dessine mieux qu'il ne se génère.
+  'lagoon-water', 'jungle-canopy', 'plank-bridge', 'river-stone',
   // Deja genere et livre de longue date, mais absent de cette liste : il n'avait donc
   // jamais ete charge une seule fois. Les berges du lagon lui donnent enfin un emploi.
   'foam-moss-turf',
+  // Mini-jeu « Les Dalles ».
+  'sky-meadow', 'cloud-bank',
+  /*
+   * Mini-jeu « L'Hexagone ».
+   *
+   * Trois SIGNAL de fond seulement. Les motifs des faces d'hexagone, eux, ne sont PAS ici
+   * et n'y seront jamais : ce sont des motifs CENTRES sur une face, et `seamless.mjs` les
+   * detruirait en les rendant raccordables — le meme piege que la face des Dalles. Ils
+   * sont procéduraux, plus bas dans ce fichier.
+   */
+  'slime-pink', 'candy-hills', 'sky-triangles',
 ];
 
 export async function loadExternalTextures(onProgress = () => {}) {
@@ -1044,12 +1061,17 @@ export function mossTurf({ repeat = [1, 1] } = {}) {
 /**
  * SIGNAL — cernes de la tranche d'un rondin.
  *
- * Volontairement PROCÉDURALE. Un motif de cernes est centré : il ne se raccorde pas, et
- * le lissage de bord du pipeline de textures le détruirait en tentant de le rendre
+ * Longtemps PUREMENT procédurale : un motif de cernes est centré, il ne se raccorde pas,
+ * et le lissage de bord du pipeline de textures le détruit en tentant de le rendre
  * répétable. Or il n'est jamais répété — il couvre un disque, une fois.
+ *
+ * L'épreuve a nuancé la règle. Un motif de cernes est RADIALEMENT SYMÉTRIQUE, donc ses
+ * quatre bords se ressemblent déjà : le lissage n'a presque rien eu à corriger (0,8/255
+ * mesuré) et n'a donc rien abîmé. La version peinte est admise ici, et elle seule — le
+ * damier d'arrivée, lui, a été détruit par le même lissage et reste procédural.
  */
 export function logRings({ repeat = [1, 1] } = {}) {
-  return make('rings-proc', 512, (ctx, s) => {
+  return painted('log-rings-cut', repeat) ?? make('rings-proc', 512, (ctx, s) => {
     ctx.fillStyle = '#efcb94';
     ctx.fillRect(0, 0, s, s);
     const cx = s * 0.52, cy = s * 0.47;
@@ -1062,5 +1084,481 @@ export function logRings({ repeat = [1, 1] } = {}) {
     ctx.strokeStyle = '#b57f42';
     ctx.lineWidth = s * 0.035;
     ctx.beginPath(); ctx.arc(cx, cy, s * 0.48, 0, Math.PI * 2); ctx.stroke();
+  }, repeat);
+}
+
+// ───────────────────────── Mini-jeu « Les Dalles » ─────────────────────────
+
+/**
+ * MOTIF — face d'une dalle. La teinte vient du matériau.
+ *
+ * Volontairement PROCÉDURALE, et pour la même raison que `logRings` : ce motif est
+ * CENTRÉ sur son carré, il n'est jamais répété, et le lissage de bord du pipeline de
+ * textures le détruirait en essayant de le rendre raccordable. Une dalle porte une
+ * image, pas un tissu.
+ *
+ * Ce que le dessin doit apporter : un bord franc. Six cents dalles jaunes identiques
+ * posées bord à bord forment un aplat où l'on ne distingue plus UNE dalle — or c'est
+ * exactement l'unité de décision du mini-jeu. Le liseré et le panneau creusé rendent
+ * chaque case comptable d'un coup d'œil, à la distance où l'on doit choisir.
+ */
+export function tileFace({ repeat = [1, 1] } = {}) {
+  return make('tile-face-proc', 256, (ctx, s) => {
+    const arrondi = (x, y, w, h, r) => {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    };
+    ctx.fillStyle = '#d9d9d9';           // liseré : le bord de la dalle
+    ctx.fillRect(0, 0, s, s);
+    ctx.fillStyle = '#ffffff';           // plateau
+    arrondi(s * 0.055, s * 0.055, s * 0.89, s * 0.89, s * 0.10);
+    ctx.fill();
+    ctx.fillStyle = '#efefef';           // panneau creusé
+    arrondi(s * 0.155, s * 0.155, s * 0.69, s * 0.69, s * 0.07);
+    ctx.fill();
+    // Quatre rainures courtes dans les coins du panneau : elles cassent l'aplat central
+    // sans introduire de motif directionnel, qui donnerait un sens de lecture faux.
+    ctx.fillStyle = '#e2e2e2';
+    for (const [ux, uy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+      const x = s * (0.235 + ux * 0.415), y = s * (0.235 + uy * 0.415);
+      arrondi(x, y, s * 0.115, s * 0.115, s * 0.03);
+      ctx.fill();
+    }
+    grain(ctx, s, 41, 0.018, 60);
+  }, repeat);
+}
+
+/** SIGNAL — herbe rase des plateformes et des îlots volants. Matériau blanc attendu. */
+export function skyMeadow({ repeat = [1, 1] } = {}) {
+  const hand = painted('sky-meadow', repeat);
+  if (hand) return hand;
+  return make('meadow-proc', 512, (ctx, s) => {
+    ctx.fillStyle = '#6fd44a';
+    ctx.fillRect(0, 0, s, s);
+    for (const [teinte, n, r] of [['#5cbf3c', 30, 0.06], ['#8ee265', 18, 0.04]]) {
+      ctx.fillStyle = teinte;
+      for (let i = 0; i < n; i++) {
+        const x = ((i * 71) % 100) / 100 * s, y = ((i * 43) % 100) / 100 * s;
+        const rad = s * r * (0.7 + ((i * 23) % 10) / 13);
+        for (const dx of [-s, 0, s]) for (const dy of [-s, 0, s]) {
+          ctx.beginPath(); ctx.arc(x + dx, y + dy, rad, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+  }, repeat);
+}
+
+/** SIGNAL — banc de nuages du fond. Matériau blanc attendu. */
+export function cloudBank({ repeat = [1, 1] } = {}) {
+  const hand = painted('cloud-bank', repeat);
+  if (hand) return hand;
+  return make('cloudbank-proc', 512, (ctx, s) => {
+    ctx.fillStyle = '#bfe9ff';
+    ctx.fillRect(0, 0, s, s);
+    for (const [teinte, n, r] of [['#9fd8f2', 22, 0.11], ['#ffffff', 34, 0.10]]) {
+      ctx.fillStyle = teinte;
+      for (let i = 0; i < n; i++) {
+        const x = ((i * 59) % 100) / 100 * s, y = ((i * 83) % 100) / 100 * s;
+        const rad = s * r * (0.6 + ((i * 31) % 10) / 11);
+        for (const dx of [-s, 0, s]) for (const dy of [-s, 0, s]) {
+          ctx.beginPath(); ctx.arc(x + dx, y + dy, rad, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+  }, repeat);
+}
+
+// ───────────────────── Échine et liaisons (mini-jeu « Le Rondin ») ─────────────────────
+
+/**
+ * SIGNAL — arête d'écorce : segments dodus ceinturés d'un cordage.
+ *
+ * Rouge et bleu sont le MÊME objet dans deux teintes. La référence s'en sert pour rythmer
+ * une longue échine sans introduire un second vocabulaire : le joueur n'a pas à apprendre
+ * que bleu voudrait dire autre chose que rouge, il voit juste qu'il en a déjà passé un.
+ */
+export function barkRidge(teinte = 'red', { repeat = [1, 1] } = {}) {
+  const slot = teinte === 'blue' ? 'bark-ridge-blue' : 'bark-ridge-red';
+  const hand = painted(slot, repeat);
+  if (hand) return hand;
+  const [clair, sombre] = teinte === 'blue'
+    ? ['#2e6fd0', '#1b4487']
+    : ['#d93a2b', '#a82a1e'];
+  return make(`ridge-${teinte}`, 256, (ctx, s) => {
+    ctx.fillStyle = clair;
+    ctx.fillRect(0, 0, s, s);
+    // Huit segments : la période divise la taille, donc le bord gauche prolonge le droit.
+    const n = 8, pas = s / n;
+    ctx.fillStyle = sombre;
+    for (let i = 0; i < n; i++) {
+      ctx.fillRect(i * pas - s * 0.008, 0, s * 0.016, s);
+    }
+    // Cordage : une bande horizontale qui ne touche aucun bord vertical, donc raccordée.
+    const y = s * 0.62, h = s * 0.12;
+    ctx.fillStyle = '#f0c75a';
+    ctx.fillRect(0, y, s, h);
+    ctx.strokeStyle = '#c99b32';
+    ctx.lineWidth = Math.max(2, s / 128);
+    for (let i = 0; i < n * 2; i++) {
+      const x = (i * s) / (n * 2);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + s / (n * 2) * 0.7, y + h);
+      ctx.stroke();
+    }
+    grain(ctx, s, 31, 0.028);
+  }, repeat);
+}
+
+/** SIGNAL — tablier de planches du pont de cordes. */
+export function plankBridge({ repeat = [1, 1] } = {}) {
+  const hand = painted('plank-bridge', repeat);
+  if (hand) return hand;
+  return make('plank-proc', 256, (ctx, s) => {
+    // Sept planches : la période divise la taille, donc la planche du haut prolonge celle
+    // du bas. Les teintes suivent un cycle de longueur 7 pour la même raison — un tirage
+    // aléatoire par bande casserait le raccord vertical.
+    const n = 7, pas = s / n;
+    const teintes = ['#e0a163', '#efbe86', '#c4813f', '#e0a163', '#c4813f', '#efbe86', '#e0a163'];
+    for (let i = 0; i < n; i++) {
+      ctx.fillStyle = teintes[i];
+      ctx.fillRect(0, i * pas, s, pas);
+      ctx.fillStyle = '#8a5a2e';
+      ctx.fillRect(0, i * pas, s, Math.max(1, s * 0.012));
+    }
+    grain(ctx, s, 53, 0.03);
+  }, repeat);
+}
+
+/** SIGNAL — dessus usé d'une pierre de gué. */
+export function riverStone({ repeat = [1, 1] } = {}) {
+  const hand = painted('river-stone', repeat);
+  if (hand) return hand;
+  return make('stone-proc', 256, (ctx, s) => {
+    ctx.fillStyle = '#ab7a6c';
+    ctx.fillRect(0, 0, s, s);
+    const r = rng(17);
+    for (const [couleur, n, taille] of [['#c1978a', 9, 0.16], ['#8e5f55', 5, 0.11]]) {
+      ctx.fillStyle = couleur;
+      for (let i = 0; i < n; i++) {
+        const x = r() * s, y = r() * s, rad = s * taille * (0.6 + r() * 0.6);
+        wrap(ctx, s, x, y, rad, (px, py) => {
+          ctx.beginPath(); ctx.arc(px, py, rad, 0, Math.PI * 2); ctx.fill();
+        });
+      }
+    }
+    grain(ctx, s, 91, 0.03);
+  }, repeat);
+}
+
+/**
+ * SIGNAL — damier d'arrivée, PUREMENT procédural et sans repli peint possible.
+ *
+ * Le pipeline d'images a bien produit un damier, et le lissage de bord l'a détruit : des
+ * bavures grises sur tout le pourtour, mesurées à 155/255. C'est attendu et non
+ * corrigeable. Le lissage remplace les pixels de bord par le contenu du centre décalé
+ * d'une demi-image, ce qui suppose que le motif soit à basse fréquence ; un damier est
+ * exactement le contraire. Ici le procédural n'est pas un repli, c'est la bonne réponse :
+ * un nombre PAIR de cases suffit à garantir le raccord, et les bords restent nets.
+ */
+export function finishChecker({ cells = 8, repeat = [1, 1] } = {}) {
+  const n = cells % 2 === 0 ? cells : cells + 1;
+  return make(`finish-checker-${n}`, 256, (ctx, s) => {
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(0, 0, s, s);
+    const q = s / n;
+    ctx.fillStyle = '#141414';
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        if ((x + y) % 2) ctx.fillRect(x * q, y * q, q, q);
+      }
+    }
+  }, repeat);
+}
+
+// ─────────────────── Le Rondin, deuxième passe : la platitude ───────────────────
+//
+// Le premier jeu de textures de l'échine était généré, détaillé, ombré — et faux. La
+// référence est presque NUE : le tronc est un aplat orange traversé de quelques stries
+// douces, les arêtes d'écorce n'ont aucun motif, et le relief vient entièrement du toon
+// shading et de la silhouette. Une texture d'écorce photographique, même stylisée, ramène
+// une fréquence spatiale que le reste du jeu n'a pas, et la map se met à jurer avec les
+// autres épreuves.
+//
+// Ces trois fabriques sont donc volontairement PAUVRES, et purement procédurales. Elles ne
+// passent pas par `painted()` : il n'y a rien à peindre à la main dans un aplat, et les
+// PNG générés qu'elles remplacent pesaient à eux seuls plus de trois mégaoctets.
+
+/** MOTIF — bois lisse : un aplat, et quelques stries dans le sens du fil. */
+export function boisLisse({ repeat = [1, 1] } = {}) {
+  return make('bois-lisse', 256, (ctx, s) => {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, s, s);
+    // Les stries suivent v, donc l'axe du tronc. Leurs positions sont fixes et leur nombre
+    // divise la taille : le raccord est acquis par construction, pas par retouche.
+    const r = rng(5);
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 14; i++) {
+      const x = (i / 14) * s + r() * (s / 28);
+      const largeur = s * (0.004 + r() * 0.010);
+      ctx.strokeStyle = `rgba(0,0,0,${0.030 + r() * 0.045})`;
+      ctx.lineWidth = largeur;
+      // Une strie legerement ondulee : parfaitement droite, elle se lit comme une rayure
+      // d'impression plutot que comme du bois.
+      ctx.beginPath();
+      for (let k = 0; k <= 8; k++) {
+        const y = (k / 8) * s;
+        const dx = Math.sin((k / 8) * Math.PI * 2 + i) * s * 0.006;
+        k === 0 ? ctx.moveTo(x + dx, y) : ctx.lineTo(x + dx, y);
+      }
+      ctx.stroke();
+    }
+  }, repeat);
+}
+
+/** SIGNAL — sentier d'usure sur le tronc : un sable clair, à peine tacheté. */
+export function sentierBois({ repeat = [1, 1] } = {}) {
+  return make('sentier-bois', 256, (ctx, s) => {
+    ctx.fillStyle = '#e9c489';
+    ctx.fillRect(0, 0, s, s);
+    const r = rng(23);
+    ctx.fillStyle = '#dcb073';
+    for (let i = 0; i < 16; i++) {
+      const x = r() * s, y = r() * s, rad = s * (0.05 + r() * 0.09);
+      wrap(ctx, s, x, y, rad, (px, py) => {
+        ctx.beginPath(); ctx.ellipse(px, py, rad, rad * 0.62, 0, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+  }, repeat);
+}
+
+/**
+ * SIGNAL — tranche de tronc : peu d'anneaux, épais et bien espacés.
+ *
+ * La version générée en comptait une quarantaine de fins : à l'écran, à trente mètres, cela
+ * donnait un moiré gris. La référence en montre six ou sept, larges. On la suit.
+ */
+export function anneauxBois({ repeat = [1, 1] } = {}) {
+  return make('anneaux-bois', 256, (ctx, s) => {
+    ctx.fillStyle = '#f0954f';
+    ctx.fillRect(0, 0, s, s);
+    const cx = s * 0.52, cy = s * 0.48;
+    ctx.strokeStyle = '#e0613a';
+    for (let i = 7; i >= 1; i--) {
+      const rad = (i / 7.4) * s * 0.5;
+      ctx.lineWidth = s * 0.018;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rad, rad * 0.96, 0.3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }, repeat);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════
+ * MINI-JEU « L'HEXAGONE »
+ *
+ * Les trois premières fabriques dessinent le motif de la FACE d'un hexagone, et elles sont
+ * procédurales par nécessité, pas par économie : un motif centré sur une face ne survit
+ * pas à `seamless.mjs`, dont le mélange par décalage sert justement à rendre une image
+ * raccordable — il couperait le motif en quatre et recollerait les morceaux aux coins.
+ * C'est exactement la raison qui rend `tileFace()` procédurale.
+ *
+ * Et ce n'est pas de la décoration. Dans la référence, chaque couleur d'étage porte son
+ * propre motif — chevrons, zigzags, pois — ajouté après le correctif d'octobre 2020 comme
+ * dispositif d'ACCESSIBILITÉ : un joueur daltonien distingue les étages à la forme quand
+ * la teinte ne lui dit rien. Un clone qui garderait les couleurs en jetant les motifs
+ * reprendrait le défaut que la référence a corrigé.
+ *
+ * MOTIF, donc : quasi blanc, le matériau porte la couleur de l'étage.
+ * ═════════════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Fond commun des trois faces : un liseré hexagonal tracé À L'INTÉRIEUR de la dalle.
+ *
+ * Deux versions ont échoué avant celle-ci, et la seconde explique la troisième.
+ *
+ * La première dessinait un disque clair sur fond gris : vu du dessus, un étage entier se
+ * lisait comme un tapis uni où l'on ne distinguait plus une dalle de sa voisine. Sur une
+ * carte dont l'unité de décision EST la dalle, ne pas voir la grille revient à jouer à
+ * pile ou face.
+ *
+ * La seconde dessinait l'hexagone lui-même, en comptant sur les UV du capuchon d'un
+ * `CylinderGeometry` — qui projettent la face sur le cercle inscrit dans le carré, donc
+ * les six sommets sur le cercle de rayon 0,5. En théorie le tracé coïncide avec l'arête.
+ * En pratique le fond gris ressortait aux six coins et l'étage se lisait comme un pavage
+ * de TRIANGLES : au bord exact du tracé, le filtrage et les niveaux de détail échantillonnent
+ * des deux côtés de la frontière, et c'est le fond qui gagne.
+ *
+ * D'où celle-ci : le plateau occupe TOUT le carré — plus de fond, donc plus rien à faire
+ * ressortir — et le liseré est tracé nettement en dedans, là où aucun filtrage ne peut
+ * l'atteindre. On y perd que l'arête dessinée n'est pas exactement l'arête réelle ; on y
+ * gagne une grille qui se voit, ce qui est la seule chose que ce liseré doit faire.
+ */
+function faceHexa(ctx, s) {
+  const cx = s / 2, cy = s / 2;
+  /*
+   * Le quart de tour du `thetaStart` de la géométrie se retrouve ici, décalé de 30°.
+   *
+   * Mesuré, pas déduit : sans lui, les liserés de deux dalles voisines s'emboîtaient en un
+   * pavage de TRIANGLES parfaitement régulier — assez convaincant pour qu'on cherche
+   * l'erreur ailleurs. C'est la capture à la verticale qui l'a tranché, en montrant le
+   * liseré tourné par rapport à la silhouette réelle d'une dalle d'une autre couleur.
+   */
+  const chemin = (rayon) => {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = Math.PI / 6 + (Math.PI / 3) * i;
+      const x = cx + Math.cos(a) * rayon, y = cy + Math.sin(a) * rayon;
+      if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    }
+    ctx.closePath();
+  };
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, s, s);
+  // Le biseau : une couronne sombre en dedans du bord. C'est elle qui dessine la grille.
+  ctx.fillStyle = '#c2c2c2';
+  chemin(s * 0.470);
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  chemin(s * 0.395);
+  ctx.fill();
+}
+
+/** MOTIF — face d'un étage JAUNE : chevrons. */
+export function hexFaceChevron({ repeat = [1, 1] } = {}) {
+  return make('hex-face-chevron', 256, (ctx, s) => {
+    faceHexa(ctx, s);
+    ctx.strokeStyle = '#e4e4e4';
+    ctx.lineWidth = s * 0.055;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (let i = -1; i <= 1; i++) {
+      const y = s * (0.5 + i * 0.19);
+      ctx.beginPath();
+      ctx.moveTo(s * 0.31, y + s * 0.075);
+      ctx.lineTo(s * 0.50, y - s * 0.075);
+      ctx.lineTo(s * 0.69, y + s * 0.075);
+      ctx.stroke();
+    }
+    grain(ctx, s, 17, 0.016, 60);
+  }, repeat);
+}
+
+/** MOTIF — face d'un étage CYAN : zigzag, l'éclair de la référence. */
+export function hexFaceZigzag({ repeat = [1, 1] } = {}) {
+  return make('hex-face-zigzag', 256, (ctx, s) => {
+    faceHexa(ctx, s);
+    ctx.strokeStyle = '#e4e4e4';
+    ctx.lineWidth = s * 0.062;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(s * 0.30, s * 0.62);
+    ctx.lineTo(s * 0.44, s * 0.38);
+    ctx.lineTo(s * 0.56, s * 0.62);
+    ctx.lineTo(s * 0.70, s * 0.38);
+    ctx.stroke();
+    grain(ctx, s, 29, 0.016, 60);
+  }, repeat);
+}
+
+/** MOTIF — face d'un étage VIOLET : pois. */
+export function hexFacePois({ repeat = [1, 1] } = {}) {
+  return make('hex-face-pois', 256, (ctx, s) => {
+    faceHexa(ctx, s);
+    ctx.fillStyle = '#e4e4e4';
+    // Sept pois en fleur : un au centre, six autour. C'est la maille hexagonale
+    // elle-même, en petit — le motif dit donc aussi de quelle grille il vient.
+    const points = [[0, 0]];
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 3) * i;
+      points.push([Math.cos(a) * 0.17, Math.sin(a) * 0.17]);
+    }
+    for (const [dx, dy] of points) {
+      ctx.beginPath();
+      ctx.arc(s * (0.5 + dx), s * (0.5 + dy), s * 0.052, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    grain(ctx, s, 53, 0.016, 60);
+  }, repeat);
+}
+
+/** SIGNAL — la boue rose sous la tour, parcourue de courants plus clairs. */
+export function slimePink({ repeat = [1, 1] } = {}) {
+  const hand = painted('slime-pink', repeat);
+  if (hand) return hand;
+  return make('slime-proc', 512, (ctx, s) => {
+    ctx.fillStyle = '#ff4f9e';
+    ctx.fillRect(0, 0, s, s);
+    // Des courants, pas des vagues : dans la référence la boue est lisse et striée de
+    // longues traînées claires qui suivent le relief. Des ondulations lui donneraient une
+    // agitation qu'elle n'a pas, et qui suggérerait à tort qu'elle bouge.
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 7; i++) {
+      const y = ((i * 73) % 100) / 100 * s;
+      ctx.strokeStyle = i % 2 ? '#ff7ab8' : '#ff98c9';
+      ctx.lineWidth = s * (0.012 + (i % 3) * 0.008);
+      for (const dy of [-s, 0, s]) {
+        ctx.beginPath();
+        ctx.moveTo(0, y + dy);
+        for (let x = 0; x <= s; x += s / 8) {
+          ctx.lineTo(x, y + dy + Math.sin((x / s) * Math.PI * 2 + i) * s * 0.035);
+        }
+        ctx.stroke();
+      }
+    }
+    grain(ctx, s, 11, 0.02, 255);
+  }, repeat);
+}
+
+/** SIGNAL — les collines vertes du fond, striées de lignes de niveau. */
+export function candyHills({ repeat = [1, 1] } = {}) {
+  const hand = painted('candy-hills', repeat);
+  if (hand) return hand;
+  return make('hills-proc', 512, (ctx, s) => {
+    ctx.fillStyle = '#7ad94f';
+    ctx.fillRect(0, 0, s, s);
+    ctx.strokeStyle = '#63c43c';
+    ctx.lineWidth = s * 0.011;
+    for (let i = 0; i < 9; i++) {
+      const y = (i / 9) * s;
+      for (const dy of [-s, 0, s]) {
+        ctx.beginPath();
+        ctx.moveTo(0, y + dy);
+        for (let x = 0; x <= s; x += s / 12) {
+          ctx.lineTo(x, y + dy + Math.sin((x / s) * Math.PI * 2 + i * 1.7) * s * 0.028);
+        }
+        ctx.stroke();
+      }
+    }
+    grain(ctx, s, 7, 0.018, 80);
+  }, repeat);
+}
+
+/** SIGNAL — ciel bleu pâle à triangles, le fond de l'arène de la référence. */
+export function skyTriangles({ repeat = [1, 1] } = {}) {
+  const hand = painted('sky-triangles', repeat);
+  if (hand) return hand;
+  return make('sky-tri-proc', 512, (ctx, s) => {
+    ctx.fillStyle = '#a9e4fb';
+    ctx.fillRect(0, 0, s, s);
+    ctx.fillStyle = '#bdebfd';
+    const n = 8, w = s / n, h = w * 0.87;
+    for (let r = 0; r * h <= s; r++) {
+      for (let c = -1; c <= n; c++) {
+        const x = c * w + (r % 2 ? w / 2 : 0), y = r * h;
+        ctx.beginPath();
+        ctx.moveTo(x, y + h);
+        ctx.lineTo(x + w / 2, y);
+        ctx.lineTo(x + w, y + h);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
   }, repeat);
 }

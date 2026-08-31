@@ -47,21 +47,22 @@ await page.waitForTimeout(3500);
 await page.screenshot({ path: `${OUT}/1-lobby.png` });
 console.log('1-lobby.png');
 
-// Onglets du lobby
-for (const tab of ['skins', 'collabs', 'shop']) {
-  await page.click(`.navbtn[data-tab="${tab}"]`);
-  await page.waitForTimeout(700);
-  await page.screenshot({ path: `${OUT}/1-tab-${tab}.png` });
-  console.log(`1-tab-${tab}.png`);
-}
-await page.click('.navbtn[data-tab="play"]');
+// Le ticket sur une autre table : c'est la seule maniere de verifier a l'image que le
+// pot ET les six lignes de l'echelle se recalculent, et pas seulement le gros chiffre.
+await page.click('.palier[data-usdc="5"]');
+await page.mouse.move(640, 400);
 await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/1-ticket-5usdc.png` });
+console.log('1-ticket-5usdc.png');
+await page.click('.palier[data-usdc="1"]');
+await page.mouse.move(640, 400);
+await page.waitForTimeout(400);
 
-// Garde-robe
-await page.click('#btn-wardrobe');
-await page.waitForTimeout(600);
-await page.screenshot({ path: `${OUT}/1b-garde-robe.png` });
-console.log('1b-garde-robe.png');
+// Vitrine des personnages
+await page.click('#btn-perso');
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${OUT}/1-tab-skins.png` });
+console.log('1-tab-skins.png');
 // Le choix de couleur a ete retire : les personnages sont fixes. On selectionne
 // desormais un personnage dans le casier. L'ancien code cliquait une pastille restee
 // dans un conteneur masque, et attendait donc indefiniment un element invisible.
@@ -69,7 +70,7 @@ const tuiles = await page.$$('#skins-grid .tile:not(.locked)');
 if (tuiles[1]) { await tuiles[1].click(); await page.waitForTimeout(1200); }
 await page.screenshot({ path: `${OUT}/1c-skin.png` });
 console.log('1c-skin.png');
-await page.click('.navbtn[data-tab="play"]');
+await page.click('#btn-retour');
 await page.waitForTimeout(300);
 
 // Panneau Parametres : ouverture, remappage d'une touche, fermeture
@@ -122,13 +123,13 @@ await page.click('#pause-quit');
 await page.waitForTimeout(1200);
 
 // Changement de personnage : on en prend un autre dans le casier et on relance.
-await page.click('.navbtn[data-tab="skins"]');
+await page.click('#btn-perso');
 await page.waitForTimeout(400);
 const autres = await page.$$('#skins-grid .tile:not(.locked):not(.on)');
 if (autres[2]) { await autres[2].click(); await page.waitForTimeout(1400); }
 await page.screenshot({ path: `${OUT}/7-autre-personnage.png` });
 console.log('7-autre-personnage.png · modele =', await page.evaluate(() => localStorage.getItem('tumble-model')));
-await page.click('.navbtn[data-tab="play"]');
+await page.click('#btn-retour');
 await page.waitForTimeout(300);
 
 // Retour au lobby : verifie que la bascule inverse fonctionne aussi

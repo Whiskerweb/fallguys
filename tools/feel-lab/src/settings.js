@@ -8,15 +8,15 @@
  */
 
 export const ACTIONS = [
-  { id: 'forward', label: 'Avancer', def: ['KeyW', 'ArrowUp'] },
-  { id: 'back', label: 'Reculer', def: ['KeyS', 'ArrowDown'] },
-  { id: 'left', label: 'Gauche', def: ['KeyA', 'ArrowLeft'] },
-  { id: 'right', label: 'Droite', def: ['KeyD', 'ArrowRight'] },
-  { id: 'jump', label: 'Sauter', def: ['Space'] },
-  { id: 'dive', label: 'Plonger', def: ['ShiftLeft', 'ShiftRight'] },
-  { id: 'camLeft', label: 'Caméra à gauche', def: ['KeyQ'] },
-  { id: 'camRight', label: 'Caméra à droite', def: ['KeyE'] },
-  { id: 'restart', label: 'Recommencer', def: ['KeyR'] },
+  { id: 'forward', label: 'Forward', def: ['KeyW', 'ArrowUp'] },
+  { id: 'back', label: 'Back', def: ['KeyS', 'ArrowDown'] },
+  { id: 'left', label: 'Left', def: ['KeyA', 'ArrowLeft'] },
+  { id: 'right', label: 'Right', def: ['KeyD', 'ArrowRight'] },
+  { id: 'jump', label: 'Jump', def: ['Space'] },
+  { id: 'dive', label: 'Dive', def: ['ShiftLeft', 'ShiftRight'] },
+  { id: 'camLeft', label: 'Camera left', def: ['KeyQ'] },
+  { id: 'camRight', label: 'Camera right', def: ['KeyE'] },
+  { id: 'restart', label: 'Restart', def: ['KeyR'] },
 ];
 
 const CAMERA_DEFAULTS = {
@@ -36,11 +36,11 @@ export const CAMERA_RANGES = {
 };
 
 export const CAMERA_LABELS = {
-  height: 'Hauteur',
-  distance: 'Recul',
-  lookHeight: 'Inclinaison (hauteur visée)',
-  fov: 'Champ de vision',
-  smoothing: 'Souplesse',
+  height: 'Height',
+  distance: 'Pull-back',
+  lookHeight: 'Tilt (aim height)',
+  fov: 'Field of view',
+  smoothing: 'Smoothing',
 };
 
 const KEY_STORE = 'tumble-keys';
@@ -120,10 +120,10 @@ export const settings = {
 export function keyName(code) {
   if (!code) return '—';
   const map = {
-    Space: 'Espace', ShiftLeft: 'Maj G', ShiftRight: 'Maj D',
+    Space: 'Space', ShiftLeft: 'L Shift', ShiftRight: 'R Shift',
     ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
-    ControlLeft: 'Ctrl G', ControlRight: 'Ctrl D', AltLeft: 'Alt', AltRight: 'Alt Gr',
-    Enter: 'Entrée', Escape: 'Échap', Tab: 'Tab', Backspace: '⌫',
+    ControlLeft: 'L Ctrl', ControlRight: 'R Ctrl', AltLeft: 'Alt', AltRight: 'Alt Gr',
+    Enter: 'Enter', Escape: 'Esc', Tab: 'Tab', Backspace: '⌫',
   };
   if (map[code]) return map[code];
   if (code.startsWith('Key')) return code.slice(3);

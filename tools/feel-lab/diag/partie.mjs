@@ -26,15 +26,19 @@ page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 180)));
 page.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text().slice(0, 180)); });
 
 await page.addInitScript(() => localStorage.setItem('tumble-model', 'char-tycoon'));
-await page.goto('http://127.0.0.1:5273/?lowfx', { waitUntil: 'domcontentloaded' });
+await page.goto(`http://127.0.0.1:${process.env.FEELLAB_PORT ?? 5273}/?lowfx&nointro`, { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => {
   const l = document.getElementById('loading');
   return l && getComputedStyle(l).display === 'none';
 }, { timeout: 300000 });
+await page.evaluate(() => localStorage.setItem('tumble-mise', '1'));
 await page.waitForTimeout(600);
 await page.screenshot({ path: 'shots/partie-lobby.png' });
 
-const couronnesAvant = await page.evaluate(() => window.__probeGame().crowns);
+/* Le solde remplace le compteur de couronnes : c'est desormais lui qui dit qu'une
+   partie gagnee a paye, et c'est le seul chiffre que le joueur verifie vraiment. */
+const lireSolde = () => page.evaluate(() => Number(localStorage.getItem('tumble-solde') ?? 25e6));
+const soldeAvant = await lireSolde();
 let ko = 0;
 
 async function jouerUnePartie(numero) {
@@ -45,7 +49,7 @@ async function jouerUnePartie(numero) {
     // de trois secondes a se construire. En rendu logiciel, ces quatre secondes de jeu
     // peuvent demander plusieurs dizaines de secondes d'horloge.
     await page.waitForFunction(() => window.__probeGame().mode === 'racing', { timeout: 180000 });
-    await page.waitForFunction(() => parseFloat(document.getElementById('timer')?.textContent ?? '0') > 0.3, { timeout: 180000 });
+    await page.waitForFunction(() => (window.__probeGame?.()?.runTime ?? 0) > 0.3, { timeout: 180000 });
     const etat = await page.evaluate(() => {
       const g = window.__probeGame();
       return {
@@ -64,6 +68,14 @@ async function jouerUnePartie(numero) {
     const pose = await page.evaluate(() => {
       const g = window.__probeGame();
       if (!g.arena) return false;
+      /*
+       * Une epreuve de SURVIE n'a pas de ligne a franchir : la teleporter au bout ne fait
+       * rien du tout, et l'attente qui suit expirait au bout de soixante secondes. On
+       * avance donc son chronometre, ce qui emprunte exactement le meme chemin de code que
+       * le joueur qui tient jusqu'au bout — la boucle de jeu compare `runTime` a la duree
+       * annoncee, et rien d'autre. Pas de porte derobee : le raccourci vaut la chose.
+       */
+      if (g.arena.survie) { g.runTime = g.arena.survie.duree; return true; }
       window.__probeCharacter().body.setTranslation({ x: 0, y: 3, z: g.arena.finishZ - 1 }, true);
       return true;
     });
@@ -79,11 +91,11 @@ async function jouerUnePartie(numero) {
       if (manche !== 3) { console.log(`    ! la partie s'arrete a la manche ${manche}, 3 attendues`); ko++; }
       // La finale doit annoncer la VICTOIRE tout de suite : pas de « qualifie » suivi
       // d'une seconde annonce, ce serait deux messages pour un seul evenement.
-      if (fin.texte !== 'VICTOIRE') { console.log(`    ! verdict final "${fin.texte}", VICTOIRE attendu`); ko++; }
+      if (!fin.texte?.startsWith('VICTORY')) { console.log(`    ! verdict final "${fin.texte}", VICTORY attendu`); ko++; }
       await page.screenshot({ path: `shots/partie-${numero}-victoire.png` });
       break;
     }
-    if (fin.texte !== 'QUALIFIÉ') { console.log(`    ! verdict "${fin.texte}", QUALIFIÉ attendu`); ko++; }
+    if (!fin.texte?.startsWith('QUALIFIED')) { console.log(`    ! verdict "${fin.texte}", QUALIFIED attendu`); ko++; }
     // On laisse la boucle de jeu enchainer d'elle-meme sur la manche suivante.
     await page.waitForFunction(() => window.__probeGame().mode === 'racing', { timeout: 60000 });
   }
@@ -97,10 +109,13 @@ console.log('\n--- partie 2 ---');
 const p2 = await jouerUnePartie(2);
 await page.waitForFunction(() => window.__probeGame().mode === 'lobby', { timeout: 60000 });
 
-const couronnesApres = await page.evaluate(() => window.__probeGame().crowns);
-console.log(`\ncouronnes : ${couronnesAvant} -> ${couronnesApres} `
-  + `(+${couronnesApres - couronnesAvant}, attendu +2 : une par partie, pas une par manche)`);
-if (couronnesApres - couronnesAvant !== 2) ko++;
+/* Deux parties gagnees a 1 USDC : -1 de mise +4,50 de gain, deux fois. Le solde doit
+   donc monter de 7,00 exactement — un centieme d'ecart signalerait un arrondi fautif. */
+const soldeApres = await lireSolde();
+const delta = soldeApres - soldeAvant;
+console.log(`\nsolde : ${(soldeAvant / 1e6).toFixed(2)} -> ${(soldeApres / 1e6).toFixed(2)} USDC `
+  + `(${delta >= 0 ? '+' : ''}${(delta / 1e6).toFixed(2)}, attendu +7,00 : 2 x (-1,00 de mise + 4,50 de gain))`);
+if (delta !== 7_000_000) ko++;
 
 const graines = [...p1, ...p2].map((m) => m.graine);
 const uniques = new Set(graines).size;

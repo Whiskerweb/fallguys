@@ -23,7 +23,7 @@ page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 200)));
 page.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text().slice(0, 200)); });
 
 await page.addInitScript((m) => localStorage.setItem('tumble-model', m), modele);
-await page.goto('http://127.0.0.1:5273/?lowfx', { waitUntil: 'domcontentloaded' });
+await page.goto('http://127.0.0.1:5273/?lowfx&nointro', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => {
   const l = document.getElementById('loading');
   return l && getComputedStyle(l).display === 'none';
@@ -37,7 +37,15 @@ await page.evaluate(() => {
   g.partie = { parcours: [jeu], index: 0, temps: [], chutes: 0 };
   g.startRace();
 });
-await page.waitForFunction(() => parseFloat(document.getElementById('timer')?.textContent ?? '0') > 0.3, { timeout: 120000 });
+/*
+ * Le chrono s'affiche en mm:ss:cs. `parseFloat` sur « 00:00:00 » rend donc 0 quoi qu'il
+ * arrive : l'attente d'origine ne se debloquait qu'a la minute pleine — « 01:02:03 » rend
+ * 1 — c'est-a-dire par accident. On lit les trois champs.
+ */
+await page.waitForFunction(() => {
+  const [m, s, cs] = (document.getElementById('timer')?.textContent ?? '').split(':').map(Number);
+  return Number.isFinite(cs) && m * 60 + s + cs / 100 > 0.3;
+}, { timeout: 120000 });
 
 const type = await page.evaluate(() => {
   const c = window.__probeCharacter();

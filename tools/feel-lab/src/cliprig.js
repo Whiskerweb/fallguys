@@ -9,12 +9,17 @@ import * as THREE from 'three';
  * chargement, selon que le modèle porte des clips ou non.
  *
  * ── CE QUE LES CLIPS NE COUVRENT PAS ────────────────────────────────────────────
- * Le personnage fourni n'a que trois états : une pose fixe, la marche et la course. Le
- * jeu, lui, en connaît six — il saute, il chute, il culbute, il se relève. Plutôt que
- * d'inventer des animations manquantes, on FIGE le clip de course à un instant choisi :
- * celui où les jambes sont le plus écartées donne une silhouette de saut convaincante,
- * et le personnage garde le style de ses vraies animations. Un mouvement inventé à la
- * main jurerait à côté des deux autres.
+ * Les personnages portent trois clips — `idle`, `walking`, `running`. Le jeu, lui,
+ * connaît six états : il saute, il chute, il culbute, il se relève. Plutôt que d'inventer
+ * les animations manquantes, on FIGE le clip de course à un instant choisi : celui où les
+ * jambes sont le plus écartées donne une silhouette de saut convaincante, et le
+ * personnage garde le style de ses vraies animations. Un mouvement inventé à la main
+ * jurerait à côté des trois autres.
+ *
+ * `idle` est GREFFÉ après coup, et non livré par Meshy : le même clip est monté sur les
+ * cinq personnages, qui partagent le même squelette à 24 os (voir le README, « Greffer
+ * l'animation d'attente »). Tout ce qui suit reste écrit pour un personnage qui
+ * arriverait sans lui — le repli existe, il n'est simplement plus emprunté.
  */
 
 /** Instants remarquables du cycle de course, en fraction de clip. */

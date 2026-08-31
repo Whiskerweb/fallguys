@@ -55,9 +55,8 @@ const smoothstep = (a, b, t) => {
  * distance. `steep` contrôle la raideur du versant — au-delà de ~2 la cloche devient
  * une falaise à flanc quasi vertical.
  */
-function buildRidges() {
+function buildRidges(CX = 0, CZ = -64, rayon = 1) {
   const ridges = [];
-  const CX = 0, CZ = -64;
   const RINGS = [
     { r: 250, n: 14, h: [22, 40], w: [30, 52], steep: [1.6, 2.8] },
     { r: 350, n: 16, h: [38, 70], w: [40, 70], steep: [1.3, 2.3] },
@@ -71,7 +70,7 @@ function buildRidges() {
       const r1 = rnd(), r2 = rnd(), r3 = rnd(), r4 = rnd();
       // Angle et rayon irréguliers : un anneau régulier se lit comme une palissade.
       const ang = (i / ring.n) * Math.PI * 2 + (r1 - 0.5) * (Math.PI / ring.n) * 1.7;
-      const dist = ring.r * (0.80 + r2 * 0.40);
+      const dist = ring.r * rayon * (0.80 + r2 * 0.40);
       // Écart de taille volontairement large : c'est lui qui fait lire une chaîne.
       const bias = Math.pow(r3, 1.8);
       ridges.push({
@@ -90,18 +89,50 @@ function buildRidges() {
   return ridges;
 }
 
-export function createTerrain({ groundY = -15, size = 1300, segments = 220 } = {}) {
-  const ridges = buildRidges();
-  const CX = 0, CZ = -64;
+/**
+ * @param {object} o
+ *   `cx` / `cz`   centre de la cuvette et de la ceinture de crêtes
+ *   `echelleX`    resserre la cuvette en X. À 1 elle est circulaire ; au-delà elle devient
+ *                 un COULOIR, ce qu'exige une carte longue et étroite comme un lagon.
+ *   `plat` / `ouvert`  rayons de début et de fin du relèvement
+ *   `rayonCretes` multiplie la distance des crêtes : les rapprocher resserre l'horizon
+ *
+ * Les valeurs par défaut reproduisent exactement le terrain de La Course et des Portes :
+ * ces deux cartes ne doivent rien voir de ce paramétrage.
+ */
+export function createTerrain({
+  groundY = -15, size = 1300, segments = 220,
+  cx = 0, cz = -64, echelleX = 1, plat = 120, ouvert = 300, rayonCretes = 1, releve = 0,
+} = {}) {
+  const ridges = buildRidges(cx, cz, rayonCretes);
+  const CX = cx, CZ = cz;
 
   function heightAt(x, z) {
     // Cuvette centrale : sous la piste le terrain reste plat, et la transition est
     // progressive pour qu'aucune arête ne trahisse la zone protégée.
-    const d = Math.hypot(x - CX, z - CZ);
-    const open = smoothstep(120, 300, d);
+    //
+    // `echelleX` rend la cuvette ELLIPTIQUE. Une cuvette ronde convient à un parcours qui
+    // serpente dans toutes les directions ; sur un lagon de 220 m de long il faudrait un
+    // rayon si grand que la terre disparaîtrait de l'écran. En resserrant l'axe X on
+    // obtient un couloir : de l'eau devant et derrière, la berge à portée de regard.
+    const d = Math.hypot((x - CX) * echelleX, z - CZ);
+    const open = smoothstep(plat, ouvert, d);
     if (open <= 0.001) return 0;
 
-    let h = 0;
+    /**
+     * RELÈVEMENT DE LA PLAINE.
+     *
+     * Sans lui, la cuvette et la plaine qui l'entoure sont à la MÊME altitude : le module
+     * ne sait produire du dénivelé qu'aux crêtes, et entre elles tout est plat. C'est sans
+     * conséquence quand la piste court sur le sol — mais une carte dont le centre est un
+     * LAGON a besoin que la plaine soit au-dessus de l'eau et la cuvette en dessous. Un
+     * relèvement constant appliqué hors de la cuvette suffit : la cuvette reste le fond du
+     * lagon, la plaine devient la berge, et le rivage naît là où le sol traverse le plan
+     * d'eau — une découpe irrégulière qu'on n'a pas eu à dessiner.
+     *
+     * À zéro, le terrain est exactement celui d'avant.
+     */
+    let h = releve;
     for (const r of ridges) {
       // Coordonnées locales tournées, pour étirer la cloche dans sa direction.
       const dx = x - r.x, dz = z - r.z;
@@ -170,4 +201,87 @@ export function createTerrain({ groundY = -15, size = 1300, segments = 220 } = {
   mesh.frustumCulled = false;
 
   return { mesh, heightAt, groundY };
+}
+
+/**
+ * RIVAGE DE LAGON — lagon, plage et colline, en un seul maillage.
+ *
+ * `createTerrain` ne convient pas ici, et il a fallu s'y casser les dents pour le voir. Il
+ * modèle une CUVETTE entourée d'une CEINTURE de crêtes : entre les deux, la plaine est
+ * plate et à la même altitude que la cuvette. C'est parfait pour une piste posée sur le
+ * sol, et inutilisable pour un lagon — il n'existe aucun réglage qui donne à la fois de
+ * l'eau au centre, une plage étroite, et une colline proche.
+ *
+ * Ici la carte est un COULOIR : le décor ne dépend donc pas de la distance au centre, mais
+ * de la seule distance à l'AXE. On définit un profil en travers — fond, pente, plage,
+ * colline — et on le balaie sur toute la longueur. Trois conséquences :
+ *
+ *   1. la plage a la largeur qu'on veut, et pas celle qui tombe ;
+ *   2. la colline est PROCHE et ferme la vue à hauteur d'œil, ce qui dispense d'un lointain
+ *      lisse qui s'étend sur des centaines de mètres pour simuler la profondeur ;
+ *   3. en faisant ONDULER le profil le long de Z, le rivage devient une courbe organique
+ *      au lieu d'une ligne droite — c'est le même bruit qui déplace la plage et la colline,
+ *      donc les bandes restent parallèles comme sur une vraie côte.
+ */
+export function createRivage({
+  zDebut = 0, zFin = -200, eauY = -6.5,
+  fond = -13, lagon = 24, pente = 40, plage = 56, colline = 108, hauteur = 24,
+  seed = 3, nx = 120, nz = 150,
+} = {}) {
+  const MARGE = 70;
+  const z0 = zDebut + MARGE, z1 = zFin - MARGE;
+  const X = colline + 60;
+
+  /** Hauteur du profil en travers, à `ax` mètres de l'axe. */
+  const profil = (ax) => {
+    if (ax <= lagon) return fond;
+    if (ax <= pente) return fond + (eauY + 0.9 - fond) * smoothstep(lagon, pente, ax);
+    if (ax <= plage) return eauY + 0.9 + 0.5 * smoothstep(pente, plage, ax);
+    return eauY + 1.4 + hauteur * smoothstep(plage, colline, ax);
+  };
+
+  /**
+   * Ondulation du rivage. Deux harmoniques de périodes incommensurables : une seule
+   * donnerait une côte en vague régulière, qu'on lit aussitôt comme un motif.
+   */
+  const onde = (z) => (fbm(z * 0.014 + seed, seed * 3.1) - 0.5) * 22
+                    + (fbm(z * 0.045 - seed, seed * 1.7) - 0.5) * 7;
+
+  const hauteurAt = (x, z) => profil(Math.max(0, Math.abs(x) - onde(z)));
+
+  const geo = new THREE.PlaneGeometry(X * 2, z0 - z1, nx, nz);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position;
+  const couleurs = new Float32Array(pos.count * 3);
+
+  const SABLE_MOUILLE = new THREE.Color(0xe8c78a);
+  const SABLE = new THREE.Color(0xf7dfa8);
+  const HERBE = new THREE.Color(0x86d95e);
+  const HERBE_HI = new THREE.Color(0x63c46b);
+  const t = new THREE.Color();
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i) + (z0 + z1) / 2;
+    const y = hauteurAt(x, z);
+    pos.setY(i, y);
+
+    // Couleur par ALTITUDE, seuils chevauchants. Le sable mouillé juste au bord de l'eau
+    // est ce qui fait lire une plage plutôt qu'une bande jaune : une côte a toujours une
+    // frange plus sombre là où la vague vient de passer.
+    if (y < eauY + 1.1) t.copy(SABLE_MOUILLE).lerp(SABLE, smoothstep(eauY - 0.6, eauY + 1.1, y));
+    else if (y < eauY + 3.4) t.copy(SABLE).lerp(HERBE, smoothstep(eauY + 1.6, eauY + 3.4, y));
+    else t.copy(HERBE).lerp(HERBE_HI, smoothstep(eauY + 3.4, eauY + hauteur * 0.8, y));
+
+    couleurs[i * 3] = t.r; couleurs[i * 3 + 1] = t.g; couleurs[i * 3 + 2] = t.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(couleurs, 3));
+  geo.computeVertexNormals();
+
+  const mat = toonMaterial(0xffffff);
+  mat.vertexColors = true;
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.z = (z0 + z1) / 2;
+  mesh.receiveShadow = true;
+  return { mesh, hauteurAt };
 }

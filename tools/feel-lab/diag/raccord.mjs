@@ -31,7 +31,7 @@ page.setDefaultTimeout(600000);
 const erreurs = [];
 page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 200)));
 
-await page.goto('http://127.0.0.1:5273/?lowfx&noassets&skip=scenery', { waitUntil: 'domcontentloaded' });
+await page.goto('http://127.0.0.1:5273/?lowfx&nointro&noassets&skip=scenery', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => {
   const l = document.getElementById('loading');
   return l && getComputedStyle(l).display === 'none';

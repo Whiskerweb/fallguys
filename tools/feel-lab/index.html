@@ -1,13 +1,17 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>TUMBLE — Lobby</title>
+<title>Baby Guys — Lobby</title>
 <style>
   :root {
     --pink:#ff3d8b; --pink-dark:#c9236a; --cyan:#31c7f0; --cyan-dark:#1a8fb0;
     --yellow:#ffc93c; --ink:#1b1030; --ink-soft:#2f1d52; --cream:#fff6e6;
+    --or-dark:#c98a00; --barre:78px;
+    /* Releves au pixel sur la reference. */
+    --hud-cyan:#5cd4e4; --nextup-fond:#725dff; --nextup-barre:#5354d3; --nextup-bord:#a43aff;
+    --ico-coureur:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M13.5 5.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM9.8 8.9 7 23h2.3l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3A7.3 7.3 0 0 0 19 13v-2a5.2 5.2 0 0 1-4.4-2.5l-1-1.6c-.4-.6-1-.9-1.7-.9-.3 0-.5 0-.8.2L6 8.3V13h2V9.6l1.8-.7z'/%3E%3C/svg%3E");
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body { height:100%; overflow:hidden; background:#f5a623;
@@ -22,177 +26,236 @@
   #lobby-ui { position:fixed; inset:0; pointer-events:none; z-index:10; }
   #lobby-ui > * { pointer-events:auto; }
 
+  /* ---------- la barre noire ----------
+     Elle ne porte QUE ce qui sert : qui je suis, ce que j'ai, et le réglage des
+     commandes. Les quatre onglets d'avant menaient à une boutique et à des
+     collaborations qui n'existaient pas — un bouton qui ne mène nulle part coûte plus
+     cher qu'un bouton absent. */
   #topbar {
-    position:absolute; top:0; left:0; right:0; height:74px;
-    background:linear-gradient(180deg, rgba(18,8,38,.94), rgba(18,8,38,.82));
-    display:flex; align-items:center; gap:14px; padding:0 20px;
+    position:absolute; top:0; left:0; right:0; height:var(--barre);
+    background:linear-gradient(180deg, #16092a 0%, #0a0518 62%, #070310 100%);
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.07), 0 3px 0 rgba(0,0,0,.45), 0 14px 26px rgba(0,0,0,.34);
+    display:flex; align-items:center; gap:14px; padding:0 18px;
   }
-  #topbar .title { color:#fff; font-size:24px; font-weight:900; letter-spacing:2px; }
   #topbar .spacer { flex:1; }
 
-  .navbtn {
-    width:72px; height:52px; border:none; border-radius:14px; cursor:pointer;
-    background:var(--cyan); box-shadow:0 5px 0 var(--cyan-dark);
-    display:grid; place-items:center; font-size:24px; transition:transform .08s, box-shadow .08s;
-  }
-  .navbtn:hover { transform:translateY(-2px); box-shadow:0 6px 0 var(--cyan-dark); }
-  .navbtn:active { transform:translateY(3px); box-shadow:0 1px 0 var(--cyan-dark); }
-  .navbtn.primary { background:var(--pink); box-shadow:0 4px 0 var(--pink-dark); }
-  .navbtn.primary:hover { box-shadow:0 6px 0 var(--pink-dark); }
-
-  .wallet {
-    display:flex; align-items:center; gap:9px; height:46px; padding:0 18px 0 12px;
-    border-radius:11px; background:rgba(255,255,255,.1); border:2px solid rgba(255,255,255,.18);
-    color:#fff; font-weight:800; font-size:16px; font-variant-numeric:tabular-nums;
-  }
-  .wallet .ic { font-size:17px; }
-  .wallet.cash { background:rgba(74,222,128,.18); border-color:rgba(74,222,128,.45); color:#c9f7d8; }
-
-  #leftpanel { position:absolute; top:106px; left:44px; width:330px; }
-  #logo {
-    font-size:74px; font-weight:900; line-height:.86; letter-spacing:-1px;
-    color:var(--cyan); -webkit-text-stroke:5px var(--ink);
-    paint-order:stroke fill; filter:drop-shadow(0 7px 0 rgba(0,0,0,.22));
-  }
-  #logo em { display:block; font-style:normal; color:var(--pink); font-size:42px; letter-spacing:5px; margin-top:4px; }
-  #season { margin-top:26px; color:#fff; font-weight:900; font-size:19px; letter-spacing:2px; }
-  #progress-label { margin-top:16px; color:rgba(255,255,255,.9); font-weight:800; font-size:13px; letter-spacing:2.5px; }
-  #progress {
-    margin-top:8px; height:30px; border-radius:15px; background:rgba(27,16,48,.45);
-    border:3px solid var(--ink); display:flex; align-items:center; padding:0 5px; position:relative;
-  }
-  #progress .lvl {
-    width:30px; height:30px; margin-left:-8px; border-radius:9px; background:var(--pink);
-    border:3px solid var(--ink); color:#fff; font-weight:900; font-size:15px;
-    display:grid; place-items:center; flex:none; z-index:2;
-  }
-  #progress .track { flex:1; height:15px; margin:0 8px; border-radius:8px; background:rgba(0,0,0,.28); overflow:hidden; }
-  #progress .fill { height:100%; width:38%; border-radius:8px; background:linear-gradient(90deg, var(--pink), #ff8bc0); }
-  #progress .num { color:#fff; font-weight:800; font-size:13px; padding-right:6px; font-variant-numeric:tabular-nums; }
-
-  #playername {
-    position:absolute; left:44px; bottom:44px; display:flex; align-items:center; gap:11px;
-    height:52px; padding:0 24px 0 18px; border-radius:14px;
-    background:var(--cyan); border:4px solid var(--ink); box-shadow:0 6px 0 rgba(0,0,0,.2);
-    color:#fff; font-weight:900; font-size:19px; letter-spacing:.5px;
-  }
-
+  /* Carte de profil : portrait, niveau, pseudo et barre d'XP en un seul bloc cliquable.
+     C'est aussi un raccourci vers la vitrine — on clique sur soi pour se changer. */
   #profil {
-    margin-top:26px; width:314px; padding:15px 17px 17px; border-radius:20px;
-    background:linear-gradient(165deg, rgba(30,16,58,.9), rgba(16,8,34,.94));
-    border:3px solid rgba(255,255,255,.13);
-    box-shadow:0 12px 0 rgba(0,0,0,.24), 0 0 34px rgba(90,50,200,.22);
-    backdrop-filter:blur(6px);
+    display:flex; align-items:center; gap:12px; height:60px; padding:0 20px 0 6px;
+    border:none; border-radius:16px; cursor:pointer; font-family:inherit;
+    background:rgba(255,255,255,.055); box-shadow:inset 0 0 0 2px rgba(255,255,255,.08);
+    transition:background .12s, box-shadow .12s;
   }
-  #profil #playername {
-    position:static; display:flex; align-items:center; gap:9px; margin-bottom:12px;
-    background:none; border:none; padding:0; box-shadow:none;
-    font-size:19px; font-weight:900; color:#fff;
+  #profil:hover { background:rgba(255,255,255,.11); box-shadow:inset 0 0 0 2px rgba(255,255,255,.22); }
+  #profil .port {
+    position:relative; width:50px; height:50px; border-radius:13px; flex:none; overflow:hidden;
+    border:2.5px solid var(--rar, #7f8fa6);
+    background:
+      radial-gradient(circle at 50% 122%, color-mix(in srgb, var(--rar, #7f8fa6) 62%, transparent), transparent 66%),
+      linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.35));
   }
-  #profil #season { font-size:12px; letter-spacing:2.4px; color:rgba(255,255,255,.5); margin-bottom:11px; }
-  #profil #progress-label { font-size:10.5px; letter-spacing:2.2px; color:rgba(255,255,255,.4); margin-bottom:6px; }
+  /* Le portrait est un plan pied : on cadre sur le buste, seul lisible à 50 px. */
+  #profil .port img { width:150%; height:150%; object-fit:contain; margin:-6% 0 0 -25%; display:block; }
+  #profil .lvl { position:relative; width:38px; height:38px; flex:none; display:grid; place-items:center; }
+  #profil .lvl img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
+  #profil .lvl b {
+    position:relative; color:#0d2c46; font-size:16px; font-weight:900;
+    text-shadow:0 1px 0 rgba(255,255,255,.5); font-variant-numeric:tabular-nums;
+  }
+  #profil .bloc { display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-width:172px; }
+  #profil .nom { color:#fff; font-weight:900; font-size:15.5px; letter-spacing:.3px; }
+  #profil .xp {
+    width:100%; height:9px; border-radius:5px; background:rgba(255,255,255,.13);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.55); overflow:hidden;
+  }
+  #profil .xp i {
+    display:block; height:100%; border-radius:5px; width:0;
+    background:linear-gradient(90deg, var(--cyan), #9df2ff);
+    box-shadow:0 0 8px rgba(80,220,255,.55); transition:width .35s ease;
+  }
+  #profil .xpnum {
+    position:absolute; right:20px; top:50%; transform:translateY(-50%);
+    color:rgba(255,255,255,.38); font-weight:800; font-size:10.5px;
+    font-variant-numeric:tabular-nums; letter-spacing:.6px; pointer-events:none;
+  }
+  #profil { position:relative; }
 
-  #playzone { position:absolute; right:38px; bottom:34px; }
+  /* Portefeuille. Une seule monnaie : l'USDC est ce qu'on mise et ce qu'on gagne.
+     Un deuxième compteur sans usage ferait croire à une économie qui n'existe pas. */
+  #solde {
+    display:flex; align-items:center; gap:10px; height:48px; padding:0 18px 0 11px;
+    border-radius:14px; background:rgba(39,117,202,.16);
+    box-shadow:inset 0 0 0 2px rgba(90,170,255,.28);
+    color:#fff; font-weight:900; font-size:19px; font-variant-numeric:tabular-nums;
+  }
+  #solde img { width:30px; height:30px; object-fit:contain; display:block; }
+  #solde small { font-size:11px; font-weight:900; letter-spacing:1.4px; color:rgba(160,205,255,.8); }
+  #solde.court { background:rgba(255,80,110,.16); box-shadow:inset 0 0 0 2px rgba(255,110,140,.4); }
+  #recharger {
+    margin-left:4px; height:30px; padding:0 12px; border:none; border-radius:9px; cursor:pointer;
+    background:var(--cyan); box-shadow:0 3px 0 var(--cyan-dark);
+    color:#fff; font-family:inherit; font-weight:900; font-size:11px; letter-spacing:1px;
+  }
+  #recharger:active { transform:translateY(2px); box-shadow:0 1px 0 var(--cyan-dark); }
 
-  /* Le ticket : une carte sombre posée sur le plateau, bord doré du côté du pot.
-     Une carte tient le regard là où des éléments empilés se lisaient comme une liste. */
-  #ticket {
-    width:330px; padding:18px 20px 20px; border-radius:22px;
-    background:linear-gradient(165deg, rgba(30,16,58,.94), rgba(16,8,34,.96));
-    border:3px solid rgba(255,255,255,.14);
-    box-shadow:0 16px 0 rgba(0,0,0,.28), 0 0 44px rgba(120,60,255,.28);
-    backdrop-filter:blur(6px);
+  .navbtn {
+    position:relative; width:56px; height:52px; border:none; border-radius:14px; cursor:pointer;
+    background:rgba(255,255,255,.07); box-shadow:inset 0 0 0 2px rgba(255,255,255,.1);
+    display:grid; place-items:center; font-size:22px; transition:background .12s, transform .08s;
   }
-  #ticket-haut { display:flex; align-items:center; gap:14px; }
-  .ticket-col { flex:1; text-align:center; }
-  .ticket-sep { width:2px; align-self:stretch; background:rgba(255,255,255,.13); border-radius:2px; }
-  .ticket-label {
-    font-size:10.5px; font-weight:900; letter-spacing:2.2px;
-    color:rgba(255,255,255,.5); margin-bottom:3px;
-  }
-  .ticket-val { font-size:21px; font-weight:900; color:#fff; }
+  .navbtn:hover { background:rgba(255,255,255,.15); }
+  .navbtn:active { transform:translateY(2px); }
+  .navbtn img { width:34px; height:34px; object-fit:contain; display:block; }
 
-  /* LE POT. C'est le chiffre qui dit ce qu'on joue : il domine la carte, comme sur un
-     compteur de plateau. Tout le reste de la carte est calibré pour ne pas le concurrencer. */
-  #ticket-pot {
-    margin:14px 0 4px; padding:12px 10px 10px; border-radius:16px; text-align:center;
-    background:linear-gradient(180deg, rgba(255,196,60,.16), rgba(255,140,30,.08));
-    border:2px solid rgba(255,200,80,.42);
-  }
-  #ticket-pot .ticket-label { color:rgba(255,222,150,.85); }
-  #pot-val {
-    font-size:40px; font-weight:900; line-height:1;
-    color:#ffdc72; text-shadow:0 0 22px rgba(255,190,60,.5), 0 3px 0 rgba(0,0,0,.35);
-    letter-spacing:-.5px;
-  }
-  #ticket-manches { margin:14px 0 12px; }
-  #ticket-manches .ticket-label { text-align:center; }
-  #invite { text-align:center; }
-  #gamepicker-label { color:#fff; font-weight:900; font-size:14px; letter-spacing:2px; opacity:.85; margin-bottom:9px; }
-  #partie-info { display:flex; gap:7px; justify-content:center; }
-  .manche-pastille {
-    flex:1; padding:8px 4px; border:2px solid rgba(255,255,255,.18); border-radius:11px;
-    background:rgba(255,255,255,.07); color:rgba(255,255,255,.82); text-align:center;
-    font-weight:900; font-size:10.5px; letter-spacing:.6px;
-  }
-  .manche-pastille.finale {
-    background:linear-gradient(180deg, #ffe45c, #ffb01f); color:#5b3a00;
-    border-color:rgba(255,220,120,.6);
-  }
-  #race-title { font-weight:900; font-size:19px; letter-spacing:1.4px; opacity:.9; margin-bottom:2px; }
-  #race-manche {
-    display:inline-block; margin-bottom:5px; padding:4px 11px; border-radius:9px;
-    background:rgba(27,16,48,.7); font-weight:900; font-size:12.5px; letter-spacing:1.6px;
-  }
-  #race-manche.finale { background:linear-gradient(180deg, #ffe45c, #ffb01f); color:#5b3a00; }
-  #invite { color:#fff; font-weight:900; font-size:20px; margin-bottom:14px; letter-spacing:.5px; }
-  #invite .key {
-    display:inline-grid; place-items:center; width:30px; height:30px; border-radius:50%;
-    background:var(--ink); color:var(--yellow); font-size:15px; margin-right:9px; vertical-align:-6px;
-  }
-  #play {
-    display:flex; align-items:center; justify-content:center; gap:16px;
-    width:100%; padding:0; height:70px; margin-bottom:10px;
-    border:5px solid var(--ink); border-radius:20px; cursor:pointer;
-    background:linear-gradient(180deg, #ff5c9e, var(--pink));
-    box-shadow:0 9px 0 var(--pink-dark), 0 16px 26px rgba(0,0,0,.28);
-    color:#fff; font-size:52px; font-weight:900; letter-spacing:1.5px;
+  /* ---------- colonne de gauche ---------- */
+  #leftpanel { position:absolute; top:calc(var(--barre) + 30px); left:44px; width:330px; }
+  /* Le logo est une IMAGE, plus un mot composé en CSS.
+     Le lettrage peint porte un relief, un contour et une ombre qu'aucun empilement de
+     `text-stroke` et de `drop-shadow` n'imite : la version texte n'en était qu'une
+     approximation, et elle datait d'avant que la marque existe. La hauteur découle de la
+     largeur — un `height` fixe déformerait le lettrage au premier remplacement de fichier. */
+  #logo { width:300px; display:block; }
+  #logo img { width:100%; height:auto; display:block; filter:drop-shadow(0 8px 14px rgba(0,0,0,.35)); }
+
+  /* Un seul bouton : c'est la seule fonctionnalité qui existe vraiment. */
+  #btn-perso {
+    margin-top:30px; width:112px; padding:9px 6px 8px; cursor:pointer; font-family:inherit;
+    border:none; border-radius:20px; display:grid; justify-items:center; gap:2px;
+    background:linear-gradient(180deg, #58dcf0, var(--cyan));
+    box-shadow:0 6px 0 var(--cyan-dark), 0 12px 20px rgba(0,0,0,.3),
+               inset 0 0 0 3px rgba(255,255,255,.22);
     transition:transform .09s, box-shadow .09s;
   }
-  #play:hover { transform:translateY(-3px); box-shadow:0 12px 0 var(--pink-dark), 0 20px 30px rgba(0,0,0,.3); }
-  #play:active { transform:translateY(6px); box-shadow:0 3px 0 var(--pink-dark), 0 8px 14px rgba(0,0,0,.25); }
+  #btn-perso:hover { transform:translateY(-3px); box-shadow:0 9px 0 var(--cyan-dark), 0 16px 24px rgba(0,0,0,.32), inset 0 0 0 3px rgba(255,255,255,.3); }
+  #btn-perso:active { transform:translateY(4px); box-shadow:0 2px 0 var(--cyan-dark), inset 0 0 0 3px rgba(255,255,255,.22); }
+  #btn-perso .ico { width:62px; height:62px; display:grid; place-items:center; font-size:34px; }
+  #btn-perso .ico img { width:100%; height:100%; object-fit:contain; display:block; }
+  #btn-perso span.txt {
+    color:#fff; font-weight:900; font-size:12px; letter-spacing:1.2px;
+    text-shadow:0 2px 0 rgba(0,0,0,.32);
+  }
+
+  /* ---------- le ticket ----------
+     Le joueur choisit sa table, voit le pot, et voit où il doit finir pour gagner quoi.
+     Ces trois choses tiennent dans une seule carte : mises côte à côte, pot en gros,
+     échelle des gains dessous. Aucun chiffre n'est écrit dans le HTML — ils sortent tous
+     de `src/economie.js`, qui est le port du noyau de règles. */
+  #playzone { position:absolute; right:34px; bottom:28px; }
+  #ticket {
+    width:342px; padding:16px 18px 18px; border-radius:24px;
+    background:linear-gradient(168deg, rgba(34,18,64,.96), rgba(14,7,30,.97));
+    box-shadow:0 16px 0 rgba(0,0,0,.3), 0 26px 46px rgba(0,0,0,.4),
+               inset 0 0 0 3px rgba(255,255,255,.13);
+    backdrop-filter:blur(7px);
+  }
+  .tk-label {
+    font-size:10px; font-weight:900; letter-spacing:2.4px;
+    color:rgba(255,255,255,.42); margin-bottom:7px;
+  }
+
+  /* Trois tables. La pastille active passe en or : c'est l'argent qu'on engage. */
+  #paliers { display:flex; gap:8px; }
+  .palier {
+    flex:1; height:52px; border:none; border-radius:14px; cursor:pointer; font-family:inherit;
+    display:grid; place-items:center; gap:0; line-height:1.05;
+    background:rgba(255,255,255,.07); box-shadow:inset 0 0 0 2px rgba(255,255,255,.1);
+    color:rgba(255,255,255,.72); transition:transform .09s, box-shadow .09s, background .12s;
+  }
+  .palier b { font-size:21px; font-weight:900; font-variant-numeric:tabular-nums; }
+  .palier i { font-style:normal; font-size:8.5px; font-weight:900; letter-spacing:1.4px; opacity:.6; }
+  .palier:hover:not(.mort):not(.on) { background:rgba(255,255,255,.14); transform:translateY(-2px); }
+  .palier.on:hover { filter:brightness(1.06); }
+  .palier.on {
+    background:linear-gradient(180deg, #ffe066, var(--yellow));
+    box-shadow:0 4px 0 var(--or-dark), inset 0 0 0 2.5px rgba(255,255,255,.5);
+    color:#5b3a00; transform:translateY(-2px);
+  }
+  .palier.on i { opacity:.75; }
+  /* Une table qu'on n'a pas les moyens de jouer se dit, elle ne se cache pas. */
+  .palier.mort { opacity:.32; cursor:not-allowed; }
+
+  #ticket-pot {
+    margin:13px 0 12px; padding:10px 10px 9px; border-radius:17px; text-align:center;
+    background:linear-gradient(180deg, rgba(255,196,60,.17), rgba(255,140,30,.06));
+    box-shadow:inset 0 0 0 2px rgba(255,200,80,.35);
+  }
+  #ticket-pot .tk-label { color:rgba(255,222,150,.78); margin-bottom:1px; }
+  #pot-val {
+    font-size:40px; font-weight:900; line-height:1.02; letter-spacing:-1px;
+    color:#ffdc72; text-shadow:0 0 22px rgba(255,190,60,.45), 0 3px 0 rgba(0,0,0,.35);
+    font-variant-numeric:tabular-nums;
+  }
+  #pot-val small { font-size:15px; letter-spacing:1px; margin-left:7px; opacity:.72; }
+  #pot-sub { margin-top:2px; font-size:10px; font-weight:800; letter-spacing:.5px; color:rgba(255,222,150,.46); }
+
+  /* L'échelle des gains. Les rangs qui paient pareil sont groupés : seize lignes dont
+     douze identiques ne se lisent pas, six lignes se lisent d'un coup d'œil. */
+  #echelle { display:flex; flex-direction:column; gap:3px; }
+  .ech {
+    display:flex; align-items:center; gap:9px; height:27px; padding:0 9px 0 6px;
+    border-radius:9px; background:rgba(255,255,255,.045);
+  }
+  .ech .ico { width:22px; height:22px; flex:none; display:grid; place-items:center; }
+  .ech .ico img { width:100%; height:100%; object-fit:contain; display:block; }
+  .ech .ico u {
+    text-decoration:none; width:17px; height:17px; border-radius:50%;
+    background:rgba(255,255,255,.11); color:rgba(255,255,255,.5);
+    font-size:9.5px; font-weight:900; display:grid; place-items:center;
+  }
+  .ech .rang { flex:1; color:rgba(255,255,255,.82); font-weight:900; font-size:12.5px; letter-spacing:.3px; }
+  .ech .gain {
+    color:#fff; font-weight:900; font-size:14.5px; font-variant-numeric:tabular-nums;
+    min-width:52px; text-align:right;
+  }
+  .ech .fact {
+    min-width:56px; text-align:right; font-size:10.5px; font-weight:900;
+    letter-spacing:.4px; color:rgba(255,255,255,.38);
+  }
+  /* La bande remboursée est le SEUIL DE NON-PERTE : finir dans les huit rend la mise.
+     C'est l'argument central du modèle, il mérite d'être vu sans être expliqué. */
+  .ech.rendu { background:rgba(110,232,158,.11); box-shadow:inset 0 0 0 1.5px rgba(110,232,158,.22); }
+  .ech.rendu .gain { color:#8ff0bb; }
+  .ech.rendu .fact { color:rgba(143,240,187,.62); }
+  .ech.rien { opacity:.42; }
+  .ech.rien .gain { color:rgba(255,255,255,.45); }
+  .ech.or .gain { color:#ffdc72; }
+
+  #play {
+    display:flex; align-items:center; justify-content:center; gap:14px;
+    width:100%; height:64px; margin-top:13px; padding:0;
+    border:none; border-radius:19px; cursor:pointer; font-family:inherit;
+    background:linear-gradient(180deg, #ff5c9e, var(--pink));
+    box-shadow:0 8px 0 var(--pink-dark), 0 14px 24px rgba(0,0,0,.3),
+               inset 0 0 0 3px rgba(255,255,255,.2);
+    color:#fff; font-size:34px; font-weight:900; letter-spacing:3px;
+    text-shadow:0 3px 0 rgba(0,0,0,.24);
+    transition:transform .09s, box-shadow .09s, filter .12s;
+  }
+  #play:hover:not(:disabled) { transform:translateY(-3px); box-shadow:0 11px 0 var(--pink-dark), 0 18px 28px rgba(0,0,0,.32), inset 0 0 0 3px rgba(255,255,255,.28); }
+  #play:active:not(:disabled) { transform:translateY(5px); box-shadow:0 3px 0 var(--pink-dark), inset 0 0 0 3px rgba(255,255,255,.2); }
+  #play:disabled { filter:grayscale(.85) brightness(.6); cursor:not-allowed; }
   #play .key {
-    display:grid; place-items:center; width:46px; height:46px; border-radius:50%;
-    background:var(--ink); color:var(--yellow); font-size:22px; font-weight:900;
+    display:grid; place-items:center; width:38px; height:38px; border-radius:50%;
+    background:rgba(27,16,48,.75); color:var(--yellow); font-size:19px; font-weight:900;
   }
+  /* Une ligne, jamais deux : la note repliee poussait le bas du ticket hors du cadre. */
+  #play-note {
+    margin-top:8px; text-align:center; font-size:10.5px; font-weight:800;
+    letter-spacing:.3px; color:rgba(255,255,255,.42); white-space:nowrap;
+  }
+  #play-note.alerte { color:#ff8ba6; }
 
-  #entry-badge {
-    display:inline-block; margin-bottom:14px;
-    padding:9px 18px; border-radius:12px; background:rgba(27,16,48,.86);
-    border:3px solid rgba(255,255,255,.16); color:#ffe9b8; font-weight:800; font-size:15px;
+  /* Écran court : on resserre l'échelle et le pot plutôt que de laisser le ticket
+     passer sous la barre ou déborder du cadre. */
+  @media (max-height: 800px) {
+    #ticket { width:326px; padding:13px 15px 15px; }
+    .palier { height:46px; }
+    #pot-val { font-size:34px; }
+    .ech { height:24px; }
+    #play { height:58px; font-size:30px; }
+    #logo { width:252px; }
   }
-  #entry-badge b { color:#4ade80; }
-
-  #wardrobe {
-    position:absolute; top:90px; left:50%; transform:translateX(-50%);
-    display:flex; flex-wrap:wrap; justify-content:center; max-width:min(1100px, 92vw);
-    gap:10px; padding:16px 20px; border-radius:18px;
-    background:rgba(18,8,38,.92); border:3px solid rgba(255,255,255,.16);
-    box-shadow:0 10px 28px rgba(0,0,0,.35);
-  }
-  #wardrobe.hidden { display:none; }
-  #wardrobe .modelbtn {
-    height:46px; padding:0 16px; border-radius:13px; cursor:pointer;
-    border:3px solid rgba(255,255,255,.28); background:rgba(255,255,255,.1);
-    color:#fff; font-family:inherit; font-weight:900; font-size:14px; white-space:nowrap;
-  }
-  #wardrobe .modelbtn.on { border-color:#fff; background:var(--pink); }
-  #wardrobe .swatch {
-    width:46px; height:46px; border-radius:13px; cursor:pointer;
-    border:3px solid rgba(255,255,255,.28); transition:transform .1s, border-color .1s;
-  }
-  #wardrobe .swatch:hover { transform:translateY(-3px); }
-  #wardrobe .swatch.on { border-color:#fff; transform:translateY(-3px) scale(1.06); }
 
   #countdown {
     position:absolute; inset:0; display:grid; place-items:center; pointer-events:none;
@@ -203,58 +266,71 @@
   }
   #countdown.hidden { display:none; }
 
-  /* ---------- onglets du lobby ---------- */
-  /* Les icones debordent volontairement du bouton : elles doivent le remplir, pas
-     flotter au centre d'un carre de couleur. */
-  .navbtn img { width:44px; height:44px; object-fit:contain; display:block; }
-  .wallet img { width:30px; height:30px; object-fit:contain; display:block; }
-  .navbtn.active { background:var(--pink); box-shadow:0 4px 0 var(--pink-dark); }
-  .navbtn.active::after {
-    content:''; position:absolute; left:50%; bottom:-9px; transform:translateX(-50%);
-    width:22px; height:4px; border-radius:2px; background:#fff;
-  }
-  .navbtn { position:relative; }
-
-  /* Écrans : un seul visible à la fois, celui de l'onglet actif. */
-  .screen {
-    position:absolute; inset:62px 0 0; display:none; overflow-y:auto; padding:26px 44px 40px;
-    background:linear-gradient(180deg, rgba(14,7,32,.88), rgba(14,7,32,.94));
-    backdrop-filter:blur(6px);
-  }
-
-  /* La vitrine des personnages ne masque QUE la moitié droite : le modèle 3D reste
-     visible à gauche, comme dans un casier de jeu. C'est le modèle qu'on regarde en
-     choisissant, pas une vignette. */
+  /* ---------- la vitrine des personnages ----------
+     Elle ne masque QUE la moitié droite : le modèle 3D reste visible à gauche, comme
+     dans un casier de jeu. C'est le personnage qu'on regarde en choisissant, pas une
+     vignette. */
   #screen-skins {
-    inset:74px 0 0 auto; width:min(56vw, 880px); padding:24px 40px 32px 34px;
+    position:absolute; inset:var(--barre) 0 0 auto; width:min(56vw, 880px);
+    display:none; overflow-y:auto; padding:22px 40px 32px 34px;
     background:linear-gradient(90deg, rgba(14,7,32,0), rgba(14,7,32,.9) 8%, rgba(14,7,32,.96));
     backdrop-filter:blur(7px);
   }
-
-  /* Grille compacte : des vignettes carrées, six par ligne, comme un casier. */
-  .tiles { display:grid; grid-template-columns:repeat(6, 1fr); gap:11px; }
-  .tile {
-    position:relative; aspect-ratio:1; border-radius:14px; cursor:pointer; overflow:hidden;
-    border:3px solid rgba(255,255,255,.14);
-    background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.05));
-    transition:transform .1s, border-color .1s;
+  #screen-skins.on { display:block; }
+  #screen-skins .head { display:flex; align-items:flex-start; gap:16px; }
+  #screen-skins .head .spacer { flex:1; }
+  #screen-skins h1 {
+    color:#fff; font-size:32px; font-weight:900; letter-spacing:2px; margin-bottom:3px;
+    text-shadow:0 3px 0 rgba(0,0,0,.28);
   }
-  .tile:hover { transform:translateY(-3px); border-color:rgba(255,255,255,.5); }
-  .tile.on { border-color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,.28); }
-  .tile img { width:100%; height:100%; object-fit:contain; padding:6px; }
+  #screen-skins .sub { color:rgba(255,255,255,.55); font-weight:800; font-size:13.5px; margin-bottom:20px; }
+  #btn-retour {
+    flex:none; height:42px; padding:0 20px; cursor:pointer; font-family:inherit;
+    border:none; border-radius:13px; background:rgba(255,255,255,.09);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.14);
+    color:#fff; font-weight:900; font-size:13px; letter-spacing:1.4px;
+  }
+  #btn-retour:hover { background:rgba(255,255,255,.18); }
+  #btn-retour:active { transform:translateY(2px); }
+
+  /* Grille de vignettes carrées, quatre par ligne. Le cadre et le halo prennent la
+     couleur de RARETÉ : les cinq tuiles se distinguaient à peine sur fond gris uniforme,
+     alors que la rareté est justement ce qui les sépare. */
+  .tiles { display:grid; grid-template-columns:repeat(4, 1fr); gap:14px; max-width:660px; }
+  .tile {
+    position:relative; aspect-ratio:1; border-radius:18px; cursor:pointer; overflow:hidden;
+    box-shadow:inset 0 0 0 3px var(--rar, rgba(255,255,255,.18));
+    background:
+      radial-gradient(circle at 50% 118%, color-mix(in srgb, var(--rar, #7f8fa6) 60%, transparent), transparent 64%),
+      linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.32));
+    transition:transform .11s, box-shadow .11s;
+  }
+  .tile:hover { transform:translateY(-4px); box-shadow:inset 0 0 0 3px var(--rar, #fff), 0 10px 20px rgba(0,0,0,.35); }
+  .tile.on {
+    transform:translateY(-4px);
+    box-shadow:inset 0 0 0 4px #fff, 0 0 0 3px color-mix(in srgb, var(--rar, #fff) 70%, transparent),
+               0 10px 22px rgba(0,0,0,.4);
+  }
+  .tile img { width:100%; height:100%; object-fit:contain; padding:7px; display:block; }
   .tile .fallback {
     position:absolute; inset:0; display:grid; place-items:center;
     color:#fff; font-weight:900; font-size:26px; opacity:.85;
   }
   .tile.locked { opacity:.42; }
   .tile .lock {
-    position:absolute; right:6px; bottom:6px; padding:2px 7px; border-radius:7px;
-    background:rgba(0,0,0,.6); color:rgba(255,255,255,.75); font-size:9.5px; font-weight:900;
+    position:absolute; right:7px; bottom:7px; padding:2px 8px; border-radius:7px;
+    background:rgba(0,0,0,.62); color:rgba(255,255,255,.75); font-size:9.5px; font-weight:900;
+  }
+  /* Pastille « équipé » : sans elle, la tuile sélectionnée et la tuile survolée se
+     ressemblent, et on ne sait plus lequel des cinq on porte. */
+  .tile .porte {
+    position:absolute; left:7px; top:7px; padding:3px 9px; border-radius:8px;
+    background:#2ecc71; color:#06331a; font-size:9.5px; font-weight:900; letter-spacing:.6px;
   }
 
-  /* Fiche du personnage sélectionné, en bas à gauche comme dans la référence. */
+  /* Fiche du personnage sélectionné, en bas à gauche sous le modèle. */
   #skin-info {
-    position:absolute; left:52px; bottom:56px; max-width:min(38vw, 520px); z-index:12;
+    position:absolute; left:52px; bottom:52px; max-width:min(38vw, 520px); z-index:12;
     pointer-events:none;
   }
   #skin-info .rarity {
@@ -273,52 +349,6 @@
     color:rgba(255,255,255,.85); font-size:12px; font-weight:800;
   }
   #skin-info.hidden { display:none; }
-  .screen.on { display:block; }
-  .screen h1 {
-    color:#fff; font-size:34px; font-weight:900; letter-spacing:2px; margin-bottom:4px;
-    text-shadow:0 3px 0 rgba(0,0,0,.28);
-  }
-  .screen .sub { color:rgba(255,255,255,.62); font-weight:800; font-size:14px; margin-bottom:22px; }
-
-  /* Grille de skins, façon vitrine de jeu : cartes égales, état visible d'un coup d'œil. */
-  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(168px, 1fr)); gap:16px; }
-  .card {
-    position:relative; border-radius:18px; cursor:pointer; overflow:hidden;
-    background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.05));
-    border:3px solid rgba(255,255,255,.16); padding:14px 12px 12px;
-    transition:transform .1s, border-color .1s, background .1s;
-  }
-  .card:hover { transform:translateY(-4px); border-color:rgba(255,255,255,.42); }
-  .card.on { border-color:#fff; background:linear-gradient(180deg, rgba(255,61,139,.5), rgba(255,61,139,.2)); }
-  .card .thumb {
-    height:104px; border-radius:13px; margin-bottom:11px; display:grid; place-items:center;
-    background:radial-gradient(circle at 50% 38%, rgba(255,255,255,.3), rgba(0,0,0,.22));
-  }
-  .card .thumb .blob { width:56px; height:74px; border-radius:28px 28px 24px 24px; border:4px solid var(--ink); }
-  .card .name { color:#fff; font-weight:900; font-size:15px; }
-  .card .tag { color:rgba(255,255,255,.55); font-weight:800; font-size:11.5px; letter-spacing:1.2px; margin-top:3px; }
-  .card .badge {
-    position:absolute; top:10px; right:10px; padding:3px 9px; border-radius:8px;
-    font-size:10.5px; font-weight:900; letter-spacing:.8px;
-  }
-  .badge.equipped { background:#2ecc71; color:#06331a; }
-  .badge.locked { background:rgba(0,0,0,.45); color:rgba(255,255,255,.6); }
-  .card.locked { opacity:.55; }
-
-  /* Listes (collabs, boutique) */
-  .row {
-    display:flex; align-items:center; gap:16px; padding:14px 18px; margin-bottom:12px;
-    border-radius:16px; background:rgba(255,255,255,.07); border:2px solid rgba(255,255,255,.1);
-  }
-  .row .icon { width:52px; height:52px; border-radius:14px; display:grid; place-items:center; flex:none; font-size:24px; }
-  .row .body { flex:1; }
-  .row .title { color:#fff; font-weight:900; font-size:17px; }
-  .row .desc { color:rgba(255,255,255,.6); font-weight:700; font-size:13px; margin-top:2px; }
-  .row .price {
-    padding:9px 18px; border-radius:12px; background:var(--cyan); box-shadow:0 4px 0 var(--cyan-dark);
-    color:#fff; font-weight:900; font-size:15px; white-space:nowrap;
-  }
-  .row .price.soon { background:rgba(255,255,255,.12); box-shadow:none; color:rgba(255,255,255,.5); }
 
   /* ---------- menu de pause ---------- */
   #pause {
@@ -419,9 +449,68 @@
 
   /* ---------- HUD de course ---------- */
   #race-ui { position:fixed; inset:0; pointer-events:none; z-index:10; }
-  #hud { position:absolute; top:20px; left:22px; color:#fff; }
-  #timer { font-size:56px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; }
-  #sub { font-size:15px; font-weight:800; opacity:.94; margin-top:6px; }
+  /* ===== HUD de course =====
+     Deux blocs d'angle, et rien au milieu. L'objectif a gauche, l'etat de la manche a
+     droite : le centre de l'ecran reste au jeu. Chaque bloc est une PASTILLE d'etiquette
+     posee sur une PILULE de valeur — l'etiquette dit ce qu'on lit, la pilule ce que ca
+     vaut, et la valeur reste lisible meme quand on ne lit plus l'etiquette.
+
+     Les deux blocs sont legerement inclines et decales l'un par rapport a l'autre : pose
+     d'aplomb, l'ensemble se lit comme un panneau d'information colle sur l'image. */
+  /* Colonne, et non flux en ligne. Les pastilles et pilules sont des inline-block : dans
+     un bloc ordinaire elles se rangeaient cote a cote, et l'objectif, la manche et les
+     compteurs finissaient sur la meme ligne, les uns par-dessus les autres. */
+  #hud {
+    position:absolute; top:18px; left:20px; color:#fff;
+    display:flex; flex-direction:column; align-items:flex-start;
+  }
+  #hud-droite {
+    position:absolute; top:18px; right:20px; color:#fff;
+    display:flex; flex-direction:column; align-items:flex-end;
+  }
+  .pastille {
+    display:inline-block; background:var(--hud-cyan); color:var(--ink);
+    font-size:15px; font-weight:900; letter-spacing:.6px;
+    padding:3px 16px 4px; border-radius:9px; transform:rotate(-1.2deg);
+    box-shadow:0 2px 0 rgba(0,0,0,.18); margin-bottom:-6px; position:relative; z-index:1;
+  }
+  #hud-droite .pastille { transform:rotate(1.2deg); }
+  .pilule {
+    display:inline-block; background:#fff; color:#16210f;
+    font-size:23px; font-weight:900; letter-spacing:.4px;
+    padding:7px 18px 8px; border-radius:12px; transform:rotate(-1.2deg);
+    box-shadow:0 4px 0 rgba(0,0,0,.16);
+  }
+  #hud-droite .pilule { transform:rotate(1.2deg); }
+  .pilule.gros { font-size:38px; line-height:1; padding:5px 22px 8px; font-variant-numeric:tabular-nums; }
+  /* Chronometre : fond sombre, contrairement aux pilules blanches. Il change dix fois par
+     seconde ; sur fond clair ce clignotement attire l'oeil en permanence. */
+  #chrono {
+    display:flex; align-items:center; gap:9px; margin-top:7px;
+    background:#12100e; border-radius:10px; padding:5px 14px 6px 11px;
+    box-shadow:0 3px 0 rgba(0,0,0,.28); transform:rotate(1.2deg);
+  }
+  #chrono .coureur {
+    width:17px; height:17px; flex:none; background:#fff;
+    -webkit-mask:var(--ico-coureur) center/contain no-repeat;
+            mask:var(--ico-coureur) center/contain no-repeat;
+  }
+  #timer { font-size:25px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; }
+  #sub { font-size:14px; font-weight:800; opacity:.9; margin-top:8px; }
+  #hud #race-manche { margin-top:9px; }
+  #race-title.hidden { display:none; }
+  /* Pendant la presentation, le HUD se tait : seule la carte-titre reste. C'est ce que
+     fait la reference, et c'est aussi ce qui evite que l'objectif, ecrit a gauche, ne
+     vienne buter contre le titre centre — « TRAVERSER LES SEPT MURS » passait dessous. */
+  #race-ui.presentation #hud,
+  #race-ui.presentation #hud-droite,
+  #race-ui.presentation #progressbar,
+  #race-ui.presentation #dist,
+  #race-ui.presentation #help { display:none; }
+  /* La barre de progression descend sous les deux blocs d'angle. A 22 px elle partageait
+     la bande haute avec eux et l'ensemble se lisait comme un seul bandeau encombre. */
+  #progressbar { top:96px; }
+  #dist { top:124px; }
   #help {
     position:absolute; bottom:18px; left:22px; color:#fff; font-size:13px; font-weight:700;
     opacity:.85; line-height:1.7;
@@ -484,7 +573,10 @@
     height:142px; box-shadow:0 14px 0 rgba(0,0,0,.2);
     transform:translate(-130%, -50%) rotate(-4deg);
   }
-  #verdict.ok .bande.avant { background:linear-gradient(180deg, #66f294, #1faf5d); }
+  /* Bleu de la reference. La qualification n'est pas verte : le vert dit « valide », le
+     bleu dit « tu passes ». La nuance compte ici, parce qu'une manche gagnee n'est pas une
+     case cochee mais un tour de plus dans la partie. */
+  #verdict.ok .bande.avant { background:linear-gradient(180deg, #59b8f5, #2b7fd4); }
   #verdict.ko .bande.avant { background:linear-gradient(180deg, #ff8272, #d83326); }
   /* La victoire ne peut pas etre du meme vert qu'une simple qualification : elle arrive
      une fois par partie et doit se distinguer au premier coup d'oeil. */
@@ -506,10 +598,33 @@
        doublait l'angle et le mot partait de travers. */
     transform:scale(.35); opacity:0;
   }
+  /* Etoiles : elles encadrent le mot au lieu de le decorer. Posees dans la bande, elles
+     entrent avec elle et donnent au texte une largeur qu'il n'a pas tout seul. */
+  #verdict .etoile {
+    position:relative; font-size:52px; line-height:1; color:#ffd23d; margin:0 26px;
+    -webkit-text-stroke:4px var(--ink); paint-order:stroke fill;
+    transform:scale(.35); opacity:0;
+  }
+  #verdict.show .etoile { animation:verdict-texte .4s .38s cubic-bezier(.2,1.6,.4,1) forwards; }
+  /* Pas d'etoiles sur une elimination. Elles disent « bravo » ; les poser autour d'ÉLIMINÉ
+     donnait un bandeau qui felicitait le joueur de s'etre fait sortir. */
+  #verdict.ko .etoile { display:none; }
+  #verdict.sortie .etoile { animation:verdict-fondu .2s ease-in forwards; }
+  /* Sous-titre en PILULE, comme le HUD : le temps est une valeur, pas une legende. */
   #verdict .sous {
-    position:absolute; top:50%; left:0; right:0; margin-top:112px; text-align:center;
-    font-size:21px; font-weight:800; color:#fff; letter-spacing:1px;
-    text-shadow:0 3px 0 rgba(0,0,0,.45); transform:rotate(-4deg); opacity:0;
+    position:absolute; top:50%; left:0; right:0; margin-top:104px; text-align:center;
+    transform:rotate(-4deg); opacity:0;
+  }
+  #verdict .sous .etiquette {
+    display:inline-block; background:var(--hud-cyan); color:var(--ink);
+    font-size:14px; font-weight:900; letter-spacing:.6px; padding:2px 14px 3px;
+    border-radius:8px; margin-bottom:-5px; position:relative; z-index:1;
+  }
+  #verdict .sous .valeur {
+    display:block; margin:0 auto; width:fit-content;
+    background:#fff; color:#16210f; font-size:26px; font-weight:900;
+    font-variant-numeric:tabular-nums; padding:6px 20px 7px; border-radius:11px;
+    box-shadow:0 4px 0 rgba(0,0,0,.2);
   }
   /* Les entrees sont DECALEES : bande arriere, bande avant, puis texte. Tout arriver
      ensemble donne un panneau ; se succeder donne un evenement. */
@@ -530,6 +645,76 @@
   @keyframes verdict-fondu    { to { opacity:0; transform:scale(.88); } }
   @keyframes verdict-defile   { to { background-position:48px 0; } }
 
+  /* ===== Carte-titre du survol =====
+     Le nom de l'epreuve pendant le survol, puis plus rien. Il ne reste pas en HUD : une
+     fois la manche lancee, le joueur sait ou il est, et l'information devient du bruit. */
+  #titlecard {
+    position:absolute; top:26px; left:50%; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center; z-index:13;
+    transition:opacity .35s; opacity:1;
+  }
+  #titlecard.hidden { display:none; }
+  #titlecard.sortie { opacity:0; }
+  #titlecard .nom {
+    background:#fff; color:#16210f; font-size:34px; font-weight:900; letter-spacing:1.4px;
+    padding:8px 34px 10px; border-radius:15px; box-shadow:0 5px 0 rgba(0,0,0,.18);
+    transform:rotate(-1deg);
+  }
+  #titlecard .obj {
+    margin-top:-6px; background:var(--hud-cyan); color:var(--ink);
+    font-size:16px; font-weight:900; letter-spacing:.8px;
+    padding:4px 20px 5px; border-radius:10px; box-shadow:0 3px 0 rgba(0,0,0,.18);
+    transform:rotate(-1deg);
+  }
+
+  /* ===== Carrousel « Prochaine epreuve » =====
+     Les cartes defilent et RALENTISSENT jusqu'a s'arreter sur celle qui est tiree. Le
+     ralentissement est tout l'effet : un defilement a vitesse constante qui s'arrete net
+     se lit comme un chargement, alors qu'une deceleration se lit comme un tirage.
+
+     Le tirage est deja fait quand le carrousel demarre — l'animation le RACONTE, elle ne
+     le decide pas. C'est ce qui permet de la sauter sans rien changer au resultat. */
+  #nextup {
+    position:fixed; inset:0; z-index:40; background:var(--nextup-fond);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  #nextup.hidden { display:none; }
+  #nextup-titre {
+    position:absolute; top:0; left:0; right:0; padding:14px 0 16px;
+    background:var(--nextup-barre); color:#fff; text-align:center;
+    font-size:30px; font-weight:900; letter-spacing:1px;
+    text-shadow:0 4px 0 rgba(0,0,0,.22);
+  }
+  #nextup-piste { width:100%; overflow:hidden; }
+  #nextup-cartes { display:flex; align-items:center; gap:26px; will-change:transform; }
+  #nextup .carte {
+    flex:none; width:min(38vw, 520px); aspect-ratio:16/11;
+    border-radius:22px; border:7px solid var(--nextup-bord); background:#fff;
+    box-shadow:0 10px 0 rgba(0,0,0,.18); overflow:hidden; position:relative;
+    transform:scale(.78); opacity:.72; transition:transform .35s ease-out, opacity .35s;
+  }
+  #nextup .carte .vignette { position:absolute; inset:0; background-size:cover; background-position:center; }
+  #nextup .carte .nom {
+    position:absolute; left:0; right:0; bottom:0; padding:10px 0 12px;
+    background:linear-gradient(180deg, transparent, rgba(20,10,44,.85) 42%);
+    color:#fff; text-align:center; font-size:26px; font-weight:900; letter-spacing:1px;
+  }
+  /* La carte tiree grandit et s'eclaire. C'est le seul moment ou l'ecran designe quelque
+     chose : tout le reste du carrousel n'est la que pour rendre ce moment lisible. */
+  #nextup .carte.gagnante { transform:scale(1); opacity:1; box-shadow:0 12px 0 rgba(0,0,0,.2), 0 0 60px rgba(255,255,255,.55); }
+
+  /* ===== Volet iris =====
+     Le trou est un disque TRANSPARENT dont l'ombre portee peint tout le reste de l'ecran.
+     C'est ce qui evite un masque : on anime la taille du disque, et l'ombre suit. */
+  #iris { position:fixed; inset:0; z-index:39; pointer-events:none; display:grid; place-items:center; }
+  #iris.hidden { display:none; }
+  #iris .trou {
+    width:0; height:0; border-radius:50%;
+    box-shadow:0 0 0 100vmax var(--nextup-fond);
+  }
+  #iris.ouvre .trou { animation:iris-ouvre .5s cubic-bezier(.4,0,.5,1) forwards; }
+  @keyframes iris-ouvre { to { width:260vmax; height:260vmax; } }
+
   .lil-gui.root { top:82px !important; z-index:30 !important; }
 
   #loading { position:fixed; inset:0; display:grid; place-items:center; background:#f5a623;
@@ -537,73 +722,66 @@
 </style>
 </head>
 <body>
-<div id="loading">Chargement…</div>
+<div id="loading">Loading…</div>
 
 <!-- ===== LOBBY ===== -->
 <div id="lobby-ui" class="hidden">
+
+  <!-- La barre noire. Trois choses seulement : qui je suis, ce que j'ai, mes réglages. -->
   <div id="topbar">
-    <div class="title stroke">LOBBY</div>
+    <button id="profil" title="Change character">
+      <span class="port"><img id="profil-port" alt=""></span>
+      <span class="lvl"><img src="/icons/icon-level.png" alt=""><b id="profil-niveau">1</b></span>
+      <span class="bloc">
+        <span class="nom" id="pname">Baby #2005</span>
+        <span class="xp"><i id="xp-fill"></i></span>
+      </span>
+      <span class="xpnum" id="xp-num">0 / 240</span>
+    </button>
     <div class="spacer"></div>
-    <button class="navbtn primary active" data-tab="play" title="Jouer"></button>
-    <button class="navbtn" data-tab="skins" id="btn-wardrobe" title="Personnages"></button>
-    <button class="navbtn" data-tab="collabs" title="Collaborations"></button>
-    <button class="navbtn" data-tab="shop" title="Boutique"></button>
-    <button class="navbtn" id="btn-settings" title="Paramètres"></button>
-    <div class="spacer"></div>
-    <div class="wallet"><span class="ic" id="ic-crown">👑</span><span id="crowns">0</span></div>
-    <div class="wallet cash"><span class="ic" id="ic-coin">◎</span><span id="balance">12.40</span></div>
+    <div id="solde" title="Spendable balance">
+      <img src="/icons/icon-usdc.png" alt="">
+      <span id="balance">25,00</span><small>USDC</small>
+      <button id="recharger" class="hidden" title="Prototype: restores the starting balance">TOP UP</button>
+    </div>
+    <button class="navbtn" id="btn-settings" title="Settings">⚙</button>
   </div>
 
   <div id="leftpanel">
-    <div id="logo" class="stroke">TUMBLE<em>ROYALE</em></div>
-    <!-- Profil regroupe en UNE carte : titre, saison, progression et pseudo etaient
-         quatre elements poses separement sur le fond, sans rien qui les relie. -->
-    <div id="profil">
-      <div id="playername"><span>👑</span><span id="pname">Blob #2005</span></div>
-      <div id="season" class="stroke">SAISON 1</div>
-      <div id="progress-label" class="stroke">PROGRESSION</div>
-      <div id="progress">
-        <div class="lvl">4</div>
-        <div class="track"><div class="fill"></div></div>
-        <div class="num">609/800</div>
-      </div>
-    </div>
+    <div id="logo"><img src="/icons/logo-babyguy.png" alt="Baby Guy"></div>
+    <button id="btn-perso" title="Pick your character">
+      <span class="ico">👕</span>
+      <span class="txt">CHARACTER</span>
+    </button>
   </div>
 
-  <!-- Zone de lancement : un TICKET D'ENTREE, pas une pile de boutons.
-       Le pot y tient la place principale — c'est ce qui distingue ce jeu d'un jeu de
-       plateforme, et l'ancienne mise en page le reduisait a une ligne de texte grise. -->
+  <!-- Le ticket. Choisir sa table, voir le pot, voir où finir pour gagner quoi.
+       Aucun chiffre n'est écrit ici : tout vient de src/economie.js. -->
   <div id="playzone">
     <div id="ticket">
-      <div id="ticket-haut">
-        <div class="ticket-col">
-          <div class="ticket-label">MISE</div>
-          <div class="ticket-val" id="ticket-mise">1,00 $</div>
-        </div>
-        <div class="ticket-sep"></div>
-        <div class="ticket-col">
-          <div class="ticket-label">JOUEURS</div>
-          <div class="ticket-val" id="ticket-joueurs">16</div>
-        </div>
-      </div>
+      <div class="tk-label">PICK YOUR TABLE</div>
+      <div id="paliers"></div>
       <div id="ticket-pot">
-        <div class="ticket-label">POT</div>
-        <div id="pot-val">16,00 $</div>
+        <div class="tk-label">PRIZE POOL</div>
+        <div id="pot-val">—</div>
+        <div id="pot-sub"></div>
       </div>
-      <div id="ticket-manches">
-        <div class="ticket-label">LA PARTIE</div>
-        <div id="partie-info"></div>
-      </div>
-      <div id="invite" class="stroke"><span class="key">I</span>Inviter des joueurs</div>
-      <button id="play"><span class="key">↵</span>JOUER</button>
+      <div class="tk-label">WHERE YOU FINISH</div>
+      <div id="echelle"></div>
+      <button id="play"><span class="key">↵</span>PLAY</button>
+      <div id="play-note"></div>
     </div>
   </div>
 
-  <div id="wardrobe" class="hidden"></div>
-
-  <div class="screen" id="screen-skins">
-    <h1>PERSONNAGE</h1>
-    <div class="sub">Ton avatar en course. Les personnages de collaboration sont en édition limitée.</div>
+  <div id="screen-skins">
+    <div class="head">
+      <div>
+        <h1>CHARACTER</h1>
+        <div class="sub">Your avatar on the track. Every one of them is animated by its own skeleton.</div>
+      </div>
+      <div class="spacer"></div>
+      <button id="btn-retour">BACK</button>
+    </div>
     <div class="tiles" id="skins-grid"></div>
   </div>
 
@@ -615,20 +793,8 @@
     <div class="chips" id="skin-chips"></div>
   </div>
 
-  <div class="screen" id="screen-collabs">
-    <h1>COLLABORATIONS</h1>
-    <div class="sub">Chaque collaboration amène sa communauté. Les skins sont en édition limitée et ne reviennent pas.</div>
-    <div id="collabs-list"></div>
-  </div>
-
-  <div class="screen" id="screen-shop">
-    <h1>BOUTIQUE</h1>
-    <div class="sub">Les cosmétiques premium réduisent ta commission sur les gains. C'est leur utilité — pas de la spéculation.</div>
-    <div id="shop-list"></div>
-  </div>
-
   <div id="result-card">
-    <h2 id="result-title">COURSE TERMINÉE</h2>
+    <h2 id="result-title">RACE OVER</h2>
     <div class="big" id="result-time">0.00 s</div>
     <div class="line" id="result-line">—</div>
   </div>
@@ -638,9 +804,9 @@
 <div id="pause" class="hidden">
   <div id="pause-inner">
     <h2>PAUSE</h2>
-    <button class="pbtn resume" id="pause-resume"><span>REPRENDRE</span></button>
-    <button class="pbtn opts" id="pause-settings"><span>PARAMÈTRES</span></button>
-    <button class="pbtn quit" id="pause-quit"><span>QUITTER LA PARTIE</span></button>
+    <button class="pbtn resume" id="pause-resume"><span>RESUME</span></button>
+    <button class="pbtn opts" id="pause-settings"><span>SETTINGS</span></button>
+    <button class="pbtn quit" id="pause-quit"><span>QUIT MATCH</span></button>
   </div>
 </div>
 
@@ -648,24 +814,24 @@
 <div id="settings" class="hidden">
   <div id="settings-panel">
     <div class="head">
-      <h2>Paramètres</h2>
+      <h2>Settings</h2>
       <div class="spacer"></div>
-      <button class="sbtn" id="settings-close">Fermer</button>
+      <button class="sbtn" id="settings-close">Close</button>
     </div>
 
-    <h3>Commandes</h3>
+    <h3>Controls</h3>
     <div id="keybinds"></div>
-    <div class="hint">Clique sur une touche puis appuie sur la nouvelle. Les touches sont repérées par leur POSITION sur le clavier : le réglage vaut pour AZERTY comme pour QWERTY.</div>
+    <div class="hint">Click a key, then press the new one. Keys are identified by their POSITION on the keyboard: the binding holds for AZERTY as well as QWERTY.</div>
 
-    <h3>Caméra</h3>
+    <h3>Camera</h3>
     <div id="camsettings"></div>
-    <div class="hint">« Inclinaison » règle la hauteur du point visé : la baisser fait plonger la caméra vers le sol, la monter dégage l'horizon.</div>
+    <div class="hint">“Tilt” sets the height of the aim point: lower it and the camera dives toward the ground, raise it and the horizon opens up.</div>
 
     <div class="actions">
-      <button class="sbtn" id="reset-keys">Commandes par défaut</button>
-      <button class="sbtn" id="reset-cam">Caméra par défaut</button>
+      <button class="sbtn" id="reset-keys">Reset controls</button>
+      <button class="sbtn" id="reset-cam">Reset camera</button>
       <div style="flex:1"></div>
-      <button class="sbtn primary" id="settings-ok">Terminé</button>
+      <button class="sbtn primary" id="settings-ok">Done</button>
     </div>
   </div>
 </div>
@@ -673,26 +839,47 @@
 <!-- ===== COURSE ===== -->
 <div id="race-ui" class="hidden">
   <div id="hud">
-    <div id="race-manche" class="stroke">MANCHE 1 / 3</div>
-    <div id="race-title" class="stroke">La Course</div>
-    <div id="timer" class="stroke">0.00</div>
-    <div id="sub" class="stroke">Chutes : <span id="falls">0</span> · Record : <span id="best">—</span></div>
+    <div class="pastille">Objective</div>
+    <div class="pilule" id="hud-objectif">RACE TO THE FINISH!</div>
+    <div id="race-manche" class="stroke">ROUND 1 / 3</div>
+    <div id="race-title" class="hidden">The Dash</div>
+    <div id="sub" class="stroke">Falls: <span id="falls">0</span> · Best: <span id="best">—</span></div>
+  </div>
+  <div id="hud-droite">
+    <div class="pastille">Qualified</div>
+    <div class="pilule gros" id="hud-qualifies">0/8</div>
+    <div id="chrono"><span class="coureur"></span><span id="timer">00:00:00</span></div>
   </div>
   <div id="help" class="stroke">
-    ZQSD / WASD / flèches — courir · ESPACE — sauter · MAJ ou CLIC — plonger<br/>
-    A / E — pivoter la caméra · R — recommencer · ÉCHAP — pause
+    WASD / arrows — run · SPACE — jump · SHIFT or CLICK — dive<br/>
+    A / E — rotate the camera · R — restart · ESC — pause
   </div>
   <div id="progressbar"><div class="fill" id="progress-fill"></div></div>
   <div id="dist" class="stroke"><span id="dist-text">120 m</span></div>
   <div id="perf" class="hidden">— fps</div>
-  <div id="banner"><span id="banner-text">GO !</span></div>
+  <div id="banner"><span id="banner-text">GO!</span></div>
   <div id="verdict" class="hidden">
     <div class="bande arriere"></div>
-    <div class="bande avant"><span class="txt" id="verdict-texte">QUALIFIÉ</span></div>
+    <div class="bande avant">
+      <span class="etoile gauche">★</span>
+      <span class="txt" id="verdict-texte">QUALIFIED</span>
+      <span class="etoile droite">★</span>
+    </div>
     <div class="sous" id="verdict-sous"></div>
   </div>
   <div id="countdown" class="hidden"><span id="countdown-text">3</span></div>
+  <div id="titlecard" class="hidden">
+    <div class="nom" id="titlecard-nom">THE LOGS</div>
+    <div class="obj" id="titlecard-obj">RACE TO THE FINISH!</div>
+  </div>
 </div>
+
+<!-- ===== Carrousel « Prochaine épreuve » ===== -->
+<div id="nextup" class="hidden">
+  <div id="nextup-titre">Next round…</div>
+  <div id="nextup-piste"><div id="nextup-cartes"></div></div>
+</div>
+<div id="iris" class="hidden"><div class="trou"></div></div>
 
 <script type="module" src="/src/main.js"></script>
 </body>

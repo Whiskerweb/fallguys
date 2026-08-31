@@ -34,7 +34,15 @@ port 5273) : `node diag/<script>.mjs [arguments]`. Les captures vont dans `shots
 | `perf.mjs` | Budget de rendu map par map : draw calls, triangles, temps de construction, et poids telecharge au demarrage. Les DRAW CALLS comptent plus que les triangles — un GPU avale des millions de triangles, mais chaque appel de dessin coute un aller-retour avec le pilote. Budget vise : 100 a 300. |
 | `portrait.mjs <modele>` | Fabrique le portrait de vitrine A PARTIR DU MODELE, pas d'une image generee : la tuile et l'avatar sont ainsi garantis identiques, et le portrait ne peut pas dater d'une version anterieure. |
 | `animchar.mjs [modele]` | Personnage anime par ses PROPRES clips : verifie que les clips sont bien charges (ils vivent a cote de la scene dans un glTF et se perdent en silence), que le melange repos/marche/course suit la vitesse, et que le personnage ne PEDALE PAS en l'air. Le controle en vol appelle le rig directement, avec un temoin au sol : sans lui, un rig completement fige passerait le test. |
-| `rondin.mjs` | Diagnostic du **Rondin**, en onze verdicts. Les cotes d'abord, verifiees sur les NOMBRES avant de jouer (fagot sous le saut, palissade au-dessus, passage residuel autour d'une palissade, largeur d'un trou) : un pilote qui passe peut passer par chance. Puis la mesure : le collider colle-t-il au visuel (864 rayons tires sur la paroi, tolerance 1 cm) ; les trous traversent-ils, ET SEULEMENT EUX (des temoins juste a cote doivent trouver la paroi intacte) ; la rotation EMPORTE-T-ELLE le joueur, touches lachees, a hauteur de w*R — c'est le seul test qui prouve le portage de surface, et il ne se voit sur aucune capture ; un temoin immobile sur l'ilot ; aucune culbute parasite en tombant sur le troncon le plus rapide ; un pilote traverse les quatre troncons ; et deux graines identiques donnent la meme carte. Les tirs de geometrie tournent en `?skip=fagots` : un rayon rencontre le fagot AVANT la paroi, et comptait quatre parois percees qui n'etaient qu'un anneau de batons. |
+| `fatigue.mjs` | La FATIGUE DE SAUT, en sept verdicts. Elle agit sur la HAUTEUR : on la mesure donc a l'arret, ou rien d'autre ne peut la faire varier, en sautant DES QU'ON RETOUCHE LE SOL. Cinq sauts colles doivent monter de moins en moins haut et la hauteur doit REVENIR apres un arret. Puis la vraie question, celle qui compte : la fatigue etant une modification du CONTROLEUR, elle s'applique aux quatre epreuves et raccourcit la portee sur laquelle toutes leurs cotes ont ete dimensionnees. On confronte donc le saut epuise a l'obstacle sautable le plus haut du jeu et au plus long vide a couvrir, LUS DANS LA SCENE. |
+| `dalles.mjs` | Diagnostic des **Dalles**, en douze verdicts. La question qui decide de tout — LE CHEMIN EXISTE-T-IL ? — se verifie en parcours de graphe, en connexite par les ARETES : deux dalles qui ne se touchent que par un coin ne font pas un chemin, le joueur y franchirait un vide en diagonale et le rayon de sol du controleur peut n'y rien trouver. Un damier dont le chemin n'est pas connexe est un mini-jeu impossible, et rien a l'ecran ne le dirait. Puis le collider (dessus a la cote, portee jusqu'a 5 cm du bord, le jeu de 16 cm qui est un VRAI vide), la regle et SON TEMOIN — une dalle du chemin ne cede jamais, seul test qui distingue « le mini-jeu marche » de « toutes les dalles tombent », les deux ayant la meme allure sur une capture —, le sursis mesure section par section EN TEMPS DE JEU, la memoire des trous apres une chute du joueur, et un pilote qui CONNAIT le chemin et le suit de bout en bout : il ne mesure pas la difficulte, il prouve que le chemin est physiquement praticable. |
+| `dallesvues.mjs` | Six vues fixes des **Dalles** — depart, damier de dessus, trous deja ouverts, section 2, section 3 en plan large, arrivee. Il fait TOMBER quelques dalles avant de photographier : un damier intact ne montre pas ce que le mini-jeu donne a voir, ce sont les trous qui font l'image. Contrairement au harnais de mesure, le decor Meshy est charge — c'est justement lui qu'on vient juger. |
+| `hexagone.mjs` | Diagnostic de **L'Hexagone**, en dix-huit verdicts. Deux questions distinctes, et la seconde ne se deduit pas de la premiere : la tour est-elle JUSTE, et est-elle un JEU ? Cote geometrie, le collider est l'enveloppe convexe des sommets du maillage — donc en principe il ne PEUT pas s'en ecarter, ce qui est exactement la raison de le verifier quand meme. Puis la regle qui fait le mini-jeu : pose au centre d'un hexagone on en recouvre UN, a cheval sur une arete DEUX, sur un sommet TROIS — sans quoi un joueur a cheval resterait debout sur un hexagone qu'il n'a jamais paye. Puis les deux verrous qui tiennent la carte debout : on ne remonte JAMAIS d'un etage (saut plein ET saut suivi d'un plongeon, l'echappatoire evidente), et une chute d'etage a 16,4 m/s ne declenche aucune culbute parasite. Enfin le verdict qui decide vraiment : TROIS pilotes aux comportements opposes doivent obtenir trois issues opposees. |
+| `hexavues.mjs` | Six vues fixes de **L'Hexagone** — la tour entiere, le depart, un etage de pres, des trous vus de profil, la boue, et une vue A LA VERTICALE. Cette derniere est la seule qui prouve l'orientation des hexagones : c'est elle qui a montre que le lisere dessine sur la face etait tourne de 30 degres et que la grille se lisait comme un pavage de TRIANGLES. Il CREUSE la tour avant de photographier, et laisse des hexagones EN COURS de sursis dans le champ : une tour intacte ne montre rien de ce que le mini-jeu donne a voir. |
+| `echine.mjs` | **Le Rondin.** Neuf verdicts sur la nouvelle échine : le collider n'est jamais sous le visuel, aucun trou non voulu, la lèvre de la coque passe sous l'eau, les cotes d'arête et de trou tiennent face au saut, les barils sont une fonction pure du temps, et le sol est continu du départ à l'arrivée. Les caméras sont dérivées de `__sections()`, jamais écrites en dur. Remplace `rondin.mjs`, qui mesurait l'ancien cylindre tournant. |
+| `survol.mjs` | **Séquence d'entrée, sur les quatre épreuves.** Aucune coordonnée NaN, le rail reste au-dessus du plan de mort, il progresse bien du départ vers l'arrivée, et le carrousel s'arrête sur l'épreuve réellement tirée. Capture trois images par épreuve : carrousel, survol, ligne de départ après la coupe. |
+| `cartes.mjs` | **Vignettes du carrousel**, rendues DEPUIS les epreuves. Elles avaient d'abord ete dessinees par un generateur d'images : jolies, mais elles ne montraient pas le terrain qu'on va jouer, et une vignette qui ment sur ce qui arrive est pire qu'une vignette absente puisqu'elle est crue. Le cadrage emprunte le rail du survol plutot que d'en inventer un second qui divergerait. **A relancer apres toute modification visible d'une epreuve.** |
+| `lr_jeu.mjs` | **Captures a hauteur de joueur, avec la camera du JEU**, en huit points du Rondin. Tous les autres apercus placent la camera a la main, loin et haut : ils montrent la geometrie, pas la partie. Trois versions du decor ont ete validees sur ces vues-la puis jetees apres essai — une version ne montrait QUE de l'eau jusqu'a l'horizon, ce qui ne se voyait sur aucun apercu. **A regarder avant de declarer un decor fini.** |
 
 `viewer.html` (a la racine) est la page utilisee par `voirglb.mjs` :
 `http://127.0.0.1:5273/viewer.html?m=mon-modele.glb`.
@@ -76,3 +84,81 @@ balayait six cotes par troncon pour verifier les percements : un trou fait 2,2 m
 aucune sonde n'en a touche un seul. Le test annoncait « aucun trou bouche » sur zero mesure,
 c'est-a-dire rien du tout. On tire desormais AU DROIT de chaque trou, a sa cote exacte, avec
 des temoins juste a cote. Un test qui ne peut pas echouer ne prouve rien.
+
+**Un test qui vise a cote mesure autre chose.** La premiere version de `dalles.mjs` tirait
+ses rayons de « vide » dans le jeu entre deux dalles, y compris devant le premier rang et
+derriere le dernier — c'est-a-dire sur les paliers de pierre, qui sont pleins et le
+doivent. Elle signalait donc sept sols fantomes qui etaient exactement le sol qu'on veut y
+trouver. Un test qui accuse la scene de faire ce qu'on lui demande ne mesure rien : les
+tirs sont desormais restreints aux jeux INTERIEURS au damier.
+
+**Le temps du jeu n'est pas le temps de la montre.** Toujours dans `dalles.mjs`, le sursis
+d'une dalle mesurait 0,87 s pour 0,45 s annonces. Ni la scene ni le reglage n'etaient en
+cause : le navigateur headless rend a une dizaine d'images par seconde, la boucle de jeu
+borne son `dt`, et le temps SIMULE avance donc deux fois moins vite que la montre. Tout
+chronometrage d'un comportement de scene se prend sur `runTime`, jamais sur
+`performance.now()`. Corollaire : il faut attendre la fin du DECOMPTE avant de mesurer,
+`runTime` ne courant pas pendant celui-ci.
+
+**Attendre que ca se stabilise peut tout rater.** La meme fonction laissait d'abord une
+demi-seconde « le temps que le joueur se pose » avant de commencer son releve. Les
+sections 2 et 3 ont des sursis de 0,30 s et 0,20 s : leur dalle etait deja tombee quand le
+releve demarrait, le tremblement n'etait jamais vu, la mesure revenait nulle — et les deux
+sections les plus dures n'etaient tout simplement pas mesurees, sans qu'aucun verdict ne
+passe au rouge pour le dire.
+
+**Un ilot n'est pas un socle.** `assets.get` pose la BASE du modele a la cote demandee.
+Les arbres des Dalles etaient plantes a 0,24 fois la hauteur de l'ilot, c'est-a-dire au
+milieu de son rocher, ou ils etaient entierement enterres. Rien ne le signalait : les
+captures montraient simplement des ilots peles, et vingt-deux modeles etaient charges pour
+n'etre jamais vus.
+
+**Le harnais a besoin d'un serveur qui ne bouge pas.** `DALLES_PORT=5274 node
+diag/dalles.mjs` vise un autre port que celui du dev — typiquement `npm run build` puis
+`npx vite preview --port 5274`. Quand quelqu'un d'autre edite le depot, le rechargement a
+chaud de Vite recharge la page EN PLEINE MESURE : l'arene disparait sous le harnais, tous
+les rayons reviennent vides, et les verdicts accusent la scene de pannes qui n'ont pas eu
+lieu. Une execution a ainsi annonce « 0 dalle sondee », « le jeu n'est pas un vide » et
+« une dalle du chemin CEDE » — trois rouges, aucun defaut. D'ou le RAYON TEMOIN tire sur
+la plateforme de depart avant toute mesure : un instrument qui ne voit pas le sol sous ses
+pieds n'a pas le droit de condamner quoi que ce soit.
+
+**Mesurer la consequence plutot que la cause.** La premiere version de `fatigue.mjs`
+jugeait la fatigue de saut sur la PORTEE. Or la portee depend aussi de la vitesse au
+decollage, jamais deux fois la meme : elle a lu 5,17 puis 4,56 puis 5,13 m sur des sauts
+tous a fatigue NULLE. Le bruit ressemblait trait pour trait a la mecanique cherchee, et
+trois verdicts sont passes au rouge sans qu'aucun defaut existe. On mesure desormais la
+hauteur, qui est la grandeur sur laquelle la mecanique agit vraiment.
+
+**Un pilote qui se repose ne mesure pas une rafale.** La meme version attendait d'etre
+relancee a 7 m/s entre deux sauts, ce qui laissait plus d'une seconde au sol — assez pour
+tout recuperer. Elle mesurait un joueur repose et concluait que la fatigue n'existait pas.
+
+**`FEELLAB_PORT` est la convention du dossier.** `npm run build` puis `npx vite preview
+--port 5274`, et `FEELLAB_PORT=5274 node diag/<harnais>.mjs`. Indispensable des que
+quelqu'un d'autre edite le depot : le rechargement a chaud de Vite recharge la page EN
+PLEINE MESURE, l'arene disparait sous le harnais, et les verdicts accusent la scene de
+pannes qui n'ont pas eu lieu.
+
+
+## Trois pieges de plus, tous rencontres sur L'Hexagone
+
+**Un pilote qui compte en IMAGES mesure la machine, pas le jeu.** Le premier pilote de
+`hexagone.mjs` avancait sa spirale d'un pas par image. Le navigateur sans fenetre tourne
+autour de dix images par seconde : il se tournait les pouces a un demi-metre par seconde et
+tombait sur place, ce qui donnait de la carte un verdict entierement faux. Tout ce qu'un
+harnais fait avancer doit l'etre par le TEMPS ecoule, jamais par le nombre d'images.
+
+**Un pilote doit utiliser l'information que la carte AFFICHE.** Le deuxieme pilote econome
+attendait sur une horloge fixe sans regarder la dalle sous ses pieds : il tenait 11,8 s,
+soit MOINS que le pilote qui court, et concluait que l'adresse ne payait pas. En lui donnant
+l'avancement du sursis — la meme information que l'enfoncement et le blanchiment donnent a
+l'oeil du joueur — il est passe a 75 s, la duree complete. Un pilote aveugle ne mesure pas
+la strategie, il mesure sa propre cecite.
+
+**Le solveur se met en travers d'une mesure posee.** Le verdict « toute la capsule paie »
+posait le personnage pile sur un sommet ou trois hexagones se rencontrent, et lisait QUATRE
+hexagones : le solveur expulse une capsule coincee la, et en quelques images le corps avait
+derive jusqu'a en toucher un quatrieme. La mesure decrivait ce voyage, pas la regle. On
+interroge donc une sonde NON DESTRUCTIVE de la scene ; que cette sonde s'applique bien au
+vrai corps est prouve ailleurs, par les pilotes, qui ne consomment le sol que par ce chemin.

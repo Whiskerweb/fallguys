@@ -238,5 +238,40 @@
     "previewId": "01a05258-60d1-752d-8462-3f20e7b9d4c3",
     "refineId": "01a05259-9734-774e-b289-fa4af68f5b83",
     "done": true
+  },
+  "sky-island-grass": {
+    "previewId": "01a056eb-8a57-74e6-b665-e9a45502cd7e",
+    "refineId": "01a056ec-c41c-76c0-92cf-6830f7587e0f",
+    "done": true
+  },
+  "rope-bridge-post": {
+    "previewId": "01a05704-b53a-7343-95d1-93d99ed1f71a",
+    "refineId": "01a05706-0e9a-7123-a868-ac9c72bfe833",
+    "done": true
+  },
+  "jungle-totem": {
+    "previewId": "01a05704-b531-730d-b28e-825800ecaad7",
+    "refineId": "01a05706-0e99-719e-819a-fc5e81b5c0b4",
+    "done": true
+  },
+  "hanging-vines": {
+    "previewId": "01a05704-b53a-7207-880c-c566ec9c62ad",
+    "refineId": "01a05706-1010-74d1-818b-45c61ca75af5",
+    "done": true
+  },
+  "canopy-tree-tall": {
+    "previewId": "01a05704-b534-76e8-bc1a-535edd6d5d59",
+    "refineId": "01a05706-10c7-75ba-adbc-d2dd00059484",
+    "done": true
+  },
+  "candy-peak-pink": {
+    "previewId": "01a057c3-1055-7634-be55-beb583f0338b",
+    "refineId": "01a057c4-266f-74a3-9dcf-2848ac99f145",
+    "done": true
+  },
+  "berry-bush-pink": {
+    "previewId": "01a057c3-105d-7082-b731-6d2381976ec9",
+    "refineId": "01a057c4-6bda-71d9-9cef-3bbb1610a94d",
+    "done": true
   }
 }

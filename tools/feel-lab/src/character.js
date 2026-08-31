@@ -10,6 +10,15 @@ import { createRiggedCharacter } from './rig.js';
 const RADIUS = 0.45;
 const HALF_HEIGHT = 0.35;          // hauteur totale = 2*HALF_HEIGHT + 2*RADIUS = 1.6 m
 const FOOT = HALF_HEIGHT + RADIUS;
+/**
+ * Plafonds du garde-fou de vitesse (voir `limiterVitesse`). Dérivés du réglage, pas
+ * choisis à l'œil : 2,2 fois la vitesse de course laisse passer le plongeon (11,5 m/s) et
+ * tout élan pris sur une surface qui défile, mais coupe net les expulsions du solveur.
+ */
+const MAX_HORIZ = TUNING.maxSpeed * 2.2;
+const MAX_MONTEE = 18;
+const MAX_CHUTE = 55;
+const MAX_ROT = 14;
 /** Frottement du collider en adherence normale. Sert aussi de base a la glisse. */
 const FRICTION = 0.25;
 
@@ -175,6 +184,8 @@ export class Character {
     this.squashVel = 0;
     this.coyote = 0;
     this.bufferedJump = 0;
+    /** Fatigue de saut, 0 (frais) a 1 (epuise). Voir TUNING.jumpFatigue. */
+    this.fatigue = 0;
     this.stateTimer = 0;
     this.grounded = false;
     this.wasGrounded = false;
@@ -221,6 +232,9 @@ export class Character {
     this._glisseAppliquee = 0;
     // Vitesse de la surface sous les pieds ({vx, vz}), ou null si elle est immobile.
     this.surface = null;
+    // Un joueur remis en jeu repart FRAIS. Le contraire punirait la chute deux fois : par
+    // le temps perdu, puis par un premier saut mou dont il ne comprendrait pas la cause.
+    this.fatigue = 0;
   }
 
   /**
@@ -275,6 +289,48 @@ export class Character {
 
   bump(amount) {
     this.squashVel += amount;
+  }
+
+  /**
+   * Garde-fou de vitesse, appliqué APRÈS chaque pas de simulation.
+   *
+   * Un corps cinématique qui recouvre un corps dynamique est séparé par le solveur en une
+   * seule image, et la vitesse d'expulsion est proportionnelle à la profondeur du
+   * recouvrement — elle n'a aucune borne. En pratique le joueur qui touchait un baril ou
+   * se coinçait contre une arête partait à plusieurs dizaines de mètres par seconde,
+   * franchissait le décor et atterrissait après la ligne d'arrivée. C'est le pire bug
+   * qu'on ait eu : il ne casse pas la manche, il la GAGNE.
+   *
+   * On traite les causes ailleurs — les colliders des barils ne tournent plus, ils
+   * apparaissent hors de la zone jouable — mais aucune de ces corrections ne peut prouver
+   * qu'il ne reste pas un cas. Ce plafond, lui, le prouve : il porte sur la vitesse
+   * elle-même, donc il vaut quelle que soit la géométrie qui l'a produite.
+   *
+   * Les plafonds sont assez hauts pour ne jamais gêner un jeu normal — 2,2 fois la vitesse
+   * de course à plat, et de quoi encaisser une longue chute. Un plafond serré aurait bridé
+   * le plongeon et les fins de descente.
+   */
+  limiterVitesse() {
+    const v = this.body.linvel();
+    const plat = Math.hypot(v.x, v.z);
+    let vx = v.x, vy = v.y, vz = v.z, corrige = false;
+    if (plat > MAX_HORIZ) {
+      const k = MAX_HORIZ / plat;
+      vx *= k; vz *= k; corrige = true;
+    }
+    if (vy > MAX_MONTEE) { vy = MAX_MONTEE; corrige = true; }
+    if (vy < -MAX_CHUTE) { vy = -MAX_CHUTE; corrige = true; }
+    if (corrige) this.body.setLinvel({ x: vx, y: vy, z: vz }, true);
+
+    // Une expulsion violente met aussi le corps en rotation folle : la culbute qui suit ne
+    // se termine plus, parce que le personnage n'arrive jamais à se relever.
+    const w = this.body.angvel();
+    const norme = Math.hypot(w.x, w.y, w.z);
+    if (norme > MAX_ROT) {
+      const k = MAX_ROT / norme;
+      this.body.setAngvel({ x: w.x * k, y: w.y * k, z: w.z * k }, true);
+    }
+    return corrige;
   }
 
   update(dt, input, camYaw) {
@@ -358,6 +414,8 @@ export class Character {
     // --- Coyote time et buffer de saut ---
     this.coyote = this.grounded ? T.coyoteTime : Math.max(0, this.coyote - dt);
     this.bufferedJump = input.jump ? T.jumpBuffer : Math.max(0, this.bufferedJump - dt);
+    // La fatigue ne se dissipe qu'AU SOL : voir TUNING.jumpRecovery.
+    if (this.grounded) this.fatigue = Math.max(0, this.fatigue - dt / T.jumpRecovery);
 
     let vx = v.x, vy = v.y, vz = v.z;
 
@@ -399,13 +457,28 @@ export class Character {
 
       // Saut
       if (this.bufferedJump > 0 && this.coyote > 0) {
-        vy = Math.sqrt(2 * T.gravity * T.jumpHeight);
+        /*
+         * La fatigue COURANTE decide de ce saut-ci ; le cout ne s'ajoute qu'apres. Le
+         * premier saut est donc toujours plein, et c'est ce qui rend la mecanique lisible :
+         * ce n'est jamais le saut qu'on demande qui est ampute, c'est le suivant.
+         */
+        const puissance = 1 - this.fatigue * (1 - T.jumpFatigueFloor);
+        vy = Math.sqrt(2 * T.gravity * T.jumpHeight * puissance);
+        this.fatigue = Math.min(1, this.fatigue + T.jumpFatigue);
         this.coyote = 0;
         this.bufferedJump = 0;
-        this.squash = T.stretchOnJump;
-        this.squashVel += 5;
+        /*
+         * L'ETIREMENT ET LA POUSSIERE SUIVENT LA PUISSANCE.
+         *
+         * Une mecanique qui change la portee sans rien montrer est inacceptable dans un
+         * jeu ou l'on mise : le joueur raterait un saut sans jamais savoir pourquoi. Un
+         * saut fatigue s'etire donc moins et souleve moins de poussiere — le signal est
+         * dans le geste, la ou le joueur regarde deja, et non dans une jauge a surveiller.
+         */
+        this.squash = 1 + (T.stretchOnJump - 1) * puissance;
+        this.squashVel += 5 * puissance;
         this.state = State.Airborne;
-        this.dust.burst(this.position.clone().setY(this.position.y - FOOT), 0.6);
+        this.dust.burst(this.position.clone().setY(this.position.y - FOOT), 0.6 * puissance);
         sfx.jump();
       }
 

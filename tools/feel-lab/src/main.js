@@ -6,15 +6,18 @@ import { createWorld, GRADE } from './world.js';
 import { assets } from './assets.js';
 import { loadExternalTextures } from './textures.js';
 import { MINIGAMES, minigame, graineDeManche, tirerParcours } from './scenes/index.js';
+import { construireSurvol, SURVOL_DUREE } from './survol.js';
 import { buildLobbyScreen, LOBBY, SHOWCASE_POS, SHOWCASE_LOOK } from './scenes/lobby.js';
 import { Character } from './character.js';
-import { cosmetics, SKINS, MODELS } from './cosmetics.js';
+import { cosmetics, MODELS } from './cosmetics.js';
 import { sfx, unlockAudio, audio } from './audio.js';
 import { RIG, RIG_RANGES } from './rig.js';
 import { settings, ACTIONS, CAMERA_RANGES, CAMERA_LABELS, keyName } from './settings.js';
-import { applyIcons, buildSkinsScreen, buildCollabsScreen, buildShopScreen, wireTabs } from './lobbyui.js';
+import { applyIcons, buildSkinsScreen, buildTicket, majBarre, wireEcrans } from './lobbyui.js';
+import { table, portefeuille, progression, miseChoisie, ordinal, XP_MANCHE, XP_VICTOIRE, montant } from './economie.js';
 
 const el = (id) => document.getElementById(id);
+
 
 /**
  * Manches par partie. Trois, comme la reference : assez pour qu'une mauvaise manche ne
@@ -23,13 +26,44 @@ const el = (id) => document.getElementById(id);
  */
 const NB_MANCHES = 3;
 
+/**
+ * SURVIVANTS PAR MANCHE, repris de `MatchConfiguration.Default` (src/Fallguys.Rules).
+ *
+ * Seize joueurs, puis huit, puis quatre, puis un. Le HUD affiche « Qualifies n/8 » et non
+ * un nombre decoratif : le compteur de la reference dit combien de places restent, et
+ * c'est cette information-la qui rend la course tendue. En solo il passe simplement de
+ * 0/8 a 1/8 — le chiffre est juste, il n'y a personne d'autre pour le faire monter.
+ */
+const SURVIVANTS = [8, 4, 1];
+
+/**
+ * DUREES DE L'ENTREE EN MANCHE, relevees au chronometre sur la reference.
+ *
+ * L'enchainement compte autant que chaque etape : carrousel, volet, survol, puis coupe
+ * FRANCHE sur la ligne de depart. La coupe est le seul moment sans transition de toute la
+ * sequence, et c'est ce qui la rend nette — apres sept secondes de mouvement continu,
+ * l'arret sec dit « maintenant c'est a toi ».
+ */
+const CARROUSEL_DUREE = 3.0;
+const IRIS_DUREE = 0.5;
+/** Duree d'un chiffre du decompte. Trois chiffres, puis GO. */
+const DECOMPTE_PAS = 0.9;
+const GO_DUREE = 1100;
+
+/** Chronometre au format MM:SS:CC, comme la reference. */
+function formaterChrono(t) {
+  const cs = Math.max(0, Math.floor(t * 100));
+  const deux = (n) => String(n).padStart(2, '0');
+  return `${deux(Math.floor(cs / 6000))}:${deux(Math.floor(cs / 100) % 60)}:${deux(cs % 100)}`;
+}
+
 function fatal(err) {
   console.error(err);
   const box = el('loading');
   box.style.display = 'grid';
   box.style.padding = '40px';
   box.style.textAlign = 'center';
-  box.textContent = 'Erreur : ' + (err?.message ?? err);
+  box.textContent = 'Error: ' + (err?.message ?? err);
 }
 
 // ---------- entrées ----------
@@ -66,7 +100,15 @@ addEventListener('keydown', (e) => {
   }
   if (paused) return;
 
-  if (e.code === 'Enter' && game?.mode === 'lobby') game.startRace();
+  // La sequence d'entree se saute. Elle dure sept secondes ; a la dixieme partie d'affilee
+  // c'est du peage. La sauter ne change rien a ce qui va etre joue — l'epreuve et la
+  // graine sont tirees avant qu'elle ne commence.
+  if (game?.intro) { game.sauterIntro(); return; }
+
+  // Entree fait exactement ce que fait le bouton : une PARTIE. Elle appelait
+  // `startRace()`, qui laisse `partie` a null et ne joue donc qu'une seule manche —
+  // deux chemins pour la meme action, l'un des deux se trompant de jeu.
+  if (e.code === 'Enter' && game?.mode === 'lobby') game.startEpisode();
   if (settings.matches(e.code, 'restart') && game?.mode === 'racing') game.restart();
   if (e.code === 'KeyH') gui.show(gui._hidden);
   if (e.code === 'KeyP') el('perf').classList.toggle('hidden');
@@ -94,14 +136,14 @@ function pollInput(dt) {
 // ---------- réglages ----------
 let gui;
 function buildGui(getWorld) {
-  gui = new GUI({ title: 'Game feel — H pour masquer' });
+  gui = new GUI({ title: 'Game feel — H to hide' });
   const groups = {
-    'Déplacement': ['maxSpeed', 'groundAccel', 'airAccel', 'groundFriction', 'turnSpeed'],
-    'Saut': ['gravity', 'jumpHeight', 'coyoteTime', 'jumpBuffer', 'fallMultiplier'],
-    'Plongeon': ['diveForward', 'diveUp', 'diveRecovery'],
-    'Culbute': ['tumbleJolt', 'tumbleRecovery', 'getUpDuration'],
+    'Movement': ['maxSpeed', 'groundAccel', 'airAccel', 'groundFriction', 'turnSpeed'],
+    'Jump': ['gravity', 'jumpHeight', 'coyoteTime', 'jumpBuffer', 'fallMultiplier'],
+    'Dive': ['diveForward', 'diveUp', 'diveRecovery'],
+    'Tumble': ['tumbleJolt', 'tumbleRecovery', 'getUpDuration'],
     'Squash & stretch': ['squashOnLand', 'stretchOnJump', 'squashSpring', 'squashDamping'],
-    'Caméra': ['camLookAhead'],   // le reste appartient au panneau Parametres
+    'Camera': ['camLookAhead'],   // le reste appartient au panneau Parametres
   };
   for (const [name, list] of Object.entries(groups)) {
     const folder = gui.addFolder(name);
@@ -111,7 +153,7 @@ function buildGui(getWorld) {
         if (k === 'gravity') getWorld().gravity = { x: 0, y: -TUNING.gravity, z: 0 };
       });
     }
-    if (name !== 'Déplacement' && name !== 'Saut') folder.close();
+    if (name !== 'Movement' && name !== 'Jump') folder.close();
   }
   // Placé en premier et ouvert : c'est le réglage le plus subjectif, donc celui
   // qui doit être sous la main quand on juge le rendu.
@@ -128,7 +170,7 @@ function buildGui(getWorld) {
   }
   rigFolder.close();
 
-  const audioFolder = gui.addFolder('Son');
+  const audioFolder = gui.addFolder('Sound');
   audioFolder.add(audio, 'enabled').name('sons actifs');
   audioFolder.close();
 
@@ -143,7 +185,7 @@ function buildGui(getWorld) {
     const json = JSON.stringify(TUNING, null, 2);
     navigator.clipboard?.writeText(json);
     console.log('--- Constantes a transposer dans Unity ---\n' + json);
-  } }, 'copier').name('Copier les réglages');
+  } }, 'copier').name('Copy settings');
   gui.close();
 }
 
@@ -247,11 +289,6 @@ function onCosmeticChange() {
   }
 }
 
-function wireWardrobeButton() {
-  // La barre flottante de garde-robe est remplacee par l'ecran Personnages, plus complet.
-  el('wardrobe').classList.add('hidden');
-}
-
 function wireSettings() {
   el('btn-settings').addEventListener('click', openSettings);
   el('settings-close').addEventListener('click', closeSettings);
@@ -263,51 +300,6 @@ function wireSettings() {
     if (game) game.applyCameraSettings();
   });
   el('settings').addEventListener('click', (e) => { if (e.target.id === 'settings') closeSettings(); });
-}
-
-// ---------- garde-robe ----------
-function buildWardrobe() {
-  const panel = el('wardrobe');
-  panel.innerHTML = '';
-
-  // Choix du modele. On n'affiche que les personnages REELLEMENT charges : la galerie
-  // se remplit au fur et a mesure des generations, sans qu'un bouton mort n'apparaisse.
-  for (const m of MODELS.filter((m) => assets.has(m.id))) {
-    const b = document.createElement('button');
-    b.className = 'modelbtn' + (m.id === cosmetics.model ? ' on' : '');
-    b.textContent = m.name + (m.rigged ? '' : ' (figé)');
-    b.title = m.rigged ? 'Personnage animé par squelette' : 'Sans squelette : animé par le corps entier';
-    b.addEventListener('click', () => {
-      cosmetics.setModel(m.id);
-      sfx.click();
-      buildWardrobe();
-      // Le lobby est la vitrine des cosmetiques : il doit montrer ce qu'on selectionne.
-      game?.lobby?.rebuildAvatar?.();
-      // En course, le personnage est recree sur place.
-      if (game?.mode !== 'lobby' && game?.character) {
-        const at = game.character.position.clone();
-        game.character.dispose();
-        game.character = new Character(RAPIER, game.arena.world, game.view.scene, at);
-      }
-    });
-    panel.appendChild(b);
-  }
-  const sep = document.createElement('div');
-  sep.style.cssText = 'width:2px;background:rgba(255,255,255,.18);margin:0 4px;border-radius:1px';
-  panel.appendChild(sep);
-  for (const skin of SKINS) {
-    const b = document.createElement('button');
-    b.className = 'swatch' + (skin.hex === cosmetics.hex ? ' on' : '');
-    b.style.background = '#' + skin.hex.toString(16).padStart(6, '0');
-    b.title = skin.name;
-    b.addEventListener('click', () => {
-      cosmetics.set(skin.hex);
-      sfx.click();
-      for (const other of panel.children) other.classList.remove('on');
-      b.classList.add('on');
-    });
-    panel.appendChild(b);
-  }
 }
 
 // ---------- jeu ----------
@@ -325,7 +317,8 @@ class Game {
     this.character = null;
     this.runTime = 0;
     this.falls = 0;
-    this.crowns = Number(localStorage.getItem('tumble-crowns')) || 0;
+    /* Mise engagee sur la partie en cours, en micro-USDC. Fixee au lancement. */
+    this.mise = 0;
     this.best = null;   // charge par mini-jeu au depart de la manche
     this.finishTimer = 0;
     this.accumulator = 0;
@@ -335,31 +328,12 @@ class Game {
     this.desired = new THREE.Vector3();
 
     view.scene.add(lobby.group);
-    this.buildPartieInfo();
-    el('play').addEventListener('click', () => { sfx.click(); this.startEpisode(); });
+    // Le bouton JOUER est câblé par `buildTicket()`, qui seul connaît la mise choisie.
     this.enterLobby(false);
   }
 
   /** Les scripts de diagnostic adressent l'arene courante sous son ancien nom. */
   get course() { return this.arena; }
-
-  /**
-   * Annonce le parcours de la prochaine partie dans le lobby.
-   * Les epreuves sont tirees au DEPART de la partie, pas ici : afficher a l'avance ce
-   * qui va tomber donnerait au joueur le temps de renoncer a une epreuve qu'il n'aime
-   * pas, ce qui est exactement ce que la structure cherche a empecher.
-   */
-  buildPartieInfo() {
-    const box = el('partie-info');
-    if (!box) return;
-    box.innerHTML = '';
-    for (let i = 0; i < NB_MANCHES; i++) {
-      const pastille = document.createElement('div');
-      pastille.className = 'manche-pastille' + (i === NB_MANCHES - 1 ? ' finale' : '');
-      pastille.textContent = i === NB_MANCHES - 1 ? 'FINALE' : `MANCHE ${i + 1}`;
-      box.appendChild(pastille);
-    }
-  }
 
   /** Detruit l'arene courante : monde physique, geometries, et retrait de la scene. */
   releaseArena() {
@@ -398,7 +372,15 @@ class Game {
     this.view.scene.fog = null;
     el('lobby-ui').classList.remove('hidden');
     el('race-ui').classList.add('hidden');
-    el('crowns').textContent = String(this.crowns);
+    // Une partie peut etre quittee en pleine sequence d'entree : sans cela le carrousel
+    // resterait affiche par-dessus le lobby, et il couvre tout l'ecran.
+    this.intro = null;
+    this.survol = null;
+    el('nextup').classList.add('hidden');
+    el('iris').className = 'hidden';
+    el('titlecard').className = 'hidden';
+    el('race-ui').classList.remove('presentation');
+    majBarre();
     this.view.camera.position.copy(this.lobby.cameraPos);
     this.view.camera.fov = LOBBY.cameraFov;
     this.view.camera.updateProjectionMatrix();
@@ -414,10 +396,36 @@ class Game {
    * Lance une PARTIE : une suite de manches tirees au sort, jouees d'affilee.
    * Le joueur ne choisit pas son terrain — c'est le principe de la structure.
    */
-  startEpisode() {
+  startEpisode(mise = null) {
+    /*
+     * La mise est DEBITEE au lancement, pas a l'arrivee.
+     *
+     * C'est ce qui fait la difference entre un bouton et un engagement : l'argent quitte
+     * le portefeuille avant la premiere manche, et abandonner en cours de partie le perd.
+     * Le gain, lui, est credite a la fin selon le rang atteint.
+     */
+    const engagee = mise ?? miseChoisie();
+    if (portefeuille.solde < engagee) return;
+    portefeuille.debiter(engagee);
+    this.mise = engagee;
     this.partie = { parcours: tirerParcours(NB_MANCHES), index: 0, temps: [], chutes: 0 };
-    this.crownsGagnees = 0;
     this.startRace();
+  }
+
+  /**
+   * Credite le gain du rang atteint et fait avancer la progression.
+   *
+   * Le rang vient de la partie, pas d'une constante : le prototype est solo, donc il n'y
+   * a personne pour prendre la premiere place et le joueur qui va au bout finit toujours
+   * 1er. Le CALCUL, lui, est celui du noyau de regles — le jour ou quinze adversaires
+   * arrivent, seul le rang passe change.
+   */
+  reglerPartie(rang) {
+    if (!this.mise) return 0;
+    const gain = table(this.mise).parRang[rang - 1] ?? 0;
+    if (gain > 0) portefeuille.crediter(gain);
+    this.mise = 0;
+    return gain;
   }
 
   /** Enchaine sur la manche suivante, ou termine la partie si c'etait la finale. */
@@ -460,13 +468,18 @@ class Game {
     this.arena.group.visible = true;
     el('race-title').textContent = jeu.name;
     const n = (this.partie?.index ?? 0) + 1, total = this.partie?.parcours.length ?? 1;
-    el('race-manche').textContent = n === total ? 'FINALE' : `MANCHE ${n} / ${total}`;
+    el('race-manche').textContent = n === total ? 'FINAL' : `ROUND ${n} / ${total}`;
     el('race-manche').classList.toggle('finale', n === total);
     // Ambiance : chaque epreuve impose son ciel. Une map spatiale gardee sous le ciel
     // bleu du parcours perdrait tout ce qui fait son atmosphere.
     this.applyAmbiance(this.arena.ambiance ?? 'jour');
     el('lobby-ui').classList.add('hidden');
-    el('wardrobe').classList.add('hidden');
+    // Accès FACULTATIF. Le panneau de garde-robe a été retiré du lobby ; l'appel restait,
+    // et `startRace` levait donc une TypeError avant même de construire l'arène — plus une
+    // seule manche ne démarrait. Un élément d'interface qu'une refonte peut supprimer se
+    // lit au conditionnel : la boucle de jeu ne doit pas dépendre de la présence d'un
+    // panneau décoratif.
+    el('wardrobe')?.classList.add('hidden');
     el('result-card').classList.remove('show');
     el('race-ui').classList.remove('hidden');
     el('verdict').className = 'hidden';
@@ -475,10 +488,186 @@ class Game {
     this.camTarget.set(p.x, p.y + settings.camera.height, p.z + settings.camera.distance);
     this.ySlow = undefined;
     this.view.camera.fov = settings.camera.fov;
-    // Depart bloque : en multijoueur, les 16 joueurs doivent partir au meme instant.
-    // Le prototype respecte deja cette contrainte pour que le feel soit representatif.
-    this.countdown = 3.99;
-    el('countdown').classList.remove('hidden');
+
+    // HUD : l'objectif vient de l'epreuve, le compteur de places de nos propres regles.
+    const manche = this.partie?.index ?? 0;
+    // L'arene peut imposer son objectif ; sinon celui du registre fait foi. Les deux
+    // existent parce qu'une carte a parfois besoin de nuancer la phrase du catalogue.
+    el('hud-objectif').textContent = this.arena.objectif ?? jeu.objectif ?? 'COURIR À L’ARRIVÉE !';
+    this.survivants = SURVIVANTS[Math.min(manche, SURVIVANTS.length - 1)];
+    el('hud-qualifies').textContent = `0/${this.survivants}`;
+    el('timer').textContent = formaterChrono(0);
+
+    this.demarrerIntro(jeu);
+  }
+
+  /**
+   * ENTREE EN MANCHE : carrousel, volet iris, survol, puis coupe franche.
+   *
+   * L'arene est DEJA construite quand la sequence demarre, et l'epreuve DEJA tiree. La
+   * sequence ne decide de rien : elle raconte une decision prise. C'est ce qui permet de
+   * la sauter d'une touche sans changer d'un iota ce qui va etre joue — et c'est aussi ce
+   * qui la rend honnete, puisqu'un carrousel qui tirerait au sort a l'affichage serait un
+   * generateur aleatoire de plus, exactement ce que la spec interdit.
+   */
+  demarrerIntro(jeu) {
+    // `?nointro` : les harnais n'ont pas a subir sept secondes de presentation avant chaque
+    // mesure, et certains enchainent des dizaines de manches. Le drapeau ne change rien a
+    // ce qui est joue — l'epreuve et la graine sont deja tirees — donc une mesure faite
+    // sans intro reste une mesure du vrai jeu.
+    if (new URLSearchParams(location.search).has('nointro')) {
+      this.intro = null;
+      this.survol = null;
+      el('nextup').classList.add('hidden');
+      el('iris').className = 'hidden';
+      el('titlecard').className = 'hidden';
+      el('race-ui').classList.remove('presentation');
+      this.snapCamera = true;
+      this.countdown = 3 * DECOMPTE_PAS;
+      el('countdown').classList.remove('hidden');
+      return;
+    }
+    this.survol = construireSurvol(this.arena);
+    this.intro = { phase: 'carrousel', t: 0, jeu };
+    this.countdown = 0;
+    el('countdown').classList.add('hidden');
+    el('titlecard-nom').textContent = jeu.name.toUpperCase();
+    el('titlecard-obj').textContent = this.arena.objectif ?? jeu.objectif ?? 'COURIR À L’ARRIVÉE !';
+    el('titlecard').className = 'hidden';
+    el('race-ui').classList.add('presentation');
+    this.batirCarrousel(jeu);
+    el('nextup').classList.remove('hidden');
+    el('iris').className = 'hidden';
+  }
+
+  /**
+   * Remplit le carrousel et lance son defilement.
+   *
+   * Les cartes sont posees dans l'ordre du catalogue, repete assez de fois pour que le
+   * defilement ait de quoi durer, et on s'arrete sur l'occurrence de l'epreuve tiree dans
+   * le DERNIER tour. Repeter le catalogue plutot que de tirer des cartes au hasard evite
+   * qu'une carte n'apparaisse deux fois cote a cote, ce qui trahirait immediatement que le
+   * ruban est fabrique pour l'occasion.
+   */
+  batirCarrousel(jeu) {
+    const piste = el('nextup-cartes');
+    piste.innerHTML = '';
+    piste.style.transition = 'none';
+    piste.style.transform = 'translateX(0)';
+
+    const TOURS = 3;
+    const suite = [];
+    for (let t = 0; t < TOURS; t++) suite.push(...MINIGAMES);
+    const cible = (TOURS - 1) * MINIGAMES.length + MINIGAMES.findIndex((m) => m.id === jeu.id);
+
+    const cartes = suite.map((m, i) => {
+      const c = document.createElement('div');
+      c.className = 'carte';
+      const v = document.createElement('div');
+      v.className = 'vignette';
+      // Vignette peinte si elle existe, degrade bati sur l'accent de l'epreuve sinon. Le
+      // meme contrat de repli gracieux que les icones du lobby : un fichier absent ne doit
+      // jamais laisser un trou blanc a l'ecran.
+      v.style.background = `linear-gradient(150deg, ${m.accent}, #2a1b45)`;
+      v.style.backgroundSize = 'cover';
+      const img = new Image();
+      img.onload = () => { v.style.background = `url(${img.src}) center/cover`; };
+      img.src = `/icons/map-${m.id}.png`;
+      const n = document.createElement('div');
+      n.className = 'nom';
+      n.textContent = m.name;
+      c.append(v, n);
+      piste.appendChild(c);
+      if (i === cible) c.dataset.cible = '1';
+      return c;
+    });
+
+    // Le decalage se mesure APRES la pose, sur les elements reels : les cartes sont
+    // dimensionnees en vw et leur largeur n'est pas connue avant le calcul de mise en page.
+    requestAnimationFrame(() => {
+      const carte = cartes[cible];
+      if (!carte) return;
+      const piste2 = el('nextup-piste');
+      const dx = carte.offsetLeft + carte.offsetWidth / 2 - piste2.clientWidth / 2;
+      // Deceleration : c'est elle qui fait le tirage. Un defilement lineaire qui s'arrete
+      // net se lit comme un chargement qui se termine, pas comme une roue qui s'immobilise.
+      piste.style.transition = `transform ${CARROUSEL_DUREE * 0.92}s cubic-bezier(.12,.72,.16,1)`;
+      piste.style.transform = `translateX(${-dx}px)`;
+      setTimeout(() => carte.classList.add('gagnante'), CARROUSEL_DUREE * 780);
+    });
+  }
+
+  /**
+   * Fait avancer la sequence d'entree. Renvoie true tant qu'elle tient la main.
+   *
+   * Pendant toute la sequence la simulation est ARRETEE : on ne fait pas tourner un monde
+   * physique pendant sept secondes pour le jeter ensuite, et surtout le personnage ne doit
+   * pas avoir bouge d'un centimetre quand la coupe tombe sur la ligne de depart.
+   */
+  avancerIntro(dt) {
+    const it = this.intro;
+    if (!it) return false;
+    it.t += dt;
+
+    if (it.phase === 'carrousel') {
+      if (it.t >= CARROUSEL_DUREE) {
+        it.phase = 'iris'; it.t = 0;
+        el('iris').className = 'ouvre';
+        el('nextup').classList.add('hidden');
+        el('titlecard').className = '';
+      }
+      return true;
+    }
+
+    if (it.phase === 'iris') {
+      // Le survol commence DERRIERE le volet qui s'ouvre : decouvrir une image figee puis
+      // la voir demarrer ferait deux temps la ou il n'y en a qu'un.
+      this.cadrerSurvol(0);
+      if (it.t >= IRIS_DUREE) {
+        it.phase = 'survol'; it.t = 0;
+        el('iris').className = 'hidden';
+      }
+      return true;
+    }
+
+    this.cadrerSurvol(it.t / SURVOL_DUREE);
+    if (it.t >= SURVOL_DUREE) {
+      // COUPE FRANCHE. Aucun fondu, aucun raccord : la camera saute a sa place derriere le
+      // personnage et le decompte part. C'est la rupture qui fait comprendre que la
+      // presentation est finie.
+      this.intro = null;
+      this.survol = null;
+      el('race-ui').classList.remove('presentation');
+      el('titlecard').className = 'sortie';
+      setTimeout(() => el('titlecard').className = 'hidden', 400);
+      this.snapCamera = true;
+      // Depart bloque : en multijoueur, les 16 joueurs doivent partir au meme instant.
+      // Le prototype respecte deja cette contrainte pour que le feel soit representatif.
+      this.countdown = 3 * DECOMPTE_PAS;
+      el('countdown').classList.remove('hidden');
+    }
+    return true;
+  }
+
+  /** Pose la camera sur le rail du survol. */
+  cadrerSurvol(t) {
+    if (!this.survol) return;
+    const { pos, look } = this.survol.echantillon(t);
+    this.view.camera.position.copy(pos);
+    this.view.camera.lookAt(look);
+    this.view.camera.fov = settings.camera.fov + 6;
+    this.view.camera.updateProjectionMatrix();
+    this.view.followShadow?.(look);
+  }
+
+  /** Coupe la sequence d'entree et passe directement au decompte. */
+  sauterIntro() {
+    if (!this.intro) return;
+    this.intro.phase = 'survol';
+    this.intro.t = SURVOL_DUREE;
+    el('nextup').classList.add('hidden');
+    el('iris').className = 'hidden';
+    this.avancerIntro(0);
   }
 
   restart() {
@@ -488,7 +677,9 @@ class Game {
     // n'aurait plus rien a lire.
     this.arena.reset?.();
     this.cacherVerdict();
-    this.countdown = 3.99;
+    // Pas de survol sur un simple « recommencer » : on vient de voir le parcours, et le
+    // revoir a chaque tentative transformerait la sequence en peage.
+    this.countdown = 3 * DECOMPTE_PAS;
     el('countdown').classList.remove('hidden');
     this.character.respawn(this.arena.spawn);
     el('banner').classList.remove('show');
@@ -507,7 +698,22 @@ class Game {
     box.className = 'hidden';
     void box.offsetWidth;                     // force le reflow : relance les animations
     el('verdict-texte').textContent = texte;
-    el('verdict-sous').textContent = sous ?? '';
+    // Le sous-titre accepte une chaine OU une pilule { etiquette, valeur }. La pilule est
+    // la forme de la reference : le temps y est une VALEUR encadree, pas une legende — on
+    // le lit d'un coup d'oeil au moment ou l'on cherche justement a savoir combien on a mis.
+    const sousBox = el('verdict-sous');
+    if (sous && typeof sous === 'object') {
+      sousBox.innerHTML = '';
+      const e = document.createElement('div');
+      e.className = 'etiquette';
+      e.textContent = sous.etiquette;
+      const v = document.createElement('div');
+      v.className = 'valeur';
+      v.textContent = sous.valeur;
+      sousBox.append(e, v);
+    } else {
+      sousBox.textContent = sous ?? '';
+    }
     box.className = `show ${type}`;
   }
 
@@ -544,15 +750,17 @@ class Game {
   gagnerPartie() {
     this.mode = 'finished';
     this.finishTimer = 0;
-    this.crowns++;
-    localStorage.setItem('tumble-crowns', String(this.crowns));
     sfx.finish();
     const total = this.partie.temps.reduce((a, b) => a + b, 0);
-    this.verdict('VICTOIRE', `${this.partie.parcours.length} manches · ${total.toFixed(2)} s · +1 👑`, 'win');
-    el('result-title').textContent = 'PARTIE GAGNÉE';
-    el('result-time').textContent = `${total.toFixed(2)} s`;
+    const gain = this.reglerPartie(1);
+    progression.gagner(XP_VICTOIRE);
+    this.verdict('VICTORY!',
+      { etiquette: `1st place · +${montant(gain)} USDC`, valeur: formaterChrono(total) },
+      'win');
+    el('result-title').textContent = 'MATCH WON';
+    el('result-time').textContent = `+${montant(gain)} USDC`;
     el('result-line').textContent =
-      `${this.partie.parcours.map((m) => m.name).join(' · ')} · +1 👑`;
+      `${this.partie.parcours.map((m) => m.name).join(' · ')} · ${total.toFixed(2)} s`;
     this.partie = null;
     this._finDePartie = true;
   }
@@ -561,12 +769,27 @@ class Game {
   finishRace() {
     this.mode = 'finished';
     this.finishTimer = 0;
-    const record = !this.best || this.runTime < this.best;
+    /*
+     * Le SENS du record vient de l'epreuve, pas d'une liste d'identifiants.
+     *
+     * Sur une course, le meilleur temps est le plus court. Sur une survie, c'est le plus
+     * LONG : le chronometre n'y mesure pas une traversee mais une resistance. Comparer dans
+     * le mauvais sens ne donnerait pas un record faux, il donnerait un record qui ne bouge
+     * plus jamais apres la premiere manche.
+     *
+     * La cle `feel-lab-best-<id>` ne change pas de forme, et une carte de survie a
+     * forcement un identifiant inedit : aucun record deja pose ne change de sens sous les
+     * pieds du joueur. Pour les quatre cartes existantes, `long` vaut false et l'expression
+     * est strictement celle d'avant.
+     */
+    const long = !!this.arena.survie;
+    const record = !this.best || (long ? this.runTime > this.best : this.runTime < this.best);
     if (record) { this.best = this.runTime; localStorage.setItem(this.bestKey, String(this.runTime)); }
     sfx.finish();
     if (this.partie) {
       this.partie.temps.push(this.runTime);
       this.partie.chutes += this.falls;
+      progression.gagner(XP_MANCHE);
       // Franchir la ligne de la FINALE, c'est gagner. Annoncer d'abord « qualifié » puis
       // « victoire » trois secondes plus tard faisait deux annonces pour un seul
       // evenement, et la premiere volait la vedette a la seconde.
@@ -575,14 +798,71 @@ class Game {
     // « QUALIFIÉ » et non « ARRIVÉE » : c'est le vocabulaire de la structure — on ne
     // termine pas une course, on passe au tour suivant. La couronne ne tombe qu'a la
     // fin de la PARTIE, pas a chaque manche : sinon elle ne recompense plus rien.
-    const chutes = this.falls ? `${this.falls} chute${this.falls > 1 ? 's' : ''} · ` : '';
-    this.verdict('QUALIFIÉ',
-      `${chutes}${this.runTime.toFixed(2)} s${record ? ' · NOUVEAU RECORD' : ''}`
-      + (this.partie ? ' · manche suivante…' : ''), 'ok');
-    el('result-title').textContent = record ? 'NOUVEAU RECORD' : 'MANCHE TERMINÉE';
+    // Une place de prise sur celles de la manche. Sans adversaires le compteur ne montera
+    // pas plus haut, mais le chiffre est le VRAI : huit qualifies en manche 1, comme le
+    // pose MatchConfiguration. Un compteur decoratif aurait menti sur la structure.
+    el('hud-qualifies').textContent = `1/${this.survivants ?? SURVIVANTS[0]}`;
+    this.verdict('QUALIFIED!',
+      { etiquette: record ? 'NEW BEST' : 'Your time', valeur: formaterChrono(this.runTime) },
+      'ok');
+    el('result-title').textContent = record ? 'NEW BEST' : 'ROUND COMPLETE';
     el('result-time').textContent = `${this.runTime.toFixed(2)} s`;
     el('result-line').textContent =
-      `${this.falls} chute${this.falls > 1 ? 's' : ''} · record ${this.best.toFixed(2)} s`;
+      `${this.falls} fall${this.falls > 1 ? 's' : ''} · best ${this.best.toFixed(2)} s`;
+  }
+
+  /**
+   * Fin d'une manche PERDUE : le joueur est elimine, et la partie s'arrete la.
+   *
+   * Symetrique de `gagnerPartie` et non de `finishRace` : une elimination ne mene pas a la
+   * manche suivante, elle termine la partie. C'est exactement ce qui donne son poids a la
+   * boue rose — la seule chose que le joueur risque vraiment.
+   *
+   * ── LE RANG EST LE SEUL CHIFFRE QUI SORT D'ICI ──────────────────────────────────────
+   * `reglerPartie` PREND DEJA un rang ; il n'etait jamais appele qu'avec 1, faute d'une
+   * facon de perdre. On lui donne enfin l'autre moitie de son travail.
+   *
+   * Elimine dans une manche ou `survivants` places restaient, on finit juste derriere la
+   * derniere : rang `survivants + 1`. Seul, cela vaut 9, 5 ou 2 selon la manche, et la
+   * table des gains paie deja ces trois lignes sans qu'on y touche — rien en manche 1 (le
+   * seuil de remboursement est justement la fin de la premiere manche), la mise en manche 2,
+   * la mise et une part en finale.
+   *
+   * C'est aussi la couture du multijoueur : le jour ou seize joueurs s'affrontent, le
+   * serveur passera le vrai rang et cette methode ne bougera pas d'une ligne. C'est
+   * precisement pour cela qu'elle prend un rang plutot que de constater « perdu ».
+   */
+  perdreManche(rang = (this.survivants ?? SURVIVANTS[0]) + 1) {
+    this.mode = 'finished';
+    this.finishTimer = 0;
+    // Un record de survie se bat aussi quand on PERD. Tenir 42 s puis tomber reste la
+    // meilleure resistance du joueur ; sans cette ligne, le HUD n'aurait rien a afficher
+    // tant qu'on n'a pas tenu la duree complete au moins une fois — c'est-a-dire tant
+    // qu'on n'a pas gagne, ce qui vide le mot « record » de son sens.
+    if (this.arena?.survie && (!this.best || this.runTime > this.best)) {
+      this.best = this.runTime;
+      localStorage.setItem(this.bestKey, String(this.runTime));
+    }
+    // Pas de son dedie : `tumble` EST deja le bruit du personnage qui part au tapis. En
+    // inventer un second pour le meme evenement les ferait se marcher dessus.
+    sfx.tumble();
+    const gain = this.reglerPartie(rang);
+    // L'XP est acquise : la manche a ete JOUEE. C'est le seul retour d'une partie perdue,
+    // et c'est ce que suppose la courbe de niveaux — sans elle, tomber en manche 1 ne
+    // rendrait strictement rien, ni argent ni progression.
+    progression.gagner(XP_MANCHE);
+    this.verdict('ELIMINATED!',
+      { etiquette: gain > 0 ? `${ordinal(rang)} place · +${montant(gain)} USDC` : `${ordinal(rang)} place`,
+        valeur: formaterChrono(this.runTime) },
+      'ko');
+    el('result-title').textContent = 'ELIMINATED';
+    el('result-time').textContent = gain > 0 ? `+${montant(gain)} USDC` : formaterChrono(this.runTime);
+    el('result-line').textContent = this.arena?.survie
+      ? `Held ${this.runTime.toFixed(2)} s out of ${this.arena.survie.duree} s`
+      : `${this.falls} fall${this.falls > 1 ? 's' : ''}`;
+    this.partie = null;
+    // Comme la victoire : 3,2 s plus tard on rentre au lobby, on n'enchaine pas.
+    this._finDePartie = true;
   }
 
   returnToLobby() {
@@ -603,8 +883,36 @@ class Game {
 
     // En pause : le decor continue de vivre mais la simulation est figee, sinon le
     // chronometre avance et le personnage glisse pendant que le joueur lit le menu.
-    this.arena.update(elapsed, paused ? 0 : dt, this.character?.position ?? null, this.view.camera);
+    /*
+     * ARMEMENT DE LA MANCHE — cinquieme argument, purement additif.
+     *
+     * `arena.update` tourne DEJA bien avant que le joueur ait la main : on passe ici avant
+     * le `return` de l'intro (quelques lignes plus bas), donc pendant les sept secondes de
+     * presentation, puis pendant les 2,7 s de decompte ou `world.step()` tourne pour que le
+     * personnage se pose. Sur une carte qui s'effondre au CONTACT, cela ferait une dizaine
+     * de secondes d'erosion sous un joueur qui ne peut pas encore bouger : la dalle de
+     * depart aurait disparu avant le GO.
+     *
+     * Les Dalles echappent au probleme par la GEOMETRIE — leur depart est pose sur un palier
+     * plein — et non par une garde. Une carte dont l'aire de depart cede ne peut pas
+     * emprunter cette esquive : c'est donc a la boucle de jeu de dire quand la manche est
+     * reellement commencee, puisqu'elle seule connait l'intro et le decompte.
+     *
+     * Le sens de l'erreur est le bon : `countdown` n'est decremente qu'apres ce point, donc
+     * a l'image ou il croise zero la garde tient encore. Elle se relache une image trop
+     * tard, jamais trop tot.
+     *
+     * Les quatre epreuves existantes declarent quatre parametres et ignorent donc ce
+     * cinquieme en silence : la modification leur est litteralement invisible.
+     */
+    const enJeu = this.mode === 'racing' && !this.intro && this.countdown <= 0;
+    this.arena.update(elapsed, paused ? 0 : dt, this.character?.position ?? null, this.view.camera, enJeu);
     if (paused) { this.updateCamera(dt, this.character.position.clone()); return; }
+
+    // Sequence d'entree : le decor vit deja (les barils roulent, les drapeaux battent) mais
+    // la simulation du joueur est arretee et la camera est sur son rail.
+    if (this.avancerIntro(dt)) return;
+
     pollInput(dt);
 
     // Pendant le decompte, la physique tourne (le personnage se pose) mais il ne repond pas.
@@ -613,14 +921,17 @@ class Game {
       input.x = 0; input.z = 0; input.jump = false; input.dive = false;
       jumpEdge = false; diveEdge = false;
       if (this.countdown > 0) {
-        const n = Math.ceil(this.countdown - 0.99);
+        // Un chiffre par PAS, et non par seconde : 0,9 s est la cadence relevee sur la
+        // reference. Rapportee a la seconde, l'annonce trainait juste assez pour que le
+        // depart se lise comme une formalite plutot que comme un compte a rebours.
+        const n = Math.ceil(this.countdown / DECOMPTE_PAS);
         if (n !== this._lastBeep) { this._lastBeep = n; if (n > 0) sfx.beep(); }
-        el('countdown-text').textContent = String(n || 'GO !');
+        el('countdown-text').textContent = String(n);
       } else {
         el('countdown').classList.add('hidden');
         this._lastBeep = null;
         sfx.go();
-        this.banner('GO !', 800);
+        this.banner('GO !', GO_DUREE);
       }
     }
 
@@ -630,6 +941,9 @@ class Game {
     while (this.accumulator >= world.timestep && steps < 3) {
       this.character.update(world.timestep, input, camYaw);
       world.step();
+      // Garde-fou APRES le pas : c'est le solveur qui produit les expulsions, donc c'est
+      // apres lui qu'il faut les borner. Pose avant, la limite serait ecrasee par le pas.
+      this.character.limiterVitesse();
       this.accumulator -= world.timestep;
       steps++;
       if (input.jump) { input.jump = false; jumpEdge = false; }
@@ -697,15 +1011,40 @@ class Game {
       break;
     }
 
+    /*
+     * Passer sous `killY` n'a pas le meme sens partout.
+     *
+     * En course, c'est un trou dans le sol : on paie une chute et on repart du dernier
+     * point de reprise. En SURVIE, c'est l'elimination — et c'est tout le sujet de
+     * l'epreuve : si tomber ne coutait qu'une reapparition, il n'y aurait plus rien a
+     * tenir, donc plus rien a jouer. La consequence technique suit la consequence de jeu :
+     * une carte de survie n'a pas de points de reprise, donc `checkpointFor` n'y existe
+     * pas, et l'appeler planterait avant meme d'etre un contresens.
+     *
+     * `countdown <= 0` : on ne peut pas etre elimine avant d'avoir eu la main. La physique
+     * tourne pendant le decompte, et sans cette garde un depart mal pose tuerait le joueur
+     * avant le GO.
+     */
     if (pos.y < this.arena.killY) {
-      if (this.mode === 'racing') this.falls++;
-      this.character.respawn(this.arena.checkpointFor(pos.z));
-      this.ySlow = undefined;
+      if (this.arena.survie) {
+        if (this.mode === 'racing' && this.countdown <= 0) this.perdreManche();
+      } else {
+        if (this.mode === 'racing') this.falls++;
+        this.character.respawn(this.arena.checkpointFor(pos.z));
+        this.ySlow = undefined;
+      }
     }
 
     if (this.mode === 'racing' && this.countdown <= 0) {
       this.runTime += dt;
-      if (pos.z <= this.arena.finishZ) this.finishRace();
+      // Deux facons de gagner une manche, une ligne chacune : ARRIVER quelque part, ou
+      // TENIR assez longtemps. La duree annoncee n'est pas une invention destinee a
+      // masquer l'absence d'adversaires — la reference elle-meme s'arrete au bout d'un
+      // delai, et tous les survivants prennent alors la couronne. On garde la regle, on
+      // raccourcit l'horloge.
+      if (this.arena.survie) {
+        if (this.runTime >= this.arena.survie.duree) this.finishRace();
+      } else if (pos.z <= this.arena.finishZ) this.finishRace();
     } else if (this.mode === 'finished') {
       this.finishTimer += dt;
       // 3,2 s : le temps que le bandeau s'installe et se lise. En dessous, la manche
@@ -720,15 +1059,33 @@ class Game {
       }
     }
 
-    el('timer').textContent = this.runTime.toFixed(2);
+    el('timer').textContent = formaterChrono(this.runTime);
     el('falls').textContent = String(this.falls);
     el('best').textContent = this.best ? this.best.toFixed(2) + ' s' : '—';
 
-    // Progression : sans reperage, 120 m de piste se vivent comme un couloir sans fin.
-    const total = this.arena.spawn.z - this.arena.finishZ;
-    const done = Math.max(0, Math.min(1, (this.arena.spawn.z - pos.z) / total));
+    /*
+     * Progression : sans reperage, 120 m de piste se vivent comme un couloir sans fin.
+     *
+     * Sur une tour il n'y a pas de piste. Une barre en Z y mesurerait un deplacement de
+     * quelques metres et resterait collee a zero toute la manche. Ce qu'on parcourt dans
+     * une survie, c'est le TEMPS : la barre mesure donc la meme chose — la part du chemin
+     * deja faite — sur un autre axe, et le compteur annonce les secondes qui restent a
+     * tenir au lieu des metres a couvrir. La barre se remplit dans le meme sens dans les
+     * deux cas : le geste de lecture ne change pas d'une epreuve a l'autre.
+     */
+    let done;
+    if (this.arena.survie) {
+      done = Math.max(0, Math.min(1, this.runTime / this.arena.survie.duree));
+      // `ceil` et non `round` : annoncer « 0 s » alors qu'il reste quatre dixiemes a tenir
+      // serait un mensonge a l'instant precis ou il coute le plus cher.
+      el('dist-text').textContent =
+        Math.max(0, Math.ceil(this.arena.survie.duree - this.runTime)) + ' s';
+    } else {
+      const total = this.arena.spawn.z - this.arena.finishZ;
+      done = Math.max(0, Math.min(1, (this.arena.spawn.z - pos.z) / total));
+      el('dist-text').textContent = Math.max(0, Math.round(total * (1 - done))) + ' m';
+    }
     el('progress-fill').style.width = (done * 100).toFixed(1) + '%';
-    el('dist-text').textContent = Math.max(0, Math.round(total * (1 - done))) + ' m';
     this.updateCamera(dt, pos);
   }
 
@@ -792,38 +1149,33 @@ class Game {
 let game;
 
 async function boot() {
-  el('loading').textContent = 'Initialisation de la physique…';
+  el('loading').textContent = 'Starting the physics…';
   await RAPIER.init();
 
-  el('loading').textContent = 'Chargement des textures…';
+  el('loading').textContent = 'Loading textures…';
   await loadExternalTextures((d, t) => { el('loading').textContent = `Textures… ${d}/${t}`; });
 
-  el('loading').textContent = 'Chargement des décors…';
+  el('loading').textContent = 'Loading the sets…';
   const count = await assets.load((done, total) => {
-    el('loading').textContent = `Chargement des décors… ${done}/${total}`;
+    el('loading').textContent = `Loading the sets… ${done}/${total}`;
   });
   console.log(`[boot] ${count} modeles Meshy disponibles`);
 
   const view = createWorld();
   const lobby = buildLobbyScreen(assets);
   buildGui(() => game?.arena?.world ?? null);
-  buildWardrobe();
-  wireWardrobeButton();
   wireSettings();
   await applyIcons();
   buildSkinsScreen(onCosmeticChange);
-  buildCollabsScreen();
-  buildShopScreen();
-  const tabs = wireTabs((tab) => {
-    if (tab === 'skins-changed') { onCosmeticChange(); return; }
-    LOBBY.showcase = tab === 'skins';
+  const ecrans = wireEcrans((nom) => {
+    // La vitrine recadre la camera sur le buste ; le plateau la remet en vue d'accueil.
+    LOBBY.showcase = nom === 'skins';
     if (game?.mode === 'lobby') game.applyLobbyFraming();
-  });
-  // Quitter un onglet revient toujours a Jouer : le lobby ne doit jamais rester
-  // bloque sur un ecran secondaire quand une course demarre.
-  el('play').addEventListener('click', () => tabs.show('play'));
+  }, onCosmeticChange);
   wirePause();
   game = new Game(view, lobby);
+  // Le ticket detient la mise : c'est lui qui declenche la partie, avec le montant choisi.
+  buildTicket((mise) => { ecrans.montrer('play'); game.startEpisode(mise); });
   el('loading').style.display = 'none';
 
   const clock = new THREE.Clock();
@@ -846,7 +1198,7 @@ async function boot() {
     // que la derniere passe de post-processing (un quad), pas la scene entiere.
     if (fpsAccum >= 0.5) {
       const info = view.renderer.info.render;
-      el('perf').textContent = `${Math.round(frames / fpsAccum)} fps · ${info.triangles.toLocaleString('fr')} tris · ${info.calls} draws`;
+      el('perf').textContent = `${Math.round(frames / fpsAccum)} fps · ${info.triangles.toLocaleString('en')} tris · ${info.calls} draws`;
       window.__fps = Math.round(frames / fpsAccum);
       window.__tris = info.triangles;
       window.__draws = info.calls;
@@ -861,6 +1213,10 @@ async function boot() {
 window.__probeCharacter = () => game?.character ?? null;
 window.__probeGame = () => game ?? null;
 window.__RAPIER = RAPIER;   // sondes de diagnostic (continuite du sol)
+// Les constantes de game feel, telles que le jeu les applique VRAIMENT. Un harnais
+// qui les recopierait de son cote mesurerait un reglage imaginaire des qu'une valeur
+// bouge — et c'est precisement quand elle bouge qu'on a besoin de le mesurer.
+window.__TUNING = TUNING;
 window.__THREE = THREE;     // sondes de diagnostic (raycast sur le rendu)
 // Le parcours d'une partie est tire au sort : sans cette liste, un script de diagnostic
 // ne peut pas cibler l'epreuve qu'il veut tester.

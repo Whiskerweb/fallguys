@@ -23,7 +23,7 @@ page.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text().slic
 await page.addInitScript(() => {
   localStorage.setItem('tumble-manche', '6');
 });
-await page.goto('http://127.0.0.1:5273/?lowfx&noassets', { waitUntil: 'domcontentloaded' });
+await page.goto('http://127.0.0.1:5273/?lowfx&nointro&noassets', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => {
   const l = document.getElementById('loading');
   return l && getComputedStyle(l).display === 'none';
@@ -35,7 +35,7 @@ await page.evaluate(() => {
   g.partie = { parcours: [jeu], index: 0, temps: [], chutes: 0 };
   g.startRace();
 });
-await page.waitForFunction(() => parseFloat(document.getElementById('timer')?.textContent ?? '0') > 0.3, { timeout: 120000 });
+await page.waitForFunction(() => (window.__probeGame?.()?.runTime ?? 0) > 0.3, { timeout: 120000 });
 
 const Z_MUR = -12;
 const geo = await page.evaluate(() => {

@@ -1,21 +1,37 @@
 import { cosmetics, MODELS, RARITY } from './cosmetics.js';
 import { assets } from './assets.js';
 import { sfx } from './audio.js';
+import {
+  MICROS, PALIERS, CONFIG,
+  table, echelle, montant, facteur, ordinal, miseChoisie, choisirMise,
+  portefeuille, progression, surChangement,
+} from './economie.js';
 
 /**
- * Écrans du lobby : personnages, collaborations, boutique.
+ * Interface du lobby : la barre noire, le ticket d'entrée, la vitrine des personnages.
  *
- * Un onglet qui n'affiche rien vaut moins qu'un onglet absent — il promet une
- * fonctionnalité inexistante. Chacun montre donc un contenu réel : la grille de
- * personnages est branchée sur ce qui est effectivement chargé, et les deux autres
- * exposent le modèle économique du spec (collaborations en édition limitée,
- * cosmétiques qui réduisent la commission) plutôt que du remplissage.
+ * Le lobby ne montre plus que ce qui existe. Les onglets Boutique et Collaborations
+ * affichaient huit lignes écrites en dur sur lesquelles aucun clic n'était branché ;
+ * un bouton qui promet une fonctionnalité inexistante coûte plus cher qu'un bouton
+ * absent, surtout dans un jeu où l'on engage de l'argent. Restent donc : choisir son
+ * personnage, choisir sa table, jouer.
+ *
+ * Aucun montant n'est écrit ici. Tout sort de `economie.js`, qui est le port du noyau de
+ * règles C# — le ticket annonce exactement ce que le règlement paiera.
  */
 
 const el = (id) => document.getElementById(id);
 const hex = (n) => '#' + n.toString(16).padStart(6, '0');
 
-/** Icônes générées, avec repli sur le glyphe d'origine si le fichier manque. */
+/** Personnage porté, ou le premier du catalogue si la mémoire pointe dans le vide. */
+const modeleCourant = () => MODELS.find((m) => m.id === cosmetics.model) ?? MODELS[0];
+const couleurRarete = (m) => (RARITY[m?.rarity] ?? RARITY.common).color;
+
+/**
+ * Icônes générées, avec repli sur le glyphe d'origine si le fichier manque.
+ * Le repli n'est pas de la coquetterie : le dépôt doit rester jouable sans avoir lancé
+ * `icon-pipeline/generate.mjs`, qui consomme des crédits.
+ */
 export async function applyIcons() {
   let names = [];
   try {
@@ -24,10 +40,7 @@ export async function applyIcons() {
   } catch { return 0; }
 
   const MAP = {
-    'icon-play': '[data-tab="play"]',
-    'icon-skins': '[data-tab="skins"]',
-    'icon-collabs': '[data-tab="collabs"]',
-    'icon-shop': '[data-tab="shop"]',
+    'icon-skins': '#btn-perso .ico',
     'icon-settings': '#btn-settings',
   };
   let applied = 0;
@@ -38,16 +51,165 @@ export async function applyIcons() {
     node.innerHTML = `<img src="/icons/${name}.png" alt="">`;
     applied++;
   }
-  for (const [name, id] of [['icon-crown', 'ic-crown'], ['icon-coin', 'ic-coin']]) {
-    if (!names.includes(name)) continue;
-    const node = el(id);
-    if (node) { node.innerHTML = `<img src="/icons/${name}.png" alt="">`; applied++; }
-  }
   console.log(`[icones] ${applied} icones personnalisees appliquees`);
   return applied;
 }
 
-/** Vitrine : vignettes carrées à droite, fiche du personnage sélectionné à gauche. */
+// ---------- la barre noire ----------
+
+/** Rafraîchit portrait, niveau, XP et solde. Appelée à chaque mouvement de l'économie. */
+export function majBarre() {
+  const m = modeleCourant();
+
+  const port = el('profil-port');
+  if (port) {
+    port.src = `/icons/port-${m.id}.png`;
+    port.onerror = () => { port.style.visibility = 'hidden'; };
+  }
+  el('profil')?.style.setProperty('--rar', couleurRarete(m));
+
+  const { niveau, dans, pour } = progression.etat;
+  el('profil-niveau').textContent = String(niveau);
+  el('xp-fill').style.width = `${Math.min(100, (dans / pour) * 100)}%`;
+  el('xp-num').textContent = `${dans} / ${pour}`;
+
+  el('balance').textContent = montant(portefeuille.solde);
+  const court = portefeuille.solde < miseChoisie();
+  el('solde').classList.toggle('court', court);
+  el('recharger').classList.toggle('hidden', !portefeuille.bloque);
+}
+
+// ---------- le ticket ----------
+
+/** « 1st », « 5th–8th » — le rang tel qu'on le dit, pas tel qu'on l'indexe. */
+function libelleRang(depuis, jusqu) {
+  return depuis === jusqu ? ordinal(depuis) : `${ordinal(depuis)}–${ordinal(jusqu)}`;
+}
+
+const ICONE_RANG = { 1: 'icon-rank-1', 2: 'icon-rank-2', 3: 'icon-rank-3' };
+
+/**
+ * Construit le ticket : les trois tables, le pot, l'échelle des gains, le bouton.
+ * `onJouer(miseMicros)` est appelé avec la mise engagée.
+ */
+export function buildTicket(onJouer) {
+  const boiteMises = el('paliers');
+  boiteMises.innerHTML = '';
+
+  for (const usdc of PALIERS) {
+    const b = document.createElement('button');
+    b.className = 'palier';
+    b.dataset.usdc = String(usdc);
+    b.innerHTML = '<b></b><i>USDC</i>';
+    b.querySelector('b').textContent = String(usdc);
+    b.addEventListener('click', () => {
+      if (b.classList.contains('mort')) return;
+      choisirMise(usdc);
+      sfx.click();
+    });
+    boiteMises.appendChild(b);
+  }
+
+  el('play').addEventListener('click', () => {
+    const mise = miseChoisie();
+    if (portefeuille.solde < mise) return;
+    sfx.click();
+    onJouer?.(mise);
+  });
+
+  el('recharger').addEventListener('click', (e) => {
+    e.stopPropagation();
+    portefeuille.recharger();
+    sfx.click();
+  });
+
+  // Un seul chemin de rafraichissement : toute variation de solde, d'XP ou de mise
+  // repasse par la, qu'elle vienne d'un clic ou de la fin d'une partie.
+  surChangement(rafraichirTicket);
+  rafraichirTicket();
+}
+
+/** Recalcule tout le ticket depuis la mise sélectionnée. Aucun chiffre n'est conservé. */
+export function rafraichirTicket() {
+  const mise = miseChoisie();
+  const solde = portefeuille.solde;
+  const { pot } = table(mise);
+
+  for (const b of document.querySelectorAll('.palier')) {
+    const usdc = Number(b.dataset.usdc);
+    b.classList.toggle('on', usdc * MICROS === mise);
+    // Une table hors de portée reste visible mais inerte : la masquer donnerait
+    // l'impression que le jeu en propose moins qu'il n'en propose.
+    b.classList.toggle('mort', usdc * MICROS > solde);
+    b.title = usdc * MICROS > solde ? 'Not enough balance for this table' : `${usdc} USDC table`;
+  }
+
+  el('pot-val').innerHTML = `${montant(pot)}<small>USDC</small>`;
+  el('pot-sub').textContent =
+    `${CONFIG.joueurs} players · ${CONFIG.survivants.length} rounds · ${CONFIG.rakeBp / 100}% rake`;
+
+  const boite = el('echelle');
+  boite.innerHTML = '';
+  for (const ligne of echelle(mise)) {
+    const row = document.createElement('div');
+    row.className = 'ech'
+      + (ligne.gain === 0 ? ' rien' : '')
+      + (ligne.rembourse ? ' rendu' : '')
+      + (ligne.depuis === 1 ? ' or' : '');
+
+    const ico = document.createElement('div');
+    ico.className = 'ico';
+    const nom = ligne.rembourse ? 'icon-refund' : ICONE_RANG[ligne.depuis];
+    if (nom) {
+      const img = document.createElement('img');
+      img.src = `/icons/${nom}.png`;
+      img.alt = '';
+      // Sans le fichier, on retombe sur la pastille chiffrée plutôt que sur un vide.
+      img.onerror = () => { img.remove(); ico.appendChild(pastille(ligne.depuis)); };
+      ico.appendChild(img);
+    } else {
+      ico.appendChild(pastille(ligne.depuis));
+    }
+
+    const rang = document.createElement('div');
+    rang.className = 'rang';
+    rang.textContent = libelleRang(ligne.depuis, ligne.jusqu);
+
+    const gain = document.createElement('div');
+    gain.className = 'gain';
+    gain.textContent = ligne.gain === 0 ? '—' : montant(ligne.gain);
+
+    const fact = document.createElement('div');
+    fact.className = 'fact';
+    fact.textContent = ligne.gain === 0 ? 'nothing' : (ligne.rembourse ? 'stake back' : facteur(ligne.facteur));
+
+    row.append(ico, rang, gain, fact);
+    boite.appendChild(row);
+  }
+
+  const jouable = solde >= mise;
+  el('play').disabled = !jouable;
+  const note = el('play-note');
+  note.classList.toggle('alerte', !jouable);
+  // Ce que la note doit dire tient en un fait : l'argent part au lancement. Le montant
+  // est deja sur la pastille et le seuil est deja dans l'echelle — les repeter ici
+  // faisait deborder le ticket sans rien apprendre.
+  note.textContent = jouable
+    ? 'Your stake is committed at launch'
+    : 'Not enough balance for this table';
+
+  majBarre();
+}
+
+function pastille(n) {
+  const u = document.createElement('u');
+  u.textContent = String(n);
+  return u;
+}
+
+// ---------- la vitrine des personnages ----------
+
+/** Vignettes carrées à droite, fiche du personnage sélectionné à gauche. */
 export function buildSkinsScreen(onChange) {
   const grid = el('skins-grid');
   grid.innerHTML = '';
@@ -55,8 +217,12 @@ export function buildSkinsScreen(onChange) {
   for (const m of MODELS) {
     const available = assets.has(m.id);
     const tile = document.createElement('div');
-    tile.className = 'tile' + (m.id === cosmetics.model ? ' on' : '') + (available ? '' : ' locked');
+    const porte = m.id === cosmetics.model;
+    tile.className = 'tile' + (porte ? ' on' : '') + (available ? '' : ' locked');
     tile.title = m.name;
+    // La rareté teinte le cadre ET le halo : c'est ce qui sépare les personnages, et
+    // cinq tuiles grises identiques ne le disaient pas.
+    tile.style.setProperty('--rar', couleurRarete(m));
 
     // Vignette peinte si elle existe, sinon une pastille à la couleur du personnage :
     // une case vide serait moins lisible qu'un repère colorié.
@@ -67,16 +233,23 @@ export function buildSkinsScreen(onChange) {
       img.remove();
       const fb = document.createElement('div');
       fb.className = 'fallback';
-      fb.textContent = m.name.replace(/^(Le |La |L')/, '').slice(0, 2).toUpperCase();
+      fb.textContent = m.name.slice(0, 2).toUpperCase();
       fb.style.background = hex(m.accent ?? 0x888888);
       tile.appendChild(fb);
     };
     tile.appendChild(img);
 
+    if (porte) {
+      const badge = document.createElement('div');
+      badge.className = 'porte';
+      badge.textContent = 'EQUIPPED';
+      tile.appendChild(badge);
+    }
+
     if (!available) {
       const lock = document.createElement('div');
       lock.className = 'lock';
-      lock.textContent = 'BIENTÔT';
+      lock.textContent = 'SOON';
       tile.appendChild(lock);
     }
 
@@ -87,13 +260,14 @@ export function buildSkinsScreen(onChange) {
         sfx.click();
         buildSkinsScreen(onChange);
         showInfo(m, true);
+        majBarre();
         onChange?.();
       });
     }
     grid.appendChild(tile);
   }
 
-  const current = MODELS.find((m) => m.id === cosmetics.model) ?? MODELS[0];
+  const current = modeleCourant();
   showInfo(current, assets.has(current.id));
   // Construite au demarrage, la fiche ne doit apparaitre qu'une fois la vitrine ouverte.
   if (!el('screen-skins')?.classList.contains('on')) el('skin-info')?.classList.add('hidden');
@@ -103,7 +277,7 @@ export function buildSkinsScreen(onChange) {
 function showInfo(m, available) {
   const box = el('skin-info');
   box.classList.remove('hidden');
-  const r = RARITY[m.rarity] ?? RARITY.commun;
+  const r = RARITY[m.rarity] ?? RARITY.common;
   const rar = el('skin-rarity');
   rar.textContent = r.label;
   rar.style.background = r.color;
@@ -114,8 +288,8 @@ function showInfo(m, available) {
   const chips = el('skin-chips');
   chips.innerHTML = '';
   for (const label of [
-    m.rigged ? 'Animé par squelette' : 'Sans animation',
-    available ? (m.id === cosmetics.model ? 'Équipé' : 'Disponible') : 'Bientôt disponible',
+    m.rigged ? 'Skeletal animation' : 'No animation',
+    available ? (m.id === cosmetics.model ? 'Equipped' : 'Available') : 'Coming soon',
   ]) {
     const c = document.createElement('div');
     c.className = 'chip';
@@ -126,73 +300,27 @@ function showInfo(m, available) {
 
 export function hideSkinInfo() { el('skin-info')?.classList.add('hidden'); }
 
-const COLLABS = [
-  { icon: '🐧', color: '#4fa8ff', title: 'Pingouin — Édition Glacier', desc: 'Skin exclusif, 3 000 exemplaires. Retiré définitivement à la fin de la saison.', state: 'Actif' },
-  { icon: '🐕', color: '#ffa63d', title: 'Shiba — Édition Meme', desc: 'Skin + traînée de course dorée. Ouvert aux détenteurs du partenaire.', state: 'Bientôt' },
-  { icon: '🐸', color: '#6ee86e', title: 'Grenouille — Édition Marais', desc: 'Skin + émote de victoire. Annonce conjointe prévue.', state: 'Bientôt' },
-  { icon: '🤝', color: '#b072ff', title: 'Proposer une collaboration', desc: 'Votre communauté rejoint le jeu, votre mascotte devient jouable.', state: 'Nous écrire' },
-];
+/**
+ * Bascule entre les deux seuls écrans du lobby : le plateau de lancement et la vitrine.
+ * Il n'y a plus de barre d'onglets — deux états ne demandent pas un menu.
+ */
+export function wireEcrans(onEcran, onChangePerso) {
+  const vitrine = el('screen-skins');
 
-const SHOP = [
-  { icon: '💠', color: '#31c7f0', title: 'Pass Saison 1', desc: 'Commission réduite de 3 % sur tous vos gains, toute la saison.', price: '4,99 $' },
-  { icon: '✨', color: '#ffd83d', title: 'Traînée Confettis', desc: 'Effet de course permanent. Commission réduite de 1 %.', price: '1,99 $' },
-  { icon: '👑', color: '#ff8a3d', title: 'Couronne du Champion', desc: 'Accessoire de tête. Commission réduite de 2 %.', price: '3,49 $' },
-  { icon: '🎨', color: '#ff4fa3', title: 'Pack 8 couleurs', desc: 'Débloque toutes les teintes de la garde-robe.', price: '0,99 $' },
-];
-
-function buildList(target, items, priceKey, stateKey) {
-  const box = el(target);
-  box.innerHTML = '';
-  for (const it of items) {
-    const row = document.createElement('div');
-    row.className = 'row';
-    const icon = document.createElement('div');
-    icon.className = 'icon';
-    icon.style.background = it.color;
-    icon.textContent = it.icon;
-    const body = document.createElement('div');
-    body.className = 'body';
-    body.innerHTML = `<div class="title"></div><div class="desc"></div>`;
-    body.querySelector('.title').textContent = it.title;
-    body.querySelector('.desc').textContent = it.desc;
-    const price = document.createElement('div');
-    const label = it[priceKey] ?? it[stateKey];
-    price.className = 'price' + (label === 'Bientôt' ? ' soon' : '');
-    price.textContent = label;
-    row.append(icon, body, price);
-    box.appendChild(row);
-  }
-}
-
-export function buildCollabsScreen() { buildList('collabs-list', COLLABS, null, 'state'); }
-export function buildShopScreen() { buildList('shop-list', SHOP, 'price', null); }
-
-/** Bascule d'onglet : un seul écran visible, la scène 3D ne s'affiche que sur « Jouer ». */
-export function wireTabs(onTab) {
-  const buttons = [...document.querySelectorAll('.navbtn[data-tab]')];
-  const screens = { skins: el('screen-skins'), collabs: el('screen-collabs'), shop: el('screen-shop') };
-
-  function show(tab) {
-    for (const b of buttons) b.classList.toggle('active', b.dataset.tab === tab);
-    for (const [name, node] of Object.entries(screens)) node.classList.toggle('on', name === tab);
-    el('skin-info')?.classList.toggle('hidden', tab !== 'skins');
-    // Les panneaux du bas n'ont de sens que sur l'onglet Jouer.
-    for (const id of ['playzone', 'entry-badge', 'leftpanel', 'playername']) {
-      const n = el(id);
-      if (n) n.style.display = tab === 'play' ? '' : 'none';
+  function montrer(nom) {
+    const enVitrine = nom === 'skins';
+    vitrine.classList.toggle('on', enVitrine);
+    el('skin-info').classList.toggle('hidden', !enVitrine);
+    for (const id of ['playzone', 'leftpanel']) {
+      el(id).style.display = enVitrine ? 'none' : '';
     }
-    onTab?.(tab);
+    onEcran?.(nom);
   }
 
-  for (const b of buttons) {
-    b.addEventListener('click', () => {
-      sfx.click();
-      const tab = b.dataset.tab;
-      if (tab === 'skins') buildSkinsScreen(onTab && (() => onTab('skins-changed')));
-      if (tab === 'collabs') buildCollabsScreen();
-      if (tab === 'shop') buildShopScreen();
-      show(tab);
-    });
-  }
-  return { show };
+  const ouvrir = () => { sfx.click(); buildSkinsScreen(onChangePerso); montrer('skins'); };
+  el('btn-perso').addEventListener('click', ouvrir);
+  el('profil').addEventListener('click', ouvrir);
+  el('btn-retour').addEventListener('click', () => { sfx.click(); montrer('play'); });
+
+  return { montrer };
 }

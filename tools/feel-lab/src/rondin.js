@@ -1,17 +1,27 @@
 import * as THREE from 'three';
 
 /**
- * LE RONDIN — un tronc géant qui tourne, et sur lequel on court.
+ * LE RONDIN — un tronc géant qui TOURNE, et sur lequel on court.
  *
  * Le module ne connaît qu'un tronçon. La scène en aligne plusieurs.
  *
- * POURQUOI PAS `track.js`. Le module de piste balaie un profil transversal le long d'une
- * ligne moyenne, mais ce profil est TOUJOURS vertical dans le repère du monde : sa hauteur
- * s'ajoute directement à Y (`track.js`, `lateral()` et le balayage). Il ne sait pas rouler.
- * Un rondin demande l'inverse — une surface qui s'enroule et qui tourne — donc un
- * générateur à part. Ce qu'on lui emprunte, en revanche, est l'essentiel : le collider est
- * un trimesh bâti sur LES MÊMES SOMMETS que le visuel, avec les mêmes drapeaux. Dans un jeu
- * où l'on mise, un collider qui approche le visuel n'est pas acceptable.
+ * ── LE CYLINDRE EST COMPLET, ET C'EST LA CONDITION DE LA ROTATION ───────────────
+ * Une version intermédiaire n'engendrait que l'arc supérieur — 140° — pour économiser les
+ * triangles de la moitié immergée. C'était une fausse économie : un arc n'a de sol
+ * au-dessus POUR AUCUNE PHASE autre que la verticale. Il ne peut donc pas tourner, et la
+ * map perdait ce qui lui donne son nom. On revient au cylindre fermé.
+ *
+ * L'économie est reprise ailleurs, et mieux : le pas des anneaux passe de 1,0 m à 1,6 m.
+ * Un cylindre est LISSE le long de son axe — le raffiner dans cette direction ne change
+ * rien à ce qu'on voit, alors que le raffiner autour de la circonférence change la
+ * silhouette. Le tronçon complet coûte ainsi moins cher que l'arc qu'il remplace.
+ *
+ * ── POURQUOI PAS `track.js` ─────────────────────────────────────────────────────
+ * Le module de piste balaie un profil transversal le long d'une ligne moyenne, mais ce
+ * profil est TOUJOURS vertical dans le repère du monde : sa hauteur s'ajoute directement
+ * à Y. Il ne sait pas s'enrouler. Ce qu'on lui emprunte reste l'essentiel : le collider
+ * est un trimesh bâti sur LES MÊMES SOMMETS que le visuel, avec les mêmes drapeaux. Dans
+ * un jeu où l'on mise, un collider qui approche le visuel n'est pas acceptable.
  *
  * LA PAROI EST UNE COQUE, sans épaisseur. Le trimesh de Rapier arrête des deux côtés : la
  * face que l'on voit est exactement celle qui porte. Les trous ne sont donc pas creusés,
@@ -21,20 +31,30 @@ import * as THREE from 'three';
  * UN TROU EST DOUBLE. Chaque percement retire aussi les cellules diamétralement opposées.
  * Le joueur qui tombe dans le trou du dessus traverse l'intérieur, glisse au fond de la
  * coque — dont le point bas EST la seconde ouverture, puisqu'elle lui fait face — et
- * ressort dans le lagon. Un trou borgne l'aurait piégé à l'intérieur d'un tronc qui tourne,
- * vivant et immobile : le joueur n'aurait pas su s'il était mort ou coincé.
+ * ressort dans le lagon. Un trou borgne l'aurait piégé à l'intérieur d'un tronc qui
+ * tourne, vivant et immobile : le joueur n'aurait pas su s'il était mort ou coincé.
  */
 
-/** Colonnes autour de la circonférence. C'est le levier de performance du module. */
-const COLS = 64;
-/** Pas des anneaux le long de l'axe, en mètres. */
-const ROW_STEP = 1.0;
-/** Période de texture, en mètres — comme la piste, pour que l'échelle ne dépende pas du rayon. */
+/**
+ * Colonnes autour de la circonférence. C'est le levier de silhouette : à R = 12 m, 72
+ * colonnes donnent une facette de 1,05 m, invisible à hauteur de course.
+ */
+const COLS = 72;
+/**
+ * Pas des anneaux le long de l'axe, en mètres.
+ *
+ * 1,6 m et non 1,0 : le cylindre est lisse dans cette direction, donc le raffinement n'y
+ * achète rien. Il faut seulement qu'un trou de 3,4 m garde deux cellules de large.
+ */
+const ROW_STEP = 1.6;
+/** Période de texture, en mètres — pour que l'échelle du motif ne dépende pas du rayon. */
 const UV = 8;
 /** Profondeur du liseré qui borde chaque trou : sans lui, la paroi se lit comme du papier. */
 const RIM = 0.5;
 
 const AXE_Z = new THREE.Vector3(0, 0, 1);
+/** Le sommet du cylindre, dans le repère local : θ = π/2 pointe vers +Y. */
+const CRETE_TH = Math.PI / 2;
 
 const norm = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 /** Écart angulaire signé le plus court entre deux angles. */
@@ -47,26 +67,34 @@ const dAngle = (a, b) => norm(a - b);
  * @param {object} o
  *   `z0` / `z1`  cotes de début et de fin (on progresse vers −Z, donc `z1 < z0`)
  *   `radius`     rayon de la paroi
- *   `centerY`    hauteur de l'axe
+ *   `centerY`    hauteur de l'axe — la crête est donc à `centerY + radius`
  *   `omega`      vitesse de rotation, en rad/s, signée
  *   `phase`      angle à t = 0
  *   `trous`      `[{ z, angle, arc, long }]` — cote, angle LOCAL, ouverture angulaire, longueur
  *   `matEcorce` / `matChemin`  matériaux de la paroi et de la bande de crête
  *   `arcChemin`  demi-ouverture angulaire de la bande de terre battue
  */
-export function buildTroncon({ RAPIER, world, group }, o) {
+export function buildEchine({ RAPIER, world, group }, o) {
   const R = o.radius;
-  const L = o.z0 - o.z1;                 // longueur, positive
+  const L = o.z0 - o.z1;                  // longueur, positive
   const zMid = (o.z0 + o.z1) / 2;
   const rows = Math.max(2, Math.round(L / ROW_STEP));
   const trous = o.trous ?? [];
-  const arcChemin = o.arcChemin ?? 0.42;  // ≈ 24°, la largeur du sentier
+  /**
+   * Demi-largeur du sentier, en radians.
+   *
+   * 0,13 rad = 7,4°, soit un sentier de 3,1 m sur une crête praticable de 9 m. Il doit
+   * rester MINORITAIRE : plus large, l'écorce ne se voit plus que sur les flancs et le
+   * tronc se lit comme une plage. Un tronc doit d'abord ressembler à du bois — le sentier
+   * n'est qu'une usure par-dessus.
+   */
+  const arcChemin = o.arcChemin ?? 0.13;
   // Angle LOCAL du sentier. La scène le cale pour qu'il soit en haut à t = 0.
-  const angleChemin = o.angleChemin ?? Math.PI / 2;
+  const angleChemin = o.angleChemin ?? CRETE_TH;
 
   // ── Sommets de la paroi ────────────────────────────────────────────────────────────
-  // Repère LOCAL : axe du rondin sur Z, origine au milieu du tronçon. Le corps porte la
-  // translation et la rotation, donc la géométrie n'a jamais à les connaître.
+  // Repère LOCAL : axe du tronçon sur Z, origine au milieu. Le corps porte la translation
+  // et la rotation, donc la géométrie n'a jamais à les connaître.
   const pos = [], uv = [], nrm = [];
   const idx = (i, j) => i * COLS + (j % COLS);
   for (let i = 0; i <= rows; i++) {
@@ -100,8 +128,8 @@ export function buildTroncon({ RAPIER, world, group }, o) {
 
   // ── Faces, réparties en deux groupes de matériau ────────────────────────────────────
   // Le sentier de terre battue est une BANDE D'ANGLE LOCAL : il tourne donc avec le tronc.
-  // Voir le sentier dériver, c'est voir de combien le rondin a tourné — la rotation devient
-  // lisible sans aucune indication à l'écran.
+  // Voir le sentier dériver, c'est voir de combien le rondin a tourné, et de quel côté —
+  // la rotation devient lisible sans aucune indication à l'écran.
   const facesEcorce = [], facesChemin = [];
   const cellules = [];   // pour construire les liserés : on garde l'état de chaque cellule
   for (let i = 0; i < rows; i++) {
@@ -189,6 +217,21 @@ export function buildTroncon({ RAPIER, world, group }, o) {
   const visuel = new THREE.Group();
   visuel.position.set(0, o.centerY, zMid);
   visuel.add(mesh);
+
+  // ── Anneaux de coupe ───────────────────────────────────────────────────────────────
+  // Un disque plein à chaque bout, posé sur la couronne. Décor pur, aucun collider : une
+  // tranche verticale au bout d'un tronçon n'est jamais foulée.
+  if (o.matAnneaux) {
+    const disque = new THREE.CircleGeometry(R * 0.995, 40);
+    for (const bout of [0, 1]) {
+      const d = new THREE.Mesh(disque, o.matAnneaux);
+      d.position.z = bout === 0 ? L / 2 + 0.02 : -L / 2 - 0.02;
+      if (bout === 1) d.rotation.y = Math.PI;
+      d.receiveShadow = true;
+      visuel.add(d);
+    }
+  }
+
   group.add(visuel);
 
   // ── Corps cinématique et collider ──────────────────────────────────────────────────
@@ -216,6 +259,21 @@ export function buildTroncon({ RAPIER, world, group }, o) {
     return a;
   }
   setAngle(0);
+
+  /**
+   * Inclinaison du terrain sous un point, en radians, comptée depuis la crête.
+   *
+   * C'est la grandeur que lit la scène pour doser la glisse : à 0 on est sur le plat, et
+   * elle croît vers les flancs. Elle ne dépend pas de la rotation, seulement de la position
+   * du joueur autour de l'axe — et c'est bien ce qu'on veut, puisque c'est la PENTE qui
+   * fait déraper, pas le fait que le tronc tourne.
+   */
+  function penteAt(p) {
+    if (p.z > o.z0 + 1 || p.z < o.z1 - 1) return null;
+    const dx = p.x, dy = p.y - o.centerY;
+    if (Math.hypot(dx, dy) < 1e-3) return null;
+    return Math.abs(dAngle(Math.atan2(dy, dx), CRETE_TH));
+  }
 
   /**
    * Vitesse de la surface sous un point, en repère monde.
@@ -248,7 +306,7 @@ export function buildTroncon({ RAPIER, world, group }, o) {
   }
 
   return {
-    body, visuel, mesh, geo, setAngle, surfaceAt, angleA, angleCourant,
+    body, visuel, mesh, geo, setAngle, surfaceAt, penteAt, angleA, angleCourant,
     R, z0: o.z0, z1: o.z1, centerY: o.centerY, omega: o.omega, trous,
     /** Position monde d'un point de la paroi donné en (cote Z, angle LOCAL). */
     pointSurface(z, angleLocal, elapsed = 0, hauteur = 0) {
@@ -262,5 +320,6 @@ export function buildTroncon({ RAPIER, world, group }, o) {
   };
 }
 
-export const RONDIN_COLS = COLS;
-export const RONDIN_RIM = RIM;
+export const ECHINE_COLS = COLS;
+export const ECHINE_RIM = RIM;
+export const ECHINE_CRETE_TH = CRETE_TH;

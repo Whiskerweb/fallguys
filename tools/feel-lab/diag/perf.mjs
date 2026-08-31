@@ -25,7 +25,7 @@ page.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text().slic
 
 await page.addInitScript(() => localStorage.setItem('tumble-model', 'char-babytrump'));
 const t0 = Date.now();
-await page.goto('http://127.0.0.1:5273/?lowfx', { waitUntil: 'domcontentloaded' });
+await page.goto(`http://127.0.0.1:${process.env.FEELLAB_PORT ?? 5273}/?lowfx&nointro`, { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => {
   const l = document.getElementById('loading');
   return l && getComputedStyle(l).display === 'none';
@@ -48,7 +48,7 @@ console.log('');
 console.log('map          construction   triangles   draw calls   corps');
 
 const bilan = [];
-for (const id of ['course', 'doors', 'rondin']) {
+for (const id of ['course', 'doors', 'rondin', 'dalles', 'hexagone']) {
   const t1 = Date.now();
   await page.evaluate((x) => {
     const g = window.__probeGame();

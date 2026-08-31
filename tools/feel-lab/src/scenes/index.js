@@ -1,6 +1,8 @@
 import { buildCourse } from './course.js';
 import { buildDoors } from './doors.js';
 import { buildRondin } from './rondin.js';
+import { buildDalles } from './dalles.js';
+import { buildHexagone } from './hexagone.js';
 
 /**
  * Registre des épreuves et déroulement d'une PARTIE.
@@ -15,30 +17,60 @@ import { buildRondin } from './rondin.js';
  *   update(elapsed, dt, focus, camera), checkpointFor(z), et de préférence reset(),
  *   dispose(), camBias et ambiance.
  */
+/*
+ * DEUX FORMES D'EPREUVE, et le contrat les distingue par un seul champ.
+ *
+ * Une course va d'un depart a une ligne d'arrivee et se termine quand on la franchit. Une
+ * SURVIE ne va nulle part : elle se termine quand on tombe, ou quand on a tenu la duree
+ * annoncee. Une scene declare la seconde forme en exposant `survie: { duree }` ; son
+ * absence vaut course. La boucle de jeu ne connait donc aucune liste d'identifiants, et
+ * une carte de survie de plus n'aura rien a lui ajouter.
+ */
 export const MINIGAMES = [
   {
     id: 'course',
-    name: 'La Course',
-    tagline: 'Le parcours d’obstacles. Serpente, bifurque, esquive.',
+    objectif: 'RACE TO THE FINISH!',
+    name: 'The Dash',
+    tagline: 'The obstacle course. It weaves, it forks, it swings back.',
     duree: '≈ 90 s',
     accent: '#2dd9d9',
     build: buildCourse,
   },
   {
     id: 'doors',
-    name: 'Les Portes',
-    tagline: 'Sept murs, des portes qui cèdent et des portes qui mentent.',
-    duree: '≈ 45 s',
+    objectif: 'BREAK THROUGH SEVEN WALLS!',
+    name: 'The Doors',
+    tagline: 'Seven walls. Some doors give way, the others lie.',
+    duree: '≈ 75 s',
     accent: '#ff4fa3',
     build: buildDoors,
   },
   {
     id: 'rondin',
-    name: 'Le Rondin',
-    tagline: 'Quatre troncs qui tournent au-dessus du lagon. Reste en haut.',
-    duree: '≈ 50 s',
+    objectif: 'RACE TO THE FINISH!',
+    name: 'The Logs',
+    tagline: 'The spines of giant spinning logs above the lagoon. Do not slip.',
+    duree: '≈ 55 s',
     accent: '#c98a4b',
     build: buildRondin,
+  },
+  {
+    id: 'dalles',
+    objectif: 'STAY ON THE RIGHT LINE!',
+    name: 'The Tiles',
+    tagline: 'A checkerboard over the void. Only one line holds your weight.',
+    duree: '≈ 60 s',
+    accent: '#ffd24a',
+    build: buildDalles,
+  },
+  {
+    id: 'hexagone',
+    objectif: 'STAY ABOVE THE SLIME!',
+    name: 'The Hex',
+    tagline: 'A tower of tiles that vanish underfoot. Outlast the drop.',
+    duree: '≈ 75 s',
+    accent: '#b44ce0',
+    build: buildHexagone,
   },
 ];
 

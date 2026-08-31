@@ -6,11 +6,11 @@ const model = process.argv[2] ?? 'char-penguin';
 const browser = await chromium.launch({ args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: 800, height: 500 } });
 await page.addInitScript((m) => localStorage.setItem('tumble-model', m), model);
-await page.goto('http://127.0.0.1:5273/?lowfx', { waitUntil: 'domcontentloaded' });
+await page.goto('http://127.0.0.1:5273/?lowfx&nointro', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => { const l=document.getElementById('loading'); return l && getComputedStyle(l).display==='none'; }, { timeout: 180000 });
 await page.waitForTimeout(900);
 await page.keyboard.press('Enter');
-await page.waitForFunction(() => parseFloat(document.getElementById('timer')?.textContent ?? '0') > 0.3, { timeout: 120000 });
+await page.waitForFunction(() => (window.__probeGame?.()?.runTime ?? 0) > 0.3, { timeout: 120000 });
 await page.keyboard.down('KeyW');
 await page.waitForTimeout(2500);
 

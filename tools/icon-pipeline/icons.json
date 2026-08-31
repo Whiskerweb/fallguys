@@ -10,72 +10,28 @@
       "prompt": "A rounded clothing hanger with a small folded t-shirt below it, turquoise and white vinyl"
     },
     {
-      "name": "icon-collabs",
-      "prompt": "Two chunky rounded cartoon hands doing a friendly fist bump, one golden yellow one turquoise"
-    },
-    {
-      "name": "icon-shop",
-      "prompt": "A chubby rounded shopping cart seen at three quarter angle, mint green vinyl with white wheels"
-    },
-    {
       "name": "icon-settings",
       "prompt": "A thick rounded six-tooth gear wheel with a round hole in the middle, lavender purple vinyl"
     },
     {
-      "name": "icon-crown",
-      "prompt": "A chunky rounded five point crown with three round gems on the band, golden yellow vinyl"
+      "name": "icon-level",
+      "prompt": "A thick rounded hexagon badge seen face on, bright sky blue vinyl with a darker blue bevelled rim and a perfectly smooth EMPTY flat centre panel in a lighter blue, no symbol and no marking inside the centre"
     },
     {
-      "name": "icon-coin",
-      "prompt": "A thick round coin seen face on with a soft rounded rim and a smooth blank centre, mint green and white vinyl"
+      "name": "icon-rank-1",
+      "prompt": "A chunky rounded five point crown with three round gems on the band, golden yellow vinyl with a warm orange rim"
     },
     {
-      "name": "icon-profile",
-      "prompt": "A simple rounded bean shaped character bust with two big glossy eyes, coral pink vinyl"
+      "name": "icon-rank-2",
+      "prompt": "A fat round medal disc hanging from a short folded ribbon, polished silver grey vinyl disc with a smooth blank centre and a pale blue ribbon"
     },
     {
-      "name": "icon-trophy",
-      "prompt": "A fat rounded trophy cup with two chunky handles on a thick base, golden yellow vinyl"
+      "name": "icon-rank-3",
+      "prompt": "A fat round medal disc hanging from a short folded ribbon, warm bronze copper vinyl disc with a smooth blank centre and a deep orange ribbon"
     },
     {
-      "name": "icon-friends",
-      "prompt": "Two overlapping rounded bean shaped character busts side by side, one turquoise one coral pink"
-    },
-    {
-      "name": "port-player-rigged",
-      "prompt": "A friendly bean shaped blob mascot bust facing forward, coral pink vinyl body, two huge glossy eyes with tiny highlights, rosy cheeks, small smile"
-    },
-    {
-      "name": "port-char-tycoon",
-      "prompt": "A cartoon mascot bust facing forward with voluminous swept-back golden blond hair, navy blue suit collar and a long bright red necktie, confident smirk, big glossy eyes"
-    },
-    {
-      "name": "port-char-engineer",
-      "prompt": "A cartoon mascot bust facing forward with short dark brown hair, black bomber jacket collar over a dark t-shirt, flat unimpressed expression, big glossy eyes"
-    },
-    {
-      "name": "port-char-penguin",
-      "prompt": "A round penguin mascot bust facing forward, white belly and sky blue head, small orange beak, rosy cheeks, tiny knitted scarf, big glossy eyes"
-    },
-    {
-      "name": "port-char-shiba",
-      "prompt": "A shiba inu mascot bust facing forward, warm orange and cream fur, pointed triangular ears, wide happy smile, tiny black nose, big glossy eyes"
-    },
-    {
-      "name": "port-char-bull",
-      "prompt": "A golden bull mascot bust facing forward, shiny metallic gold head, short curved horns, small nose ring, determined grin, big glossy eyes"
-    },
-    {
-      "name": "port-char-frog",
-      "prompt": "A green frog mascot bust facing forward, bright grass green skin, huge round eyes with tiny pupils, wide flat smiling mouth, small red collar"
-    },
-    {
-      "name": "port-player-custom",
-      "prompt": "A smooth featureless bean shaped mascot bust facing forward, warm orange vinyl, two big glossy eyes, neutral expression"
-    },
-    {
-      "name": "port-char-whale",
-      "prompt": "A cartoon mascot bust facing forward with a deep blue whale head, pale cream muzzle, friendly smile, tiny light blue water spout on top of the head, small teal t-shirt collar, big glossy eyes"
+      "name": "icon-refund",
+      "prompt": "A chunky rounded shield with a thick curved arrow looping back to the left carved into its face, mint green vinyl shield with a white arrow"
     }
   ]
 }

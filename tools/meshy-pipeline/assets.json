@@ -263,6 +263,48 @@
       "polycount": 7000,
       "symmetry": "on",
       "prompt": "Stylized cartoon finish gate for a bright jungle party game. Two thick vertical wooden posts in flat warm tan #C98A4B carrying one horizontal beam across the top, gate twice as wide as tall, every post and beam a rounded cylinder with softly bevelled ends. The beam is bound to each post by three turns of flat rope in cream #EBD9A8. Hanging from the beam, five short leafy garlands in flat saturated green #3FBF3F. A wide flat banner plate in bright turquoise #2DD9D9 is fixed under the beam, completely blank. Absolutely no text, no letters, no flags, no checkered pattern, no nails, no wood grain, no ground plane. Chunky rounded volumes, simple silhouette readable from 60 meters, clean toon game asset."
+    },
+    {
+      "name": "sky-island-grass",
+      "polycount": 5000,
+      "symmetry": "off",
+      "prompt": "Stylized cartoon floating sky island for a bright party game. A chunk of earth torn out of the ground and hovering in mid air. The top 30 percent is a flat rounded disc of grass in flat saturated green #6FD44A with a softly rounded overhanging rim. The lower 70 percent is bare rock tapering downward to a blunt rounded point, in flat warm grey brown #9A8570, shaped with three or four broad flat facets. Wider than tall, about three units wide for two units tall. Two small rounded boulders in lighter grey #B9AA97 rest on the grass near one edge. Chunky rounded volumes, simple silhouette readable from 80 meters, clean toon game asset. No text, no trees, no plants, no water, no ground plane, no clouds, no roots, no cracks, no surface detail, no dirt particles."
+    },
+    {
+      "name": "jungle-totem",
+      "polycount": 6000,
+      "symmetry": "on",
+      "prompt": "cartoon carved wooden totem pillar, tall stacked cylinder of chunky rounded blocks, painted deep red and warm orange bands, thick golden rope wrapped between the blocks, smooth glossy toy plastic look, flat saturated colours, clean game prop, standing upright, no base plate, no scenery, no ground"
+    },
+    {
+      "name": "canopy-tree-tall",
+      "polycount": 7000,
+      "symmetry": "off",
+      "prompt": "cartoon jungle tree, tall slender curved trunk in warm brown, wide rounded canopy of two stacked cloud shaped foliage clumps in bright saturated green, smooth glossy toy plastic look, chunky simplified shapes, no roots, no ground, no rocks, no scenery, single tree only"
+    },
+    {
+      "name": "hanging-vines",
+      "polycount": 4000,
+      "symmetry": "off",
+      "prompt": "cartoon hanging jungle vines, a cluster of long drooping green strands falling from a short horizontal branch, each strand a smooth rounded tapered cord with a few chunky leaf blobs, bright saturated green, glossy toy plastic look, no trunk, no ground, no scenery, no flowers"
+    },
+    {
+      "name": "rope-bridge-post",
+      "polycount": 3500,
+      "symmetry": "on",
+      "prompt": "cartoon wooden bridge post, a single thick rounded log pillar standing upright, warm tan wood, capped with a smooth dome top, thick golden rope coiled twice around the upper third, glossy toy plastic look, flat saturated colours, no planks, no bridge deck, no ground, no scenery"
+    },
+    {
+      "name": "berry-bush-pink",
+      "polycount": 3000,
+      "symmetry": "off",
+      "prompt": "cartoon round shrub, a dense mound of soft rounded green foliage clumps, sprinkled with small bright pink round berries sitting on the surface, short stubby brown stem at the base, glossy toy plastic look, flat saturated colours, chunky simple shapes, no pot, no ground, no grass patch, no flowers, no leaves detail, no text"
+    },
+    {
+      "name": "candy-peak-pink",
+      "polycount": 4000,
+      "symmetry": "off",
+      "prompt": "cartoon candy mountain, a single wide cone shaped hill with soft rounded slopes, body in pale pink, top third capped in smooth glossy white like icing that drips slightly down the sides in rounded lobes, matte toy plastic look, flat saturated colours, gentle silhouette, no snow texture, no rocks, no trees, no ground plane, no text"
     }
   ]
 }

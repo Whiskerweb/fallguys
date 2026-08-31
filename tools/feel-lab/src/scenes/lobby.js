@@ -303,18 +303,33 @@ export function buildLobbyScreen(assets) {
   // L'avant du personnage est +Z, la camera est en +Z : rotation nulle = il nous regarde.
   // LOBBY.avatarYaw rattrape une orientation native differente sur le modele genere.
   animated.push((t, dt) => {
-    // Pose d'attente : le rig tourne a vitesse nulle, donc uniquement la respiration.
-    // `vitrine` le dit au lecteur de clips, qui sinon figerait la marche sur un appui et
-    // poserait une statue au milieu de la boutique.
+    // Pose d'attente : le rig tourne a vitesse nulle, donc uniquement le repos.
+    // `vitrine` le dit au lecteur de clips, qui sans clip de repos figerait la marche sur
+    // un appui et poserait une statue au milieu de la vitrine.
     if (avatarRig) {
       avatarRig.vitrine = true;
       avatarRig.update(dt ?? 0.016, 0, 8, 'grounded', 0);
     }
     stage.rotation.y = Math.sin(t * 0.32) * 0.85 + LOBBY.avatarYaw;
-    const breathe = 1 + Math.sin(t * 1.6) * 0.022;
+
+    /*
+     * La respiration postiche ne sert QUE s'il n'y a pas de vraie animation de repos.
+     *
+     * L'ecrasement vertical et le flottement du socle avaient ete ajoutes quand les
+     * personnages arrivaient sans clip de repos : sans eux, le lobby montrait une statue.
+     * Les personnages portent desormais une vraie animation d'attente, qui respire a sa
+     * propre cadence. Superposer les deux ne donne pas deux fois plus de vie — cela donne
+     * un battement contre un autre, et le personnage se met a osciller.
+     */
     const base = avatar.userData.baseScale ?? avatar.scale.x ?? 1;
-    avatar.scale.set((2 - breathe) * base, breathe * base, (2 - breathe) * base);
-    stage.position.y = 1.26 + Math.sin(t * 1.6) * 0.035;
+    if (avatarRig?.repos) {
+      avatar.scale.setScalar(base);
+      stage.position.y = 1.26;
+    } else {
+      const breathe = 1 + Math.sin(t * 1.6) * 0.022;
+      avatar.scale.set((2 - breathe) * base, breathe * base, (2 - breathe) * base);
+      stage.position.y = 1.26 + Math.sin(t * 1.6) * 0.035;
+    }
   });
 
   // ---------- éclairage de studio ----------

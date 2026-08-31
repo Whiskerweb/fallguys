@@ -26,7 +26,7 @@ await page.addInitScript(() => {
   localStorage.setItem('tumble-minijeu', 'doors');
   localStorage.setItem('tumble-manche', '6');
 });
-await page.goto('http://127.0.0.1:5273/?lowfx', { waitUntil: 'domcontentloaded' });
+await page.goto(`http://127.0.0.1:${process.env.FEELLAB_PORT ?? 5273}/?lowfx&nointro`, { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => {
   const l = document.getElementById('loading');
   return l && getComputedStyle(l).display === 'none';
@@ -40,7 +40,7 @@ await page.evaluate(() => {
   g.partie = { parcours: [jeu, jeu], index: 0, temps: [], chutes: 0 };
   g.startRace();
 });
-await page.waitForFunction(() => parseFloat(document.getElementById('timer')?.textContent ?? '0') > 0.3, { timeout: 120000 });
+await page.waitForFunction(() => (window.__probeGame?.()?.runTime ?? 0) > 0.3, { timeout: 120000 });
 
 // ── 1. Le mur ne doit rien reveler ──
 // Camera figee face au premier mur, a bonne distance de lecture.
@@ -78,7 +78,7 @@ await page.evaluate(() => {
   g.partie = { parcours: [jeu, jeu], index: 0, temps: [], chutes: 0 };
   g.startRace();
 });
-await page.waitForFunction(() => parseFloat(document.getElementById('timer')?.textContent ?? '0') > 0.3, { timeout: 60000 });
+await page.waitForFunction(() => (window.__probeGame?.()?.runTime ?? 0) > 0.3, { timeout: 60000 });
 await page.waitForTimeout(400);
 const donneB = await page.evaluate(() => window.__probeGame().arena.__apparences());
 

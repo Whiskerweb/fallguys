@@ -114,8 +114,22 @@ async function main() {
     }
     if (!ok) log(`ECHEC ${icon.name}`);
   }
-  await fs.writeFile(path.join(OUT, 'manifest.json'), JSON.stringify(done, null, 2));
-  log(`--- ${done.length}/${todo.length} icones installees ---`);
+
+  /*
+   * Le manifeste reflete le CONTENU du dossier, jamais le resultat du run.
+   *
+   * Il etait ecrit a partir de `done` : regenerer une seule icone effacait toutes les
+   * autres de la liste, et `applyIcons()` les ignorait alors bien qu'elles soient sur le
+   * disque. Les vignettes de map, produites par `cartes.mjs` qui ne touche pas au
+   * manifeste, n'y figuraient jamais. C'est deja ainsi que procedent
+   * `diag/portrait.mjs` et `meshy-pipeline/generate.mjs`.
+   */
+  const liste = (await fs.readdir(OUT))
+    .filter((f) => f.endsWith('.png'))
+    .map((f) => f.replace(/\.png$/, ''))
+    .sort();
+  await fs.writeFile(path.join(OUT, 'manifest.json'), JSON.stringify(liste, null, 2));
+  log(`--- ${done.length}/${todo.length} icones installees · manifeste : ${liste.length} entrees ---`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

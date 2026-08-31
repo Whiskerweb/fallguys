@@ -32,31 +32,36 @@ export const SKINS = [
  */
 export const MODELS = [
   {
-    id: 'char-babytrump', name: 'BabyTrump', rigged: true, rarity: 'épique', accent: 0xf5a623,
-    desc: "Petit format, grosse colère. Il court et il marche avec ses propres animations.",
-    season: 'Édition limitée',
+    id: 'char-babytrump', name: 'BabyTrump', rigged: true, rarity: 'epic', accent: 0xf5a623,
+    desc: 'Small format, big temper. He runs, he walks and he waits with his own animations.',
+    season: 'Limited edition',
   },
   {
-    id: 'char-techtitan', name: 'Le Titan', rigged: true, rarity: 'épique', accent: 0x4fd1c5,
-    desc: "T-shirt noir, couche assortie, ambitions orbitales. Il court avec ses propres animations.",
-    season: 'Édition limitée',
+    id: 'char-techtitan', name: 'BabyMusk', rigged: true, rarity: 'epic', accent: 0x4fd1c5,
+    desc: 'Black tee, matching diaper, orbital ambitions. He runs with his own animations.',
+    season: 'Limited edition',
   },
   {
-    id: 'char-grenouille', name: 'La Grenouille', rigged: true, rarity: 'légendaire', accent: 0x4f9e3f,
-    desc: "Sourire fendu jusqu'aux oreilles, couche impeccable. Elle court et elle marche.",
-    season: 'Édition limitée',
+    id: 'char-grenouille', name: 'Pepe', rigged: true, rarity: 'legendary', accent: 0x4f9e3f,
+    desc: 'Grin from ear to ear, spotless diaper. He runs and he walks.',
+    season: 'Limited edition',
   },
   {
-    id: 'char-diplomate', name: 'Le Diplomate', rigged: true, rarity: 'commun', accent: 0x8ede6d,
-    desc: "Costume sombre, couche-culotte, sourcils froncés. Il négocie en courant.",
-    season: 'Édition limitée',
+    id: 'char-diplomate', name: 'BabyNetan', rigged: true, rarity: 'common', accent: 0x8ede6d,
+    desc: 'Dark suit, diaper, furrowed brows. He negotiates at a sprint.',
+    season: 'Limited edition',
+  },
+  {
+    id: 'char-captainleeky', name: 'Captain Leeky', rigged: true, rarity: 'common', accent: 0x1f6ad4,
+    desc: 'Three leaves for hair, blue jersey, determined brows. He runs and he walks.',
+    season: 'Limited edition',
   },
 ];
 
 export const RARITY = {
-  commun: { label: 'COMMUN', color: '#7f8fa6' },
-  épique: { label: 'ÉPIQUE', color: '#a855f7' },
-  légendaire: { label: 'LÉGENDAIRE', color: '#f5a623' },
+  common: { label: 'COMMON', color: '#7f8fa6' },
+  epic: { label: 'EPIC', color: '#a855f7' },
+  legendary: { label: 'LEGENDARY', color: '#f5a623' },
 };
 
 const KEY = 'tumble-skin';

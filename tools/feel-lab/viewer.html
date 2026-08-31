@@ -2,15 +2,29 @@
 <meta charset="utf-8">
 <title>Visualiseur GLB</title>
 <style>html,body{margin:0;height:100%;background:#20222c}canvas{display:block}
+body.alpha,html:has(body.alpha){background:none}
 #info{position:fixed;left:8px;top:8px;color:#fff;font:12px monospace;white-space:pre}</style>
 <div id="info">chargement…</div>
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-const file = new URLSearchParams(location.search).get('m') ?? '';
-const ren = new THREE.WebGLRenderer({ antialias: true });
+const params = new URLSearchParams(location.search);
+const file = params.get('m') ?? '';
+/*
+ * `?alpha=1` rend le modele SUR FOND TRANSPARENT.
+ *
+ * Les portraits de la vitrine sortent de ce visualiseur (`diag/portrait.mjs`). Rendus sur
+ * le gris du visualiseur, ils arrivaient dans l'interface avec un rectangle terne
+ * incruste : impossible de leur poser un cadre colore ou un halo derriere, et cinq pave
+ * gris s'alignaient dans la grille. Detoure, le personnage se pose sur ce que la tuile
+ * veut bien mettre derriere lui.
+ */
+const alpha = params.get('alpha') === '1';
+const ren = new THREE.WebGLRenderer({ antialias: true, alpha });
+if (alpha) { ren.setClearAlpha(0); document.body.classList.add('alpha'); }
 ren.setSize(innerWidth, innerHeight); document.body.append(ren.domElement);
-const scene = new THREE.Scene(); scene.background = new THREE.Color(0x20222c);
+const scene = new THREE.Scene();
+if (!alpha) scene.background = new THREE.Color(0x20222c);
 const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.01, 100);
 scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 2.2));
 const d = new THREE.DirectionalLight(0xffffff, 2.0); d.position.set(3, 5, 4); scene.add(d);

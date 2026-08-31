@@ -22,7 +22,7 @@ page.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text().slic
 
 const modele = process.argv[2] ?? 'char-babytrump';
 await page.addInitScript((m) => localStorage.setItem('tumble-model', m), modele);
-await page.goto('http://127.0.0.1:5273/?lowfx', { waitUntil: 'domcontentloaded' });
+await page.goto('http://127.0.0.1:5273/?lowfx&nointro', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => {
   const l = document.getElementById('loading');
   return l && getComputedStyle(l).display === 'none';
@@ -67,7 +67,7 @@ async function mesurer(nom) {
 await mesurer('accueil');
 
 // Onglet Personnage : la vitrine.
-await page.click('.navbtn[data-tab="skins"]');
+await page.click('#btn-perso');
 await page.waitForTimeout(900);
 await mesurer('vitrine');
 

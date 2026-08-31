@@ -14,10 +14,10 @@ const erreurs = [];
 page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 200)));
 page.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text().slice(0, 200)); });
 const SKIP = process.argv[2] ?? 'balls,pendulums';
-await page.goto(`http://127.0.0.1:5273/?lowfx&skip=${SKIP}`, { waitUntil: 'domcontentloaded' });
+await page.goto(`http://127.0.0.1:5273/?lowfx&nointro&skip=${SKIP}`, { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => { const l = document.getElementById('loading'); return l && getComputedStyle(l).display === 'none'; }, { timeout: 300000 });
 await page.keyboard.press('Enter');
-await page.waitForFunction(() => parseFloat(document.getElementById('timer')?.textContent ?? '0') > 0.3, { timeout: 120000 });
+await page.waitForFunction(() => (window.__probeGame?.()?.runTime ?? 0) > 0.3, { timeout: 120000 });
 
 const poser = (voie, z) => page.evaluate(([voie, z]) => {
   const g = window.__probeGame(); const c = window.__probeCharacter();

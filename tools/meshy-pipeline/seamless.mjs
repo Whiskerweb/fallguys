@@ -14,10 +14,23 @@ import { Jimp } from 'jimp';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 
-const SLOTS = [
-  'ground-quilt', 'ground-check', 'ground-scale', 'ground-polka',
-  'hazard-stripes', 'grass', 'inflatable-bands', 'confetti',
-];
+/**
+ * Slots connus, LUS a la source.
+ *
+ * La liste etait ecrite en dur et s'est perimee : huit noms figes pour vingt-neuf slots
+ * reels, donc l'avertissement se declenchait sur presque tout et ne voulait plus rien dire.
+ * On lit desormais `textures.json`, qui est la declaration de reference — la liste ne peut
+ * plus diverger de ce que le pipeline sait produire.
+ */
+async function slotsConnus() {
+  try {
+    const src = await fs.readFile(path.resolve('../texture-pipeline/textures.json'), 'utf8');
+    return JSON.parse(src).slots.map((s) => s.name);
+  } catch {
+    return [];   // liste indisponible : on n'avertit sur rien plutot que d'avertir a tort
+  }
+}
+const SLOTS = await slotsConnus();
 const OUT = path.resolve('../feel-lab/public/textures');
 
 const [src, slot, sizeArg, liftArg] = process.argv.slice(2);
@@ -26,7 +39,9 @@ if (!src || !slot) {
   console.error('slots: ' + SLOTS.join(', '));
   process.exit(1);
 }
-if (!SLOTS.includes(slot)) console.warn(`! "${slot}" ne correspond a aucun slot connu — le jeu l'ignorera.`);
+if (SLOTS.length && !SLOTS.includes(slot)) {
+  console.warn(`! "${slot}" ne correspond a aucun slot connu — le jeu l'ignorera.`);
+}
 
 const SIZE = Number(sizeArg) || 1024;
 /**

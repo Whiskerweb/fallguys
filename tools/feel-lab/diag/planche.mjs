@@ -4,7 +4,7 @@ const browser = await chromium.launch({ args: ['--use-gl=angle','--use-angle=swi
 for (const id of process.argv.slice(2)) {
   const page = await browser.newPage({ viewport: { width: 600, height: 640 } });
   await page.addInitScript((m) => localStorage.setItem('tumble-model', m), id);
-  await page.goto('http://127.0.0.1:5273/?lowfx', { waitUntil: 'domcontentloaded' });
+  await page.goto('http://127.0.0.1:5273/?lowfx&nointro', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => { const l=document.getElementById('loading'); return l && getComputedStyle(l).display==='none'; }, { timeout: 180000 });
   await page.waitForTimeout(1400);
   // On fige la rotation du podium pour que tous les personnages soient vus de face.

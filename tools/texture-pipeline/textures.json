@@ -108,6 +108,38 @@
     {
       "name": "jungle-canopy",
       "prompt": "Subject: a dense jungle canopy seen from directly above, packed edge to edge with big rounded clumps of foliage. SIGNAL texture, it carries its own colours: three flat tones only, deep green #2E9E44 as the dominant base, brighter leaf green #46C24E for about a third of the clumps, pale lime #86D96A for about a sixth. Each clump is a single flat colour area with a smooth rounded cloud outline, clump size between 10 and 20 percent of the image width, packed irregularly with no visible grid. No trunks, no branches, no flowers, no individual leaves, no shading, no gradient, no outline, no gap showing ground."
+    },
+    {
+      "name": "sky-meadow",
+      "prompt": "Subject: a smooth bright cartoon meadow seen from directly above, flat saturated grass green, decorated with soft slightly darker green patches of irregular rounded shape scattered evenly across the whole square, plus a few tiny lighter green speckles between them. Completely flat and smooth like painted felt, filling the entire square edge to edge. No blades, no flowers, no rocks, no path, no fence, no trees, no shadows, no white background."
+    },
+    {
+      "name": "cloud-bank",
+      "prompt": "Subject: soft fluffy cartoon clouds packed in overlapping rows against pale sky blue, the clouds pure white with gently rounded bulges and soft light blue shading underneath each bulge, many small and medium puffs filling the entire square edge to edge. Flat vector-like shapes with crisp smooth outlines. No sun, no birds, no horizon line, no gradient, no text, no white empty background."
+    },
+    {
+      "name": "bark-ridge-red",
+      "prompt": "Subject: a thick raised bark ridge running across a giant cartoon log, seen from directly above, built as a row of fat rounded segments packed side by side along the horizontal axis, each segment about 9 percent of the image width, separated by narrow soft grooves. SIGNAL texture, it carries its own colours: the segments are flat crimson red #D93A2B, the grooves between them deeper red #A82A1E, and a flat golden rope band #F0C75A about 12 percent of the image height crosses the whole square horizontally near the lower third, drawn as a smooth flat strip with soft rounded twist marks in darker gold #C99B32. No wood grain, no moss, no leaves, no highlight, no gradient, no shading, no outline, no drop shadow. Segments crossing the left edge continue exactly on the right edge, and the rope band continues exactly across both vertical edges."
+    },
+    {
+      "name": "bark-ridge-blue",
+      "prompt": "Subject: a thick raised bark ridge running across a giant cartoon log, seen from directly above, built as a row of fat rounded segments packed side by side along the horizontal axis, each segment about 9 percent of the image width, separated by narrow soft grooves. SIGNAL texture, it carries its own colours: the segments are flat royal blue #2E6FD0, the grooves between them deep navy #1B4487, and a flat golden rope band #F0C75A about 12 percent of the image height crosses the whole square horizontally near the lower third, drawn as a smooth flat strip with soft rounded twist marks in darker gold #C99B32. No wood grain, no moss, no leaves, no highlight, no gradient, no shading, no outline, no drop shadow. Segments crossing the left edge continue exactly on the right edge, and the rope band continues exactly across both vertical edges."
+    },
+    {
+      "name": "log-rings-cut",
+      "prompt": "Subject: the sawn end of a giant cartoon tree trunk seen face on, filling the entire square edge to edge, showing concentric growth rings around a centre placed slightly off the middle. SIGNAL texture, it carries its own colours: the wood is flat warm orange #FC884B, the rings are smooth closed curves of deeper orange red #E8613A about 1.5 percent of the image width, spaced irregularly so the gaps between them vary, with a small flat core disc of pale cream #F8D9A8 at the centre. Rings are soft rounded ovals, never perfect circles, never sharp. No bark edge, no sawdust, no cracks, no knots, no gradient, no shading, no outline, no glow. The wood colour reaches all four edges and the outermost rings run off the edges and continue exactly on the opposite edge."
+    },
+    {
+      "name": "plank-bridge",
+      "prompt": "Subject: a footbridge deck of wide wooden planks seen from directly above, filling the entire square, the planks laid side by side running horizontally across the square, each plank about 14 percent of the image height. SIGNAL texture, it carries its own colours: the planks are flat warm tan #E0A163, alternating irregularly with a few in slightly paler sand #EFBE86 and a few in deeper amber #C4813F, separated by narrow flat gaps of dark brown #8A5A2E about 1.2 percent of the image height. Each plank is a single flat colour area with softly rounded ends. No nails, no rope, no wood grain lines, no knots, no moss, no gradient, no shading, no outline, no drop shadow. Planks run off the left and right edges and continue exactly, and the top plank continues into the bottom plank."
+    },
+    {
+      "name": "finish-checker",
+      "prompt": "Subject: a racing finish line checkerboard seen from directly above, filling the entire square edge to edge, an even grid of 8 by 8 flat squares. SIGNAL texture, it carries its own colours: alternating pure black #141414 and pure white #FAFAFA squares only, hard edged, perfectly aligned, each square exactly one eighth of the image width. No perspective, no bevel, no gradient, no shading, no outline, no glow, no dirt, no wear, no text, no numbers. The grid must align so the left edge continues into the right edge and the top edge into the bottom edge with the alternation unbroken."
+    },
+    {
+      "name": "river-stone",
+      "prompt": "Subject: the flat worn top of a large smooth river boulder seen from directly above, filling the entire square edge to edge. SIGNAL texture, it carries its own colours: flat dusty mauve brown #AB7A6C covers the whole surface as the base, scattered with soft irregular rounded patches of slightly lighter clay #C1978A over about a third of it and a few smaller patches of deeper brown #8E5F55 over a sixth. Every patch is a smooth flat colour area with a clean rounded edge. No cracks, no speckle, no moss, no sand, no pebbles, no water, no gradient, no shading, no outline, no drop shadow. The stone reaches all four edges and every patch crossing an edge continues exactly on the opposite edge."
     }
   ]
 }

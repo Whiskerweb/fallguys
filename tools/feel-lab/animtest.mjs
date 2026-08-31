@@ -13,7 +13,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 await page.addInitScript((m) => localStorage.setItem('tumble-model', m), model);
-await page.goto('http://127.0.0.1:5273/?lowfx', { waitUntil: 'domcontentloaded' });
+await page.goto('http://127.0.0.1:5273/?lowfx&nointro', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => {
   const l = document.getElementById('loading');
   return l && getComputedStyle(l).display === 'none';
@@ -30,7 +30,7 @@ await page.keyboard.press('Enter');
 // On attend que le chrono DEMARRE plutot qu'un delai fixe : en rendu logiciel le temps
 // simule avance bien plus lentement que le temps reel, et un delai echantillonnerait
 // encore le decompte.
-await page.waitForFunction(() => parseFloat(document.getElementById('timer')?.textContent ?? '0') > 0.3,
+await page.waitForFunction(() => (window.__probeGame?.()?.runTime ?? 0) > 0.3,
   { timeout: 120000 });
 
 const probe = () => page.evaluate(() => {

@@ -11,7 +11,16 @@
  * le meme ordre : les canaux d'animation ciblent les os par index, et un ordre different
  * melangerait les membres. Le script le verifie et refuse sinon.
  *
- * Usage : node fusion-anims.mjs <sortie.glb> <base.glb:nom> [autre.glb:nom ...]
+ * Trois formes de specification, apres le deux-points :
+ *   `-`     le maillage seulement, animation ecartee (le socle Meshy, dont le clip livre
+ *           n'est qu'une pose de liaison en A) ;
+ *   `nom`   la PREMIERE animation du fichier, renommee `nom` ;
+ *   `*`     TOUTES ses animations, chacune sous son propre nom. C'est ce qu'il faut pour
+ *           greffer un clip sur un personnage deja fusionne : sans cette forme, reprendre
+ *           un fichier a deux clips n'en gardait qu'un, et le personnage repartait sans
+ *           sa course ou sans sa marche.
+ *
+ * Usage : node fusion-anims.mjs <sortie.glb> <base.glb:nom|*|-> [autre.glb:nom|*|- ...]
  */
 import fs from 'node:fs/promises';
 
@@ -83,18 +92,21 @@ const json = socle.json;
 // Les animations de CHAQUE source sont relevees avant de vider la liste : `json` est la
 // meme reference que `socle.json`, et remettre le tableau a zero effacait au passage le
 // clip du fichier socle, qui disparaissait silencieusement de la fusion.
-// Un nom vide ou « - » : on prend le maillage de ce fichier mais PAS son animation.
-// Sert au fichier socle, dont le clip livre par Meshy n'est qu'une pose de liaison en A
-// dont on ne veut pas dans le jeu.
-for (const e of entrees) e.anim = (e.nom && e.nom !== '-') ? e.json.animations?.[0] : null;
+for (const e of entrees) {
+  const livrees = e.json.animations ?? [];
+  if (!e.nom || e.nom === '-') e.anims = [];
+  else if (e.nom === '*') e.anims = livrees.map((a, i) => ({ anim: a, nom: a.name ?? `clip${i}` }));
+  else e.anims = livrees[0] ? [{ anim: livrees[0], nom: e.nom }] : [];
+}
 json.animations = [];
 const morceaux = [socle.bin];
 let longueur = socle.bin.length;
 
 for (const e of entrees) {
-  const anim = e.anim;
-  if (!anim) { console.log(`= ${e.chemin.split('/').pop()} : maillage seul, animation ecartee`); continue; }
+  if (!e.anims.length) { console.log(`= ${e.chemin.split('/').pop()} : maillage seul, animation ecartee`); continue; }
 
+  // Le cache d'accessors est PAR FICHIER : deux clips d'un meme fichier partagent
+  // souvent leurs pistes de temps, qu'il serait absurde de recopier deux fois.
   const vus = new Map();
   const copierAccessor = (idx) => {
     if (vus.has(idx)) return vus.get(idx);
@@ -114,16 +126,18 @@ for (const e of entrees) {
     return n;
   };
 
-  json.animations.push({
-    name: e.nom,
-    samplers: anim.samplers.map((s) => ({
-      input: copierAccessor(s.input),
-      output: copierAccessor(s.output),
-      ...(s.interpolation ? { interpolation: s.interpolation } : {}),
-    })),
-    channels: anim.channels.map((c) => ({ sampler: c.sampler, target: { ...c.target } })),
-  });
-  console.log(`+ "${anim.name ?? '(sans nom)'}" -> "${e.nom}" (${anim.channels.length} canaux)`);
+  for (const { anim, nom } of e.anims) {
+    json.animations.push({
+      name: nom,
+      samplers: anim.samplers.map((s) => ({
+        input: copierAccessor(s.input),
+        output: copierAccessor(s.output),
+        ...(s.interpolation ? { interpolation: s.interpolation } : {}),
+      })),
+      channels: anim.channels.map((c) => ({ sampler: c.sampler, target: { ...c.target } })),
+    });
+    console.log(`+ "${anim.name ?? '(sans nom)'}" -> "${nom}" (${anim.channels.length} canaux)`);
+  }
 }
 
 const bin = Buffer.concat(morceaux);

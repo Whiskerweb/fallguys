@@ -32,7 +32,7 @@ await page.addInitScript(() => {
   localStorage.setItem('tumble-model', 'char-tycoon');
   localStorage.setItem('tumble-manche', '0');
 });
-await page.goto('http://127.0.0.1:5273/?lowfx', { waitUntil: 'domcontentloaded' });
+await page.goto('http://127.0.0.1:5273/?lowfx&nointro', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => {
   const l = document.getElementById('loading');
   return l && getComputedStyle(l).display === 'none';
@@ -60,7 +60,7 @@ for (let n = 0; n < MANCHES; n++) {
     g.partie = { parcours: [jeu], index: 0, temps: [], chutes: 0 };
     g.startRace();
   });
-  await page.waitForFunction(() => parseFloat(document.getElementById('timer')?.textContent ?? '0') > 0.3, { timeout: 120000 });
+  await page.waitForFunction(() => (window.__probeGame?.()?.runTime ?? 0) > 0.3, { timeout: 120000 });
 
   const info = await page.evaluate(() => {
     const g = window.__probeGame();

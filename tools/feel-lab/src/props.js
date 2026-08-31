@@ -382,14 +382,24 @@ export function stripedPeak(radius, height, baseColor, capColor, opts = {}) {
  * moins saturés, ce qui reproduit la perspective atmosphérique. Un seul plan de montagnes
  * de même teinte se lit comme un décor peint, quelle que soit sa qualité de forme.
  */
-export function mountainRange(groundY) {
+/**
+ * @param {number} groundY  altitude de pose
+ * @param {object} o
+ *   `cx` / `cz`  centre de la ceinture
+ *   `densite`    fraction des sommets a poser, de 0 a 1. Chaque sommet coute deux appels
+ *                de dessin : une carte deja chargee peut vouloir la meme chaine en moins
+ *                dense plutot que pas de chaine du tout.
+ *   `rayon`      multiplie la distance des anneaux
+ *
+ * Les valeurs par defaut reproduisent exactement la chaine de La Course.
+ */
+export function mountainRange(groundY, { cx = 0, cz = -64, densite = 1, rayon = 1 } = {}) {
   const group = new THREE.Group();
 
-  // La piste va de z=+20 a z=-148 : son centre est vers z=-64. Les montagnes forment
-  // une CEINTURE autour de ce centre, pas une rangee au fond. Deux raisons : elles
-  // masquent le bord du terrain quelle que soit l'orientation de la camera, et un
-  // horizon ferme de tous cotes donne un monde, la ou une rangee donne un fond de scene.
-  const CX = 0, CZ = -64;
+  // Les montagnes forment une CEINTURE autour du centre, pas une rangee au fond. Deux
+  // raisons : elles masquent le bord du terrain quelle que soit l'orientation de la camera,
+  // et un horizon ferme de tous cotes donne un monde, la ou une rangee donne un fond de scene.
+  const CX = cx, CZ = cz;
 
   const RINGS = [
     // rayon, nombre, echelle, teinte de base, teinte de calotte, arrondi
@@ -401,6 +411,9 @@ export function mountainRange(groundY) {
 
   let seed = 1;
   RINGS.forEach((ring, li) => {
+    // On tire TOUJOURS les memes nombres aleatoires, et on ne pose qu'un sommet sur n :
+    // baisser la densite ne doit pas redessiner une autre chaine, seulement l'eclaircir.
+    const pas = Math.max(1, Math.round(1 / Math.max(0.05, densite)));
     for (let i = 0; i < ring.n; i++) {
       seed = (seed * 9301 + 49297) % 233280;
       const r1 = seed / 233280;
@@ -411,7 +424,8 @@ export function mountainRange(groundY) {
 
       // Angle irregulier : une repartition parfaitement reguliere se voit immediatement.
       const ang = (i / ring.n) * Math.PI * 2 + (r1 - 0.5) * (Math.PI / ring.n) * 1.5;
-      const dist = ring.r * (0.82 + r2 * 0.36);
+      if (i % pas) continue;
+      const dist = ring.r * rayon * (0.82 + r2 * 0.36);
 
       // Ecart de taille tres large a l'interieur d'un meme anneau : c'est cet ecart,
       // plus que le nombre, qui fait lire une chaine plutot qu'une palissade.
@@ -668,4 +682,268 @@ export function bollardField(positions, height, radius, color) {
   });
   for (const m of [corps, contour, anneau]) { m.instanceMatrix.needsUpdate = true; group.add(m); }
   return group;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// JUNGLE — pièces de l'échine et de ses liaisons
+//
+// Toutes ces pièces portent un collider. Elles sont donc PROCÉDURALES, et chacune publie
+// ses demi-dimensions exactes dans `userData.colliders` : la scène n'a jamais à redevenir
+// le visuel pour poser sa boîte. C'est la seule façon de garantir que la hitbox suit le
+// dessin, ce qui n'est pas négociable quand de l'argent est en jeu.
+// ═══════════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * ARÊTE D'ÉCORCE — le bourrelet segmenté qui barre l'échine.
+ *
+ * Une rangée de segments dodus posés côte à côte, ceinturés d'un cordage. Deux emplois
+ * selon la hauteur, et c'est la scène qui tranche : basse elle se saute, haute elle se
+ * contourne. La forme ne change pas, seule la cote change — le joueur lit la réponse à la
+ * silhouette, sans qu'on ait à lui coller deux vocabulaires visuels différents.
+ *
+ * Les segments sont INSCRITS dans la boîte du collider : les gorges entre eux sont en
+ * retrait de deux centimètres. Le collider n'est donc jamais plus petit que le visuel —
+ * on ne traverse jamais ce qu'on voit — et son léger excédent au fond des gorges est
+ * invisible à l'œil comme au jeu.
+ */
+export function areteEcorce(longueur, hauteur, epaisseur, couleur, opts = {}) {
+  const group = new THREE.Group();
+  const segLarge = opts.segment ?? 1.6;
+  const n = Math.max(1, Math.round(longueur / segLarge));
+  const pas = longueur / n;
+
+  for (let i = 0; i < n; i++) {
+    // 0,04 m de jeu latéral : c'est lui qui creuse la gorge entre deux segments.
+    const seg = roundedBox(pas - 0.04, hauteur, epaisseur, couleur, {
+      radius: Math.min(epaisseur, hauteur) * 0.34,
+      map: opts.map ?? null,
+      outline: 0.01,
+    });
+    seg.position.x = -longueur / 2 + pas * (i + 0.5);
+    group.add(seg);
+  }
+
+  // Cordage : un tore aplati qui ceinture la rangée au tiers inférieur. Décor pur, posé à
+  // l'intérieur du gabarit du collider, donc il ne ment sur rien.
+  if (opts.corde !== false) {
+    const corde = new THREE.Mesh(
+      new THREE.TorusGeometry(Math.max(epaisseur, hauteur) * 0.52, 0.09, 6, 18),
+      toonMaterial(opts.couleurCorde ?? 0xf0c75a),
+    );
+    corde.rotation.y = Math.PI / 2;
+    corde.scale.set(1, hauteur / Math.max(epaisseur, hauteur), 1);
+    corde.position.set(-longueur / 2 + pas * 0.5, -hauteur * 0.16, 0);
+    const corde2 = corde.clone();
+    corde2.position.x = longueur / 2 - pas * 0.5;
+    group.add(corde, corde2);
+  }
+
+  group.userData.colliders = [
+    { type: 'cuboid', hx: longueur / 2, hy: hauteur / 2, hz: epaisseur / 2, x: 0, y: 0, z: 0 },
+  ];
+  return group;
+}
+
+/**
+ * BARIL — le rondin qui dévale l'échine.
+ *
+ * C'est lui qui porte désormais la pression temporelle, à la place du mur qui balayait
+ * quand le tronc tournait vite. Il roule dans l'axe du parcours, donc son axe est
+ * TRANSVERSAL : un cylindre couché sur X qui roule vers +Z ou −Z.
+ *
+ * Les deux faces reçoivent leurs anneaux de coupe. Sans elles le baril se lit comme un
+ * tuyau, et surtout on ne voit plus qu'il tourne : les cernes sont le seul repère de
+ * rotation d'un cylindre uni.
+ */
+export function baril(rayon, longueur, couleur, opts = {}) {
+  const group = new THREE.Group();
+
+  const corps = new THREE.Mesh(
+    new THREE.CylinderGeometry(rayon, rayon, longueur, 20, 1),
+    toonMaterial(couleur),
+  );
+  if (opts.map) corps.material.map = opts.map;
+  corps.rotation.z = Math.PI / 2;          // couché sur X
+  corps.castShadow = true;
+  corps.receiveShadow = true;
+  addOutline(corps, 0.02, 0x2a1b45);
+  group.add(corps);
+
+  if (opts.mapAnneaux) {
+    const disque = new THREE.CircleGeometry(rayon * 1.002, 24);
+    const mat = new THREE.MeshBasicMaterial({ map: opts.mapAnneaux });
+    for (const s of [1, -1]) {
+      const d = new THREE.Mesh(disque, mat);
+      d.position.x = (s * longueur) / 2;
+      d.rotation.y = (s * Math.PI) / 2;
+      group.add(d);
+    }
+  }
+
+  group.userData.colliders = [
+    { type: 'cylinderX', halfHeight: longueur / 2, radius: rayon, x: 0, y: 0, z: 0 },
+  ];
+  return group;
+}
+
+/**
+ * PIERRE DE GUÉ — le rocher plat posé sur le lagon.
+ *
+ * Un cylindre bas et large, à peine irrégulier. Le dessus est PLAT et horizontal : un
+ * galet bombé se lit bien mais se joue mal, on glisse d'un sommet qu'on croyait poser.
+ * Le collider est le cylindre exact, donc le pied porte là où l'œil le pose.
+ */
+export function pierreDeGue(rayon, hauteur, couleur, opts = {}) {
+  const group = new THREE.Group();
+  const geo = new THREE.CylinderGeometry(rayon, rayon * 0.86, hauteur, opts.faces ?? 9, 1);
+  const mesh = new THREE.Mesh(geo, toonMaterial(couleur));
+  if (opts.map) mesh.material.map = opts.map;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  addOutline(mesh, 0.016, 0x2a1b45);
+  group.add(mesh);
+
+  group.userData.colliders = [
+    { type: 'cylinder', halfHeight: hauteur / 2, radius: rayon, x: 0, y: 0, z: 0 },
+  ];
+  return group;
+}
+
+/**
+ * PONT DE CORDES — la liaison entre deux échines.
+ *
+ * Le pont est une RESPIRATION, pas un obstacle : après une échine qui dérobe, il faut un
+ * segment où l'on court droit. Ses garde-corps portent donc un vrai collider et on ne
+ * tombe pas d'un pont — sans quoi la liaison redeviendrait un piège, et la manche
+ * n'offrirait plus aucun répit.
+ *
+ * Le tablier est légèrement affaissé au milieu : c'est ce qui le fait lire comme suspendu
+ * plutôt que posé. L'affaissement est repris marche par marche dans le collider, donc la
+ * courbe qu'on voit est celle qu'on foule.
+ */
+export function pontDeCordes(longueur, largeur, opts = {}) {
+  const group = new THREE.Group();
+  const colliders = [];
+
+  const nPlanches = Math.max(4, Math.round(longueur / 1.15));
+  const pas = longueur / nPlanches;
+  const flecheMax = opts.fleche ?? 0.55;    // affaissement au milieu, en mètres
+  const EP = 0.22;
+
+  /** Affaissement en cloche : nul aux deux appuis, maximal au centre. */
+  const fleche = (t) => -flecheMax * Math.sin(Math.PI * t);
+
+  // Les planches sont INSTANCIEES. Posees une a une, les onze planches d'un pont coutaient
+  // vingt-deux appels de dessin avec leur contour, soit quarante-quatre pour les deux ponts
+  // de la carte — un huitieme du budget de la scene pour un objet que l'on traverse en deux
+  // secondes. Elles partagent la meme geometrie : seule leur hauteur change.
+  const geoPlanche = new RoundedBoxGeometry(largeur, EP, pas - 0.06, 2, 0.07);
+  const matPlanche = toonMaterial(opts.couleur ?? 0xe0a163);
+  if (opts.map) matPlanche.map = opts.map;
+  const planches = new THREE.InstancedMesh(geoPlanche, matPlanche, nPlanches);
+  planches.castShadow = true;
+  planches.receiveShadow = true;
+  const pose = new THREE.Object3D();
+  for (let i = 0; i < nPlanches; i++) {
+    const t = (i + 0.5) / nPlanches;
+    const z = -longueur / 2 + pas * (i + 0.5);
+    const y = fleche(t);
+    pose.position.set(0, y, z);
+    pose.updateMatrix();
+    planches.setMatrixAt(i, pose.matrix);
+    // Les colliders se RECOUVRENT de 2 cm. Bord à bord, deux cuboïdes partagent une face
+    // d'épaisseur nulle, et un rayon tiré exactement dessus peut passer entre les deux —
+    // le harnais de continuité a trouvé ce trou au milieu du pont. Un personnage de 0,45 m
+    // de rayon n'y serait jamais tombé, mais un vide qui n'existe qu'à une abscisse précise
+    // est le genre de défaut qui ressort plus tard, ailleurs, sans qu'on le reconnaisse.
+    colliders.push({ type: 'cuboid', hx: largeur / 2, hy: EP / 2, hz: pas / 2 + 0.02, x: 0, y, z });
+  }
+  planches.instanceMatrix.needsUpdate = true;
+  group.add(planches);
+
+  // Garde-corps : deux cordes tendues par côté, plus les montants d'appui.
+  const RC = 0.075;
+  for (const cote of [-1, 1]) {
+    for (const h of [0.55, 1.15]) {
+      const pts = [];
+      for (let i = 0; i <= 12; i++) {
+        const t = i / 12;
+        pts.push(new THREE.Vector3(
+          (cote * largeur) / 2,
+          fleche(t) + h + flecheMax * 0.35 * Math.sin(Math.PI * t),
+          -longueur / 2 + longueur * t,
+        ));
+      }
+      const corde = new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 18, RC, 6, false),
+        toonMaterial(opts.couleurCorde ?? 0x9fc4e8),
+      );
+      corde.castShadow = true;
+      group.add(corde);
+    }
+    // Un seul collider vertical par côté : il tient lieu des deux cordes. Les modéliser
+    // séparément doublerait le nombre de formes sans rien changer à ce qu'on peut faire.
+    colliders.push({
+      type: 'cuboid', hx: RC, hy: 0.62, hz: longueur / 2,
+      x: (cote * largeur) / 2, y: 0.55, z: 0,
+    });
+  }
+
+  // Montants aux deux extrémités.
+  for (const cote of [-1, 1]) {
+    for (const bout of [-1, 1]) {
+      const m = pill(1.9, 0.19, opts.couleurMontant ?? 0xd79a5c, { outline: false });
+      m.position.set((cote * largeur) / 2, 0.5, (bout * longueur) / 2);
+      group.add(m);
+    }
+  }
+
+  group.userData.colliders = colliders;
+  return group;
+}
+
+/**
+ * CRÊTE LOINTAINE — une ligne de collines, en UNE seule maille.
+ *
+ * Un horizon fermé est ce qui manque le plus à une scène ouverte : sans lui le décor
+ * s'arrête sur une ligne droite et le regard sort du monde. La solution évidente est de
+ * poser une dizaine de sommets — et elle coûte deux appels de dessin chacun, pour une masse
+ * qu'on ne voit jamais que de loin et de face.
+ *
+ * Ici la ligne entière est UNE silhouette : une bande de triangles dont le profil supérieur
+ * ondule. À cette distance la profondeur d'une colline ne se lit pas, seule sa découpe
+ * compte — et une découpe n'a pas besoin de volume.
+ *
+ * Le profil somme trois harmoniques de périodes non commensurables. Une seule sinusoïde
+ * donnerait une vague régulière, qu'on lit immédiatement comme un motif ; trois suffisent
+ * à ce que l'œil n'y retrouve plus de répétition.
+ */
+export function creteLointaine(largeur, hauteur, base, couleur, { seed = 0, n = 72 } = {}) {
+  const pos = [];
+  const hautAt = (t) => {
+    const a = t * Math.PI * 2;
+    return base + hauteur * (
+      0.55
+      + 0.26 * Math.sin(a * 3.0 + seed)
+      + 0.13 * Math.sin(a * 7.0 - seed * 1.6)
+      + 0.06 * Math.sin(a * 13.0 + seed * 0.7)
+    );
+  };
+  for (let i = 0; i < n; i++) {
+    const t0 = i / n, t1 = (i + 1) / n;
+    const x0 = -largeur / 2 + largeur * t0, x1 = -largeur / 2 + largeur * t1;
+    const y0 = hautAt(t0), y1 = hautAt(t1);
+    // Deux triangles par tranche, entre le profil et la base.
+    pos.push(x0, base, 0, x1, base, 0, x1, y1, 0);
+    pos.push(x0, base, 0, x1, y1, 0, x0, y0, 0);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  // `MeshBasicMaterial` et non toon : une silhouette d'arrière-plan ne doit pas réagir à la
+  // lumière du parcours, sinon elle s'assombrit quand le soleil tourne et attire l'œil.
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color: couleur, side: THREE.DoubleSide, toneMapped: false, fog: false,
+  }));
+  return mesh;
 }

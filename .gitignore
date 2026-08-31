@@ -51,6 +51,9 @@ tools/feel-lab/dist/
 # Les modeles et textures livres au jeu SONT versionnes : regenerer coute des credits
 # Meshy et ne redonne pas les memes assets. Le depot doit pouvoir relancer le jeu tel quel.
 tools/texture-pipeline/raw/
+# Meme raison, meme nature : les images AVANT detourage sont des intermediaires, seules
+# les icones detourees livrees au jeu sont versionnees.
+tools/icon-pipeline/raw/
 
 # Sorties de diagnostic : regenerables a la commande, aucune valeur a conserver
 tools/feel-lab/shots/
