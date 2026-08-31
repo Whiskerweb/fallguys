@@ -223,11 +223,32 @@ export class Character {
     this.surface = null;
   }
 
+  /**
+   * Y a-t-il un sol sous les pieds ?
+   *
+   * Le rayon part du centre de la capsule et descend. Sa portée etait FIXE, ce qui revient
+   * a supposer un sol HORIZONTAL : sur une surface inclinee, la chute verticale du centre
+   * jusqu'a la paroi grandit avec la pente, et le rayon finit par ne plus l'atteindre.
+   * Mesure sur le rondin : passe 33 degres d'inclinaison, le personnage etait declare en
+   * l'air alors qu'il avait les pieds sur le tronc — il ne pouvait plus sauter et passait
+   * en acceleration aerienne. La bande jouable d'un tronc de 5,5 m s'en trouvait bridee a
+   * 20 degres, pour une raison qui n'avait rien a voir avec le terrain.
+   *
+   * On tire donc plus loin, puis on ramene la distance a la NORMALE de la surface. Sur un
+   * sol horizontal la normale est verticale, le facteur vaut 1, et la regle est exactement
+   * celle d'avant : les autres epreuves ne changent pas d'un pouce.
+   */
   checkGround() {
     const t = this.body.translation();
     const ray = new this.RAPIER.Ray({ x: t.x, y: t.y, z: t.z }, { x: 0, y: -1, z: 0 });
-    const hit = this.world.castRay(ray, FOOT + 0.18, true, undefined, undefined, this.collider);
-    return hit !== null;
+    const hit = this.world.castRayAndGetNormal(
+      ray, FOOT + 0.9, true, undefined, undefined, this.collider);
+    if (!hit) return false;
+    // Composante verticale de la normale = cosinus de l'inclinaison. Une paroi presque
+    // verticale n'est pas un sol : on ne s'y tient pas, on la longe.
+    const cos = Math.abs(hit.normal.y);
+    if (cos < 0.30) return false;
+    return hit.timeOfImpact * cos <= FOOT + 0.18;
   }
 
   /**

@@ -119,14 +119,19 @@ const geom = await page.evaluate(() => {
 
         // Ce point est-il dans un trou ? Les angles des trous sont LOCAUX : on les ramène
         // au monde avec l'angle courant du tronçon.
+        // Le percement retire les cellules dont le CENTRE tombe dans l'ouverture : il
+        // deborde donc d'une demi-cellule de chaque cote. On exclut l'ouverture entiere
+        // plus cette marge, sinon les rayons du bord tombent dans le vide et sont
+        // comptes comme une paroi manquante.
+        const DEMI_CELL = Math.PI / 64 + 0.02;
         let dansTrou = false;
         for (const h of t.trous) {
-          if (Math.abs(zLocal - h.z) > h.long / 2) continue;
+          if (Math.abs(zLocal - h.z) > h.long / 2 + 0.6) continue;
           for (const base of [h.angle, h.angle + Math.PI]) {
             const aMonde = base + t.angle;
             let d = th - aMonde;
             d = Math.atan2(Math.sin(d), Math.cos(d));
-            if (Math.abs(d) < h.arc / 2 * 0.55) dansTrou = true;   // cœur du trou seulement
+            if (Math.abs(d) < h.arc / 2 + DEMI_CELL) dansTrou = true;
           }
         }
         if (dansTrou) {
@@ -187,6 +192,73 @@ dire(geom.coeurs > 0 && geom.coeursBouches === 0 && geom.bordsPerces === 0,
   'les trous traversent, et seulement les trous',
   `${geom.coeurs} tirs au coeur : ${geom.coeursBouches} ont trouve du sol ; `
   + `${geom.bords} tirs juste a cote : ${geom.bordsPerces} sont passes au travers`);
+
+// ── 2 bis : LARGEUR REELLE DE LA BANDE JOUABLE ────────────────────────────────────────
+// L'ouverture d'une palissade se deduit de cette largeur. Elle etait ESTIMEE a 40 degres,
+// jamais mesuree — et une palissade calculee sur une bande trop large ne se contournerait
+// plus. On place le joueur a des angles croissants depuis la crete, on le fait remonter,
+// et on retient le dernier angle d'ou il revient.
+await lancer(4242, 'scenery,fagots');
+await page.waitForFunction(() => window.__probeGame().arena?.__troncons, { timeout: 600000 });
+await page.waitForTimeout(1200);
+const bande = await page.evaluate(async () => {
+  const jeu = window.__probeGame();
+  const a = jeu.arena, c = jeu.character;
+  const t = a.__troncons()[0];
+  const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
+  const touche = (code, bas) =>
+    dispatchEvent(new KeyboardEvent(bas ? 'keydown' : 'keyup', { code, bubbles: true }));
+
+  // Quelle touche va vers les x negatifs ? On le mesure au lieu de le supposer : le
+  // mappage depend du lacet de la camera, qui n'est pas garanti nul.
+  c.respawn({ x: 0, y: t.centerY + t.R + 1.4, z: (t.z0 + t.z1) / 2 });
+  await attendre(700);
+  const x0 = c.body.translation().x;
+  touche('KeyA', true); await attendre(500); touche('KeyA', false);
+  const versGauche = c.body.translation().x - x0 < 0;
+  const versCrete = versGauche ? 'KeyA' : 'KeyD';   // depuis un x positif
+
+  let dernierBon = 0;
+  const releves = [];
+  for (let deg = 20; deg <= 75; deg += 5) {
+    const al = deg * Math.PI / 180;
+    // Place a l'angle `al` du sommet, cote x positif.
+    c.respawn({
+      x: (t.R + 0.9) * Math.sin(al),
+      y: t.centerY + (t.R + 0.9) * Math.cos(al),
+      z: (t.z0 + t.z1) / 2,
+    });
+    await attendre(450);
+    const avant = c.body.translation();
+    if (avant.y < t.centerY) { releves.push(`${deg}:tombe`); continue; }
+    // On relache des qu'il atteint la crete. Tenir la touche 1,5 s le faisait traverser
+    // le sommet a 7,6 m/s et ressortir de l'autre cote : depuis 25 degres il tombait par
+    // EXCES de vitesse, et la mesure annoncait « perdu » a des angles ou il tenait tres
+    // bien. C'est ce qui rendait la serie non monotone.
+    touche(versCrete, true);
+    for (let i = 0; i < 30; i++) {
+      await attendre(50);
+      if (Math.abs(c.body.translation().x) < 0.6) break;
+    }
+    touche(versCrete, false);
+    await attendre(300);
+    const apres = c.body.translation();
+    // « Revenu » = il tient toujours le haut du tronc. Exiger que l'angle DIMINUE etait
+    // faux : depuis 25 degres il traverse la crete en une seconde et ressort de l'autre
+    // cote, ou l'angle mesure redevient grand. Le critere comptait donc une remontee
+    // reussie comme un echec, et la bande mesuree sautait de « perdu » a « revient ».
+    const revenu = apres.y > t.centerY + t.R * 0.72;
+    releves.push(`${deg}:${revenu ? 'revient' : 'perdu'}`);
+    // On ne s'arrete PAS au premier echec : un angle rate isolement ne dit rien, c'est la
+    // limite au-dela de laquelle plus rien ne revient qui interesse.
+    if (revenu) dernierBon = deg;
+  }
+  return { dernierBon, releves, configuree: a.__cotes().BANDE * 180 / Math.PI };
+});
+dire(bande.configuree <= bande.dernierBon + 0.5,
+  'la bande jouable retenue par le code est prudente',
+  `mesuree ${bande.dernierBon}°, retenue ${bande.configuree.toFixed(0)}° `
+  + `· ${bande.releves.join(' ')}`);
 
 // ── 3 : la rotation emporte-t-elle le joueur ? ────────────────────────────────────────
 // On remet les fagots : a partir d'ici, c'est le mini-jeu complet qu'on mesure.

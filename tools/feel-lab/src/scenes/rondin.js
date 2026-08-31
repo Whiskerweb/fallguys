@@ -96,17 +96,30 @@ const R = 5.5;              // rayon du rondin
 const CY = 0;               // hauteur de l'axe — la crête est donc à +5,5
 const CRETE = CY + R;
 const FAGOT_H = 1.05;       // franchement sous le saut de 2,15 m
-const MUR_H = 2.60;         // franchement au-dessus : il ne se saute pas
-const TROU_M = 2.2;         // 2,4 largeurs de corps — on n'y tombe pas par hasard
+/** Fagot haut : toujours sautable, mais il ne pardonne plus un saut mou. */
+const FAGOT_HAUT = 1.58;
+const MUR_H = 3.30;         // franchement au-dessus : il ne se saute pas
+/**
+ * TROU. 3,8 largeurs de corps en travers, et 3,4 m de long — soit 65 % de la portée de
+ * saut. On ne le franchit donc plus d'un pas de côté : il faut le voir, et sauter.
+ */
+const TROU_M = 3.4;
 const EAU_Y = -6.5;
 const ILOT_R = 6.5;
 
 /**
- * BANDE JOUABLE. Au-delà de 40° d'inclinaison, la paroi emporte le joueur vers le flanc
- * plus vite qu'il ne peut corriger : c'est la limite pratique du terrain, pas une valeur
- * choisie. Elle vaut 2·R·sin(40°) = 7,1 m de large à la crête.
+ * BANDE JOUABLE — MESURÉE, pas estimée.
+ *
+ * `diag/rondin.mjs` place le personnage à des inclinaisons croissantes et regarde d'où il
+ * remonte encore : il tient jusqu'à 55°, et tombe à 60°. On retient 45°, avec dix degrés
+ * de marge, parce que la mesure est faite touche tenue et sans obstacle.
+ *
+ * La première version supposait 40° et n'en mesurait aucun. La mesure a d'ailleurs
+ * commencé par donner 20° — parce que le contrôleur, et non le terrain, décrochait à 33°
+ * (voir `checkGround` dans `character.js`). C'est en corrigeant cela que la bande a
+ * doublé, et que les palissades ont pu s'élargir.
  */
-const BANDE = 0.70;
+const BANDE = 0.785;
 
 /**
  * OUVERTURE D'UNE PALISSADE.
@@ -151,7 +164,10 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
   // le joueur tombait avant d'avoir vu un seul obstacle. Les îlots empiètent de la même
   // façon des deux côtés.
   let z = 10;
-  const OMEGAS = [0.10, -0.16, 0.21, -0.26];
+  // Deux fois plus vite qu'a la premiere version, ou l'on tenait la crete sans y penser.
+  // A 0,55 rad/s le dernier troncon defile a 3,0 m/s sous les pieds, soit 40 % de la
+  // vitesse de course : ne rien faire coute la largeur de la bande jouable en une seconde.
+  const OMEGAS = [0.18, -0.30, 0.42, -0.55];
   for (let i = 0; i < 4; i++) {
     plan.push({ z0: z, z1: z - LONG, omega: OMEGAS[i], rang: i });
     z -= LONG + ILOT;
@@ -210,8 +226,11 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
    * soit le budget entier de la scène.
    */
   const BATON_R = 0.26;
-  function poseFagot(tr, zLocal, teinte, { arcDebut = 0, arcFin = Math.PI * 2, parBague = 12 } = {}) {
-    const couches = [BATON_R, BATON_R + 0.53];   // sommet a ~1,05 m au-dessus de la paroi
+  function poseFagot(tr, zLocal, teinte,
+    { arcDebut = 0, arcFin = Math.PI * 2, parBague = 12, hauteur = FAGOT_H } = {}) {
+    // Autant de couches que la hauteur voulue en contient. Chacune ajoute 0,53 m.
+    const couches = [];
+    for (let h = BATON_R; h + BATON_R <= hauteur + 0.03; h += 0.53) couches.push(h);
     const sticks = [];
     for (const h of couches) {
       const r = R + h;
@@ -353,11 +372,30 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
    * Monter la seule vitesse aurait donné quatre fois la même épreuve, en plus dur.
    */
   const PROGRAMME = [
-    { fagots: 2, murs: 0, trous: 0 },   // la dérive seule
-    { fagots: 2, murs: 1, trous: 0 },   // le sens s'inverse
-    { fagots: 2, murs: 1, trous: 2 },   // les trous entrent en jeu
-    { fagots: 3, murs: 2, trous: 3 },   // tout ensemble, resserré
+    { fagots: 2, murs: 1, trous: 0 },   // la dérive, et une palissade pour l'apprendre
+    { fagots: 3, murs: 2, trous: 1 },   // le sens s'inverse, le premier trou apparaît
+    { fagots: 3, murs: 2, trous: 3 },   // les trous deviennent la règle
+    { fagots: 4, murs: 3, trous: 4 },   // tout ensemble, resserré
   ];
+
+  /**
+   * Un obstacle ne doit jamais tomber SUR un trou.
+   *
+   * Fagots et trous sont placés indépendamment ; en densifiant les deux, le
+   * chevauchement devient probable. Un anneau de bâtons au droit d'un percement flotte
+   * au-dessus du vide : le joueur lit une barrière là où il n'y a plus de sol, et se fait
+   * punir pour avoir sauté correctement. On écarte donc, sans jamais sortir du tronçon.
+   */
+  function ecarterDesTrous(zl, trous, demiLong) {
+    const marge = TROU_M / 2 + 1.9;
+    for (let passe = 0; passe < 3; passe++) {
+      for (const t of trous) {
+        const d = zl - t.z;
+        if (Math.abs(d) < marge) zl = t.z + (d >= 0 ? marge : -marge);
+      }
+    }
+    return Math.max(-demiLong + 3, Math.min(demiLong - 3, zl));
+  }
 
   plan.forEach((p, i) => {
     const prog = PROGRAMME[i];
@@ -391,14 +429,31 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
     troncons.push(tr);
 
     if (!skipped('fagots')) {
-      for (let k = 0; k < prog.fagots; k++) {
-        const zl = -L / 2 + L * ((k + 0.6) / (prog.fagots + prog.murs + 0.2));
-        poseFagot(tr, zl, k % 2 ? C.fagotB : C.fagotA);
+      const n = prog.fagots + prog.murs;
+      // Fagots et palissades sont ENTRELACES sur la longueur, pas groupés : deux fagots
+      // de suite se négocient au même geste, un fagot puis une palissade obligent à
+      // changer de réponse — et c'est ce changement qui fait la difficulté.
+      const ordre = [];
+      for (let k = 0; k < n; k++) ordre.push(k < prog.fagots ? 'fagot' : 'mur');
+      for (let k = ordre.length - 1; k > 0; k--) {
+        const j = Math.floor(rand() * (k + 1));
+        [ordre[k], ordre[j]] = [ordre[j], ordre[k]];
       }
-      for (let k = 0; k < prog.murs; k++) {
-        const zl = -L / 2 + L * ((prog.fagots + k + 0.6) / (prog.fagots + prog.murs + 0.2));
-        poseMur(tr, zl, rand() * Math.PI * 2, MUR_OUVERTURE);
-      }
+      let iFagot = 0;
+      ordre.forEach((quoi, k) => {
+        const brut = -L / 2 + L * ((k + 0.6) / (n + 0.2));
+        const zl = ecarterDesTrous(brut, trous, L / 2);
+        if (quoi === 'fagot') {
+          // Une hauteur sur trois est doublée : elle se saute encore, mais plus en
+          // trainant les pieds. Un obstacle toujours identique cesse d'etre lu.
+          const haut = iFagot % 3 === 2;
+          poseFagot(tr, zl, iFagot % 2 ? C.fagotB : C.fagotA,
+            { hauteur: haut ? FAGOT_HAUT : FAGOT_H });
+          iFagot++;
+        } else {
+          poseMur(tr, zl, rand() * Math.PI * 2, MUR_OUVERTURE);
+        }
+      });
       dessinerMurs(tr);
     }
 
@@ -584,7 +639,7 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
       trous: tr.trous.map((t) => ({ z: t.z, angle: t.angle, arc: t.arc, long: t.long })),
     })),
     __angle: (i, elapsed) => troncons[i].angleA(elapsed),
-    __cotes: () => ({ R, CRETE, FAGOT_H, MUR_H, TROU_M, PORTEE, VOL, PERSO_LARGE,
+    __cotes: () => ({ R, CRETE, FAGOT_H, FAGOT_HAUT, MUR_H, TROU_M, PORTEE, VOL, PERSO_LARGE,
       BANDE, MUR_OUVERTURE, PASSAGE_MIN,
       // Terrain libre restant a l'interieur de la bande jouable quand une palissade
       // passe exactement par la crete. Doit rester superieur a PASSAGE_MIN.
