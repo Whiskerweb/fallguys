@@ -22,24 +22,33 @@ export const SKINS = [
  * sans squelette reste jouable mais n'est anime que par le corps entier : inclinaison,
  * ecrasement, rotation. C'est indiqué dans la garde-robe plutôt que subi en silence.
  */
+/*
+ * Catalogue REFAIT. Les huit premiers venaient d'un pipeline text-to-3D qui donnait des
+ * silhouettes inegales et aucune animation propre — ils etaient animes par un rig
+ * procedural faute de mieux, et leurs fichiers dorment dans meshy-pipeline/old-chars/.
+ * Ceux-ci arrivent riggees avec leurs propres clips de course et de marche, fusionnes par
+ * `meshy-pipeline/fusion-anims.mjs` puis allegees : 15 a 17 Mo livres, moins d'un Mo dans
+ * le jeu.
+ */
 export const MODELS = [
-  {
-    /*
-     * Catalogue REMIS A ZERO : un seul personnage.
-     *
-     * Les huit precedents venaient d'un pipeline text-to-3D qui donnait des silhouettes
-     * inegales et aucune animation propre — ils etaient animes par un rig procedural
-     * faute de mieux. On repart de celui-ci, livre avec ses vraies animations, et les
-     * suivants seront refaits un par un au meme niveau plutot que gardes par habitude.
-     * Leurs fichiers sont conserves dans tools/meshy-pipeline/old-chars/.
-     */
-    id: 'char-runner', name: 'Le Maître de Piste', rigged: true, rarity: 'légendaire', accent: 0xd42b3a,
-    desc: "Costume impeccable, sourire immense, canne au poing. Il court avec ses propres animations.",
-    season: 'Édition limitée',
-  },
   {
     id: 'char-babytrump', name: 'BabyTrump', rigged: true, rarity: 'épique', accent: 0xf5a623,
     desc: "Petit format, grosse colère. Il court et il marche avec ses propres animations.",
+    season: 'Édition limitée',
+  },
+  {
+    id: 'char-techtitan', name: 'Le Titan', rigged: true, rarity: 'épique', accent: 0x4fd1c5,
+    desc: "T-shirt noir, couche assortie, ambitions orbitales. Il court avec ses propres animations.",
+    season: 'Édition limitée',
+  },
+  {
+    id: 'char-grenouille', name: 'La Grenouille', rigged: true, rarity: 'légendaire', accent: 0x4f9e3f,
+    desc: "Sourire fendu jusqu'aux oreilles, couche impeccable. Elle court et elle marche.",
+    season: 'Édition limitée',
+  },
+  {
+    id: 'char-diplomate', name: 'Le Diplomate', rigged: true, rarity: 'commun', accent: 0x8ede6d,
+    desc: "Costume sombre, couche-culotte, sourcils froncés. Il négocie en courant.",
     season: 'Édition limitée',
   },
 ];

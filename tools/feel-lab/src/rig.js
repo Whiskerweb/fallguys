@@ -267,7 +267,7 @@ export function addSkinnedOutline(root, thickness = 0.022, color = 0x14203a) {
   }
 }
 
-export function createRiggedCharacter(assets, targetHeight, name = 'char-runner') {
+export function createRiggedCharacter(assets, targetHeight, name = 'char-babytrump') {
   const model = assets.get(name, null, { groundAlign: false, outline: 0 });
   if (!model) return null;
 

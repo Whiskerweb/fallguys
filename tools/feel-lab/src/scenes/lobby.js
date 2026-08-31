@@ -304,7 +304,12 @@ export function buildLobbyScreen(assets) {
   // LOBBY.avatarYaw rattrape une orientation native differente sur le modele genere.
   animated.push((t, dt) => {
     // Pose d'attente : le rig tourne a vitesse nulle, donc uniquement la respiration.
-    if (avatarRig) avatarRig.update(dt ?? 0.016, 0, 8, 'grounded', 0);
+    // `vitrine` le dit au lecteur de clips, qui sinon figerait la marche sur un appui et
+    // poserait une statue au milieu de la boutique.
+    if (avatarRig) {
+      avatarRig.vitrine = true;
+      avatarRig.update(dt ?? 0.016, 0, 8, 'grounded', 0);
+    }
     stage.rotation.y = Math.sin(t * 0.32) * 0.85 + LOBBY.avatarYaw;
     const breathe = 1 + Math.sin(t * 1.6) * 0.022;
     const base = avatar.userData.baseScale ?? avatar.scale.x ?? 1;

@@ -125,7 +125,27 @@ export class ClipRig {
     if (this.reposFige && bouge < 0.05) {
       this._viser({ walking: 1 }, dt);
       const { action, duree } = this.marche;
-      action.time = duree * 0.02;
+      /*
+       * VITRINE : la pose d'appui RESPIRE au lieu d'être figée.
+       *
+       * Meshy ne livre pas de clip de repos, et geler la marche sur son premier appui
+       * donnait, au lobby, une statue. Or le lobby est la vitrine des cosmétiques : c'est
+       * l'endroit où un personnage doit donner envie, pas celui où il a le moins de vie
+       * de tout le jeu.
+       *
+       * On balaie donc lentement la lecture du clip de marche autour de cette pose, sur
+       * six pour cent du cycle. C'est assez pour un transfert de poids et un mouvement
+       * d'épaules, trop peu pour un pas — le personnage ne marche pas sur place, il
+       * attend. Inventer une animation aurait coûté un clip de plus par personnage ;
+       * celle-ci ne coûte rien et sort du geste que l'acteur a réellement joué.
+       */
+      if (this.vitrine) {
+        this.horloge = (this.horloge ?? 0) + dt;
+        const va = 0.5 + 0.5 * Math.sin(this.horloge * 1.15);
+        action.time = duree * (0.015 + 0.055 * va);
+      } else {
+        action.time = duree * 0.02;
+      }
       this.mixer.timeScale = 0;
       this.mixer.update(0);
       return 0;

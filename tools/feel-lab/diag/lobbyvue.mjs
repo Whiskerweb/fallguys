@@ -20,7 +20,7 @@ const erreurs = [];
 page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 150)));
 page.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text().slice(0, 150)); });
 
-const modele = process.argv[2] ?? 'char-runner';
+const modele = process.argv[2] ?? 'char-babytrump';
 await page.addInitScript((m) => localStorage.setItem('tumble-model', m), modele);
 await page.goto('http://127.0.0.1:5273/?lowfx', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => {

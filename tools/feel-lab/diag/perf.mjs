@@ -23,7 +23,7 @@ const erreurs = [];
 page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
 page.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text().slice(0, 160)); });
 
-await page.addInitScript(() => localStorage.setItem('tumble-model', 'char-runner'));
+await page.addInitScript(() => localStorage.setItem('tumble-model', 'char-babytrump'));
 const t0 = Date.now();
 await page.goto('http://127.0.0.1:5273/?lowfx', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => {

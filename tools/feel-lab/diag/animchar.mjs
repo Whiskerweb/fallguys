@@ -14,7 +14,7 @@ const fermer = () => { try { browser?.close(); } catch {} };
 process.on('exit', fermer);
 process.on('SIGINT', () => { fermer(); process.exit(130); });
 
-const modele = process.argv[2] ?? 'char-runner';
+const modele = process.argv[2] ?? 'char-babytrump';
 browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: 900, height: 600 } });
 page.setDefaultTimeout(240000);
