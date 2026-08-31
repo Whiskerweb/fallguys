@@ -513,7 +513,7 @@ export function buildCourse(RAPIER, assets, { seed = 1 } = {}) {
    * distinction qui autorise les mises.
    */
   function ballChute(path, zTop, zBottom, {
-    nombre = 7, radius = 1.7, periode = 3.4, jeu = 0.9,
+    nombre = 4, radius = 1.7, periode = 4.4, jeu = 0.9,
   } = {}) {
     if (skipped('balls')) return;
     const bas = path.atZ(zBottom);
@@ -523,11 +523,41 @@ export function buildCourse(RAPIER, assets, { seed = 1 } = {}) {
     const demi = Math.max(1, haut.w / 2 - radius - 1.4);
     const palette = [0xff4fa3, 0xffd93b, 0x6ee86e, 0x31c7f0, 0xb072ff, 0xff8a1f, 0x4fd1c5];
 
+    /**
+     * LACHER un ballon : il reparait au sommet et part vers le bas.
+     *
+     * `attente` compte : un ballon en attente est RETIRE de la simulation. Voir `parquer`.
+     */
     const lacher = (b, t) => {
       b.lat = (rnd() * 2 - 1) * demi;
       b.prochain = t + periode * (1 - jeu / 2 + rnd() * jeu);
+      if (b.attente) {
+        b.attente = false;
+        b.body.setEnabled(true);
+        b.mesh.visible = true;
+      }
       poser(b);
       b.body.setLinvel({ x: 0, y: 0, z: 3.2 }, true);
+    };
+
+    /**
+     * PARQUER un ballon sorti de la cote, en attendant son prochain lacher.
+     *
+     * Il est RETIRE de la simulation, pas repose au sommet. L'ancienne version le reposait
+     * la-haut avec une vitesse nulle — sur une pente : il repartait donc immediatement,
+     * de lui-meme, sans attendre son horaire. Les quatre ballons devalaient en
+     * permanence, la periode ne pilotait rien du tout, et la seule facon de desengorger
+     * la cote etait d'en retirer. Mesure : passer la periode de 6,6 a 8,0 s ne changeait
+     * la densite que de 2,95 a 2,87.
+     *
+     * Le corps desactive ne collisionne plus et ne tombe plus ; le calendrier des lachers
+     * reste une fonction du temps et de la graine, donc identique pour les seize joueurs.
+     */
+    const parquer = (b) => {
+      if (b.attente) return;
+      b.attente = true;
+      b.body.setEnabled(false);
+      b.mesh.visible = false;
     };
     const poser = (b) => {
       const d = on(path, zTop, b.lat);
@@ -543,27 +573,28 @@ export function buildCourse(RAPIER, assets, { seed = 1 } = {}) {
         RAPIER.RigidBodyDesc.dynamic().setTranslation(haut.x, haut.y + radius, haut.z).setCcdEnabled(true));
       world.createCollider(
         RAPIER.ColliderDesc.ball(radius).setFriction(0.35).setRestitution(0.35).setDensity(0.5), body);
-      const b = { mesh, body, lat: 0, prochain: 0 };
-      // Depart etale : sans decalage initial, les sept ballons partiraient de front et
+      const b = { mesh, body, lat: 0, prochain: 0, attente: false };
+      // Depart etale : sans decalage initial, les ballons partiraient de front et
       // laisseraient un couloir libre derriere eux pendant toute une periode.
       b.lat = (rnd() * 2 - 1) * demi;
       b.prochain = rnd() * periode * nombre * 0.55;
       poser(b);
+      parquer(b);
       balles.push(b);
     }
 
     animated.push((t) => {
       for (const b of balles) {
+        if (t >= b.prochain) lacher(b, t);
+        if (b.attente) continue;
         const p = b.body.translation();
-        if (t >= b.prochain) {
-          lacher(b, t);
-        } else if (p.z > zBottom + 6 || p.y < bas.y - 16 || Math.abs(p.x - haut.x) > 26) {
-          // Ballon sorti de la cote : on le remet au sommet SANS toucher a son horaire
-          // ni tirer de nouvelle voie. Le calendrier des lachers ne depend donc que du
-          // temps et de la graine, jamais de la physique — deux joueurs voient la meme
-          // sequence meme si leurs simulations divergent d'un cheveu.
-          poser(b);
-          b.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        // Ballon sorti de la cote : on le retire du jeu SANS toucher a son horaire ni
+        // tirer de nouvelle voie. Le calendrier ne depend donc que du temps et de la
+        // graine, jamais de la physique — deux joueurs voient la meme sequence meme si
+        // leurs simulations divergent d'un cheveu.
+        if (p.z > zBottom + 6 || p.y < bas.y - 16 || Math.abs(p.x - haut.x) > 26) {
+          parquer(b);
+          continue;
         }
         b.mesh.position.set(p.x, p.y, p.z);
         const r = b.body.rotation();
@@ -685,11 +716,33 @@ export function buildCourse(RAPIER, assets, { seed = 1 } = {}) {
   // Cote remontante prise a contresens par les ballons : ils arrivent DE FACE, sur
   // vingt-deux metres. Trois plots au milieu de la pente : se faire renvoyer de cote
   // pendant qu'on lit la descente, c'est la ou la cote se gagne ou se perd.
-  // Cadence baissee : a 2,6 s de periode pour sept ballons, il en partait un toutes les
-  // 0,37 s et la cote devenait un rideau continu — on ne choisissait plus sa ligne, on
-  // encaissait. A 3,4 s l'intervalle passe a 0,49 s : il reste un quart de ballons en
-  // moins sur la pente, assez pour que les couloirs se rouvrent et se lisent.
-  ballChute(FUSION, -124, -100, { nombre: 7, radius: 1.7, periode: 3.4 });
+  /*
+   * DENSITE DES BALLONS. Chaque ballon a SA propre periode : le debit vaut donc
+   * `nombre / periode`, et le nombre de ballons simultanement sur la pente vaut ce debit
+   * multiplie par la duree de descente (environ 2,4 s sur vingt-deux metres).
+   *
+   * Sept ballons a 2,6 s donnaient 2,7 lachers par seconde, soit SEPT ballons sur la
+   * pente en permanence : le pool etait sature, la cote devenait un rideau continu, et on
+   * ne choisissait plus sa ligne, on encaissait. Allonger la seule periode n'y pouvait
+   * pas grand-chose — c'est le nombre qui plafonnait.
+   *
+   * Reglage tenu par la MESURE, pas a l'oeil : un releve toutes les 0,25 s compte les
+   * ballons reellement en descente, sur quinze secondes.
+   *
+   * Tant que les ballons ne s'arretaient jamais (voir `parquer`), la periode ne pilotait
+   * rien : la passer de 6,6 a 8,0 s ne changeait la densite que de 2,95 a 2,87, et seul
+   * le NOMBRE comptait. Une fois l'attente reelle, le debit vaut `nombre / periode` et la
+   * descente dure 2,2 s :
+   *
+   *   7 / 2,6 s -> sept en permanence, pool sature : un rideau, pas une lecture
+   *   4 / 8,0 s -> 1,1 de moyenne, la cote ne demande plus rien
+   *   4 / 4,4 s -> deux de moyenne, des creux a zero
+   *
+   * C'est a ce niveau que les couloirs se rouvrent entre deux vagues et que la descente
+   * redevient LISIBLE, ce que le mini-jeu demande de savoir faire. Les trois plots de la
+   * pente gardent la cote dangereuse sans en faire un mur.
+   */
+  ballChute(FUSION, -124, -100, { nombre: 4, radius: 1.7, periode: 4.4 });
   bumper(on(FUSION, -108, -3.4));
   bumper(on(FUSION, -113, 3.1));
   bumper(on(FUSION, -118, -2.2));
