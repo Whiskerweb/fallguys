@@ -199,6 +199,21 @@ export function buildCourse(RAPIER, assets, { seed = 1 } = {}) {
    * des ballons et a choisir sa ligne, pas la pente.
    */
   const FUSION = trackPath([
+    /*
+     * PONT DE JONCTION. Les deux voies se rapprochent jusqu'a 3,5 m d'ecart a z = -95,
+     * puis le vide entre elles SE ROUVRE a 7,5 m sur les deux derniers metres avant la
+     * dalle commune — leurs rubans s'inclinent en fin de course, et une tranche a Z
+     * constant les voit s'ecarter. Le joueur, lui, voit deux voies qui se rejoignent : il
+     * derive vers le milieu au moment precis ou le trou s'elargit, et tombe.
+     *
+     * Mesure par grille de rayons (`diag/raccord.mjs`) — `continuite.mjs` ne pouvait pas
+     * le voir, puisqu'il sonde chaque voie et que le trou n'appartient a aucune.
+     *
+     * La dalle commune demarre donc trois metres plus tot, assez large pour couvrir le
+     * vide sur toute la zone de convergence. `rail: false` : une rambarde sur ce troncon
+     * poserait un mur au beau milieu du couloir, entre les deux voies.
+     */
+    { x: -5, z: -94,  y: 1, w: 9,  zone: 'fusion', rail: false },
     { x: -5, z: -97,  y: 1, w: 17, zone: 'fusion' },
     { x: -5, z: -103, y: 1, w: 16, zone: 'ballons' },
     { x: -5, z: -125, y: 9, w: 15, zone: 'ballons' },
@@ -498,7 +513,7 @@ export function buildCourse(RAPIER, assets, { seed = 1 } = {}) {
    * distinction qui autorise les mises.
    */
   function ballChute(path, zTop, zBottom, {
-    nombre = 7, radius = 1.7, periode = 2.6, jeu = 0.9,
+    nombre = 7, radius = 1.7, periode = 3.4, jeu = 0.9,
   } = {}) {
     if (skipped('balls')) return;
     const bas = path.atZ(zBottom);
@@ -670,7 +685,11 @@ export function buildCourse(RAPIER, assets, { seed = 1 } = {}) {
   // Cote remontante prise a contresens par les ballons : ils arrivent DE FACE, sur
   // vingt-deux metres. Trois plots au milieu de la pente : se faire renvoyer de cote
   // pendant qu'on lit la descente, c'est la ou la cote se gagne ou se perd.
-  ballChute(FUSION, -124, -100, { nombre: 7, radius: 1.7, periode: 2.6 });
+  // Cadence baissee : a 2,6 s de periode pour sept ballons, il en partait un toutes les
+  // 0,37 s et la cote devenait un rideau continu — on ne choisissait plus sa ligne, on
+  // encaissait. A 3,4 s l'intervalle passe a 0,49 s : il reste un quart de ballons en
+  // moins sur la pente, assez pour que les couloirs se rouvrent et se lisent.
+  ballChute(FUSION, -124, -100, { nombre: 7, radius: 1.7, periode: 3.4 });
   bumper(on(FUSION, -108, -3.4));
   bumper(on(FUSION, -113, 3.1));
   bumper(on(FUSION, -118, -2.2));

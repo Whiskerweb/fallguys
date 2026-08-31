@@ -80,6 +80,18 @@ sonde ainsi l'axe **et les deux bords** — un collider plus étroit que le ruba
 ferait tomber le joueur à travers un sol qu'il a sous les pieds, et le seul axe ne le
 dirait jamais.
 
+**Le raccord des deux voies s'ouvrait au dernier moment.** Les voies se rapprochent
+jusqu'à 3,5 m d'écart, puis le vide entre elles **se rouvre à 7,5 m** sur les deux derniers
+mètres avant la dalle commune : leurs rubans s'inclinent en fin de course, et une tranche à
+Z constant les voit s'écarter. Le joueur, lui, voit deux voies qui se rejoignent — il dérive
+vers le milieu au moment précis où le trou s'élargit. La dalle commune démarre désormais
+trois mètres plus tôt et couvre toute la zone de convergence, sans rambarde : une rambarde y
+poserait un mur au beau milieu du couloir.
+
+`diag/raccord.mjs` l'a trouvé, et lui seul pouvait : il tire une grille de rayons sur toute
+la zone sans rien supposer de la géométrie. `continuite.mjs` sonde les trajectoires, et le
+trou n'appartenait à aucune.
+
 Une fente reste plus dangereuse qu'un vide. À la fusion des deux voies, elles convergeaient
 jusqu'à se frôler et le ruban commun ne prenait le relais qu'après : il restait, sur les
 six derniers mètres, une fente d'un à trois mètres entre elles. Un vide se voit et se
