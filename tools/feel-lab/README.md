@@ -924,8 +924,8 @@ une capsule à cheval reposer réellement sur deux hexagones dont un seul aurait
 **Les étages s'élargissent vers le bas**, comme dans la référence, et c'est ce qui rend la
 descente intéressante : tomber d'un étage n'est pas une punition mais un choix, puisqu'on
 atterrit sur plus de sol qu'on n'en avait. On perd de la hauteur, on gagne du temps. On ne
-remonte jamais — 3,20 m d'écart contre un apex mesuré à 2,10 m, et 2,39 m même en enchaînant
-un plongeon au sommet du saut.
+remonte jamais — 14 m d'écart contre un apex mesuré à 2,10 m, et 2,39 m même en
+enchaînant un plongeon au sommet du saut.
 
 **Les portées, et ce que l'agrandissement a coûté.** La carte a d'abord été bâtie sur les
 deux règles de la référence — un saut simple franchit *un* hexagone manquant, un
@@ -937,10 +937,17 @@ franchissement passe donc désormais tout entier par le saut-plongeon** (8,31 m,
 lui, ne se franchit par aucun moyen — creuser large est sans retour, et c'est ce qui fait
 le jeu.
 
-**Dix mètres et demi entre deux étages.** La première version en tenait 3,20 — assez pour
+**Quatorze mètres entre deux étages**, contre 3,20 à la première version — assez alors pour
 qu'on ne puisse pas remonter, pas assez pour qu'on VOIE : avec 2,70 m de hauteur libre, la
 caméra se coinçait entre deux dalles et le joueur ne voyait ni l'étage du dessous ni ce qui
-l'attendait en tombant. 9,75 m de dégagement laissent lire la profondeur de la tour.
+l'attendait en tombant. 13,25 m de dégagement — huit fois la taille du personnage — laissent
+lire la profondeur de la tour d'un coup d'œil. La chute d'un étage coûte 0,82 s et arrive à
+34 m/s, loin du plafond de 55 m/s du garde-fou de vitesse.
+
+Ce qui borne cette cote par le haut n'est pas la physique mais **le ciel** : la couche de
+nuages du jeu flotte entre 42 et 72 m, et une tour qui la traverse fait passer des paquets
+blancs devant le terrain de jeu. Le sommet est donc posé à 30 m et la tour descend au lieu
+de monter — c'est d'ailleurs là qu'elle se trouve dans la référence.
 
 **Le collider EST le visuel.** Un prisme hexagonal est convexe, donc son collider est
 l'enveloppe convexe des sommets du maillage — relus dans la géométrie, pas recalculés par
@@ -957,10 +964,10 @@ que d'une chose, la tuile de départ.
 
 `diag/hexagone.mjs` rend dix-neuf verdicts, tous au vert. Le dernier est celui qui décide :
 **trois pilotes aux comportements opposés obtiennent trois issues étagées** — 10 s en
-restant immobile, 46 s en courant sans se ménager, 116 s en économisant son sol (soit 40 %
-de consommation en moins, 1,75 hexagone par seconde contre 2,93). La durée à tenir, 75 s,
-est posée au milieu de cette fenêtre : une fois et demie ce qu'obtient un jeu grossier,
-deux tiers de ce qu'obtient un jeu appliqué.
+restant immobile, 33 s en courant sans se ménager, et les 75 s complètes en économisant son
+sol (soit 36 % de consommation en moins, 1,72 hexagone par seconde contre 2,70). La durée à
+tenir, 75 s, est posée dans cette fenêtre : plus du double de ce qu'obtient un jeu grossier,
+atteignable par un jeu appliqué.
 
 Détail qui vaut d'être noté : **à l'échelle précédente, le harnais n'arrivait pas à produire
 cette mesure**. Tenir une dalle demande de rester à moins de 60 cm de son centre, et le

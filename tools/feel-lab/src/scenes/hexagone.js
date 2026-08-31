@@ -146,19 +146,25 @@ const PAS = APOTHEME * 2;
 const EP = 0.75;
 
 /**
- * ÉCART ENTRE ÉTAGES de 10,50 m — plus du triple de l'écart d'origine.
+ * ÉCART ENTRE ÉTAGES de 14 m — quatre fois et demie l'écart d'origine.
  *
- * La première version tenait ses étages à 3,20 m, juste assez pour qu'on ne puisse pas
- * remonter (apex 2,10 m, 2,39 m en enchaînant un plongeon). C'était suffisant pour la règle
- * et insuffisant pour l'ŒIL : avec 2,70 m de hauteur libre, la caméra se retrouvait coincée
- * entre deux dalles et le joueur ne voyait ni l'étage du dessous, ni ce qui l'attendait en
- * tombant. Une carte dont on ne peut pas lire la profondeur ne se joue pas, elle se subit.
+ * La toute première version tenait ses étages à 3,20 m, juste assez pour qu'on ne puisse
+ * pas remonter (apex 2,10 m, 2,39 m en enchaînant un plongeon). C'était suffisant pour la
+ * règle et insuffisant pour l'ŒIL : avec 2,70 m de hauteur libre, la caméra se retrouvait
+ * coincée entre deux dalles et le joueur ne voyait ni l'étage du dessous, ni ce qui
+ * l'attendait en tombant. Une carte dont on ne peut pas lire la profondeur ne se joue pas,
+ * elle se subit. 10,50 m ont corrigé le pire ; 14 m dégagent franchement la vue.
  *
- * 10,50 m laisse 9,75 m de hauteur libre — de quoi voir l'étage inférieur en entier depuis
- * le sien. La chute coûte 0,71 s et arrive à 29,6 m/s, bien en deçà du plafond de 55 m/s du
- * garde-fou de vitesse, et la détection de culbute ne mesure que l'horizontal.
+ * 13,25 m de hauteur libre, donc — huit fois la taille du personnage. La chute coûte 0,82 s
+ * et arrive à 34,2 m/s, encore loin du plafond de 55 m/s du garde-fou de vitesse, et la
+ * détection de culbute ne mesure que l'horizontal. `diag/hexagone.mjs` revérifie les deux.
+ *
+ * La contrainte qui borne cette cote par le haut n'est pas la physique mais le CIEL : la
+ * couche de nuages du jeu flotte entre 42 et 72 m, et une tour qui la traverse fait passer
+ * des paquets blancs devant le terrain de jeu. C'est pourquoi le sommet est posé à 30 m et
+ * que la tour descend au lieu de monter.
  */
-const ETAGE_H = 10.50;
+const ETAGE_H = 14.00;
 
 /**
  * SURSIS de 1,00 s — la valeur de la référence, après un détour par 0,85.
@@ -195,8 +201,23 @@ const ETAGES = [
   { anneaux: 7, couleur: C.cyan,   motif: 'zigzag' },
 ];
 
-const HAUT = ETAGES.length * ETAGE_H;        // cote du dessus de l'étage supérieur
-const BOUE_Y = -7.00;
+/*
+ * COTE DU SOMMET — 30 m, posée et non dérivée.
+ *
+ * Elle valait `ETAGES.length * ETAGE_H`, ce qui allait de soi tant qu'un étage faisait
+ * 3,20 m. À 10,50 m, la tour montait à 57 m et traversait la COUCHE DE NUAGES du jeu, qui
+ * flotte entre 42 et 72 m : de gros paquets blancs passaient devant les deux étages du
+ * haut, c'est-à-dire devant le terrain de jeu. On ne masque pas les nuages pour autant —
+ * la référence en a, et ils donnent l'échelle. On pose la tour SOUS eux, ce qui est
+ * d'ailleurs là qu'elle se trouve dans la référence.
+ *
+ * Le sommet à 30 m laisse le socle à 34,50 et le haut de l'ossature à 37,50 : sept mètres
+ * et demi de marge sous le premier nuage.
+ */
+const HAUT = 30;
+/* La boue, six mètres sous l'étage le plus bas : assez pour que la chute se voie, pas au
+ * point d'en faire un puits. */
+const BOUE_Y = HAUT - (ETAGES.length - 1) * ETAGE_H - 6;
 /*
  * Le corps porte 0,80 m sous son centre : a cette cote, les PIEDS touchent la boue. Pas
  * plus haut — on serait elimine en survolant la boue —, pas plus bas — on la traverserait
@@ -829,11 +850,15 @@ export function buildHexagone(RAPIER, assets, { seed = 1 } = {}) {
       return cles;
     })(),
     /*
-     * Caméra HAUTE et reculée. Ce qu'il faut lire ici n'est pas le personnage mais les
+     * Caméra HAUTE et bien reculée. Ce qu'il faut lire ici n'est pas le personnage mais les
      * TROUS autour de lui — et l'étage du dessous, qui est la sortie de secours. Au ras du
      * sol, une tour n'est qu'un mur de dalles.
+     *
+     * Le recul a suivi l'agrandissement des dalles : à 3,12 m de pas, un cadrage réglé pour
+     * des dalles de 2,08 m ne montre plus qu'une poignée de cases autour des pieds, et le
+     * joueur décide sans voir le terrain sur lequel il décide.
      */
-    camBias: { height: 3.2, distance: 2.4, lookHeight: -0.6, fov: 5 },
+    camBias: { height: 5.5, distance: 4.5, lookHeight: -1.6, fov: 6 },
     update, reset, dispose,
     largeur: (ETAGES[ETAGES.length - 1].anneaux * 2 + 1) * PAS,
     /** Sondes de diagnostic. */

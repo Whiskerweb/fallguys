@@ -85,15 +85,19 @@ await page.evaluate(() => {
 const bas = etages[etages.length - 1];
 const R = bas.rayon;
 
+// Les cadrages se calculent sur les cotes LUES DANS LA SCENE, jamais sur des nombres
+// ecrits ici : la tour a triple de hauteur en une seule modification, et des positions
+// figees auraient cadre le vide sans que rien ne le signale.
+const MILIEU = (cotes.HAUT + cotes.BOUE_Y) / 2;
 const vues = [
   // nom                 position caméra                       point visé
-  ['tour', [R * 2.3, cotes.HAUT + 10, R * 2.3], [0, cotes.HAUT - 6, 0]],
-  ['depart', [6, cotes.SOCLE_Y + 3.5, 12], [0, cotes.HAUT - 1, 0]],
-  ['etage-pres', [4, etages[2].y + 4.2, 12], [0, etages[2].y, 0]],
-  ['trous-de-profil', [R * 1.5, etages[1].y + 1.2, R * 1.5], [0, etages[1].y - 1, 0]],
-  ['boue', [R * 1.1, cotes.BOUE_Y + 9, R * 1.1], [0, cotes.BOUE_Y, 0]],
+  ['tour', [R * 2.9, cotes.HAUT + 6, R * 2.9], [0, MILIEU, 0]],
+  ['depart', [7, cotes.SOCLE_Y + 4, 15], [0, cotes.HAUT - 2, 0]],
+  ['etage-pres', [5, etages[2].y + 5.5, 16], [0, etages[2].y - 2, 0]],
+  ['trous-de-profil', [R * 1.4, etages[1].y - 3.5, R * 1.4], [0, etages[2].y + 1, 0]],
+  ['boue', [R * 1.2, cotes.BOUE_Y + 14, R * 1.2], [0, cotes.BOUE_Y, 0]],
   // A la VERTICALE : c'est la seule vue qui prouve l'orientation des hexagones.
-  ['flat-top', [0, etages[2].y + 13, 0], [0, etages[2].y, 0]],
+  ['flat-top', [0, etages[2].y + 19, 0], [0, etages[2].y, 0]],
 ];
 
 for (const [nom, pos, cible] of vues) {
