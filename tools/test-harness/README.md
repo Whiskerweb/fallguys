@@ -9,7 +9,7 @@ processus Node. Une partie complète de seize joueurs coûte une quinzaine de se
 calcul.
 
 ```bash
-node verdicts.mjs      # 37 verdicts · ~55 s
+node verdicts.mjs      # 74 verdicts · ~58 s
 node partie.mjs        # une partie, manche par manche
 node partie.mjs 777 8  # graine 777, salon de 8
 ```
@@ -19,12 +19,13 @@ node partie.mjs 777 8  # graine 777, salon de 8
 | | |
 |---|---|
 | **1** | **Aucun bot dans une partie payante.** Le seul verdict dont l'échec interdirait de livrer : c'est une règle juridique avant d'être une règle de jeu. |
-| **2** | L'attente de quinze secondes, sur horloge factice — le compte à rebours part au premier joueur et une arrivée tardive ne le repousse pas. |
+| **2** | L'attente et la **proposition de partir à effectif réduit** : le compte à rebours part au premier joueur, une arrivée tardive ne le repousse pas, il faut l'accord de tous les présents, et **sous le minimum on ne propose rien**. |
 | **3** | Le serveur joue les cinq cartes avec le code du client : 16 personnages posés, aucun NaN. |
 | **4** | **Déterminisme** : même graine, même classement, sur les cinq cartes. Sans lui, aucun replay ne reproduit rien. |
 | **5** | Une manche pourvoit toujours ses places, même quand personne ne finit. |
 | **6** | Une partie complète produit un classement valide : chacun une fois, rangs 1 à N. |
-| 7 | Les niveaux de bot — **mesuré et affiché, pas asserté**. Voir ci-dessous. |
+| **7** | Les petits effectifs se jouent vraiment : un duel en une finale, quatre joueurs en demie + finale, **sans un seul bot**. |
+| 8 | Les niveaux de bot — **mesuré et affiché, pas asserté**. Voir ci-dessous. |
 
 ## Pourquoi le point 7 n'est pas un verdict
 

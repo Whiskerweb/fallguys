@@ -12,7 +12,7 @@
  */
 
 import { jouerManche } from './manche.js';
-import { epreuves } from './monde.js';
+import { epreuves, economie } from './monde.js';
 
 /** mulberry32 — le générateur de graines du jeu. */
 function mulberry32(a) {
@@ -27,24 +27,25 @@ function mulberry32(a) {
 /**
  * Combien de joueurs survivent à chaque manche, pour un effectif donné.
  *
- * On divise par deux, puis par deux, et la dernière manche désigne un vainqueur unique.
- * `MatchConfiguration.Validate()` en C# exige une suite strictement décroissante finissant
- * par 1 — cette fonction produit exactement cela, quel que soit l'effectif.
+ * La règle vient de `economie.js` — LA MÊME que celle qui calcule les gains, et que le
+ * noyau C# `MatchConfiguration.ForPlayers`. En écrire une version « serveur » ferait
+ * diverger la partie JOUÉE de la partie PAYÉE : un joueur verrait trois manches annoncées
+ * et en disputerait deux, ou serait remboursé pour une place que la manche n'a pas
+ * ouverte. Une seule règle, trois implémentations verrouillées entre elles par les tests.
+ *
+ * En dessous de trois joueurs, `configPour` refuse — et il a raison : une partie à deux
+ * ne peut pas avoir deux manches strictement décroissantes finissant sur un vainqueur.
+ * On retombe alors sur UNE manche, ce qui est la bonne forme d'un duel : une finale, et
+ * rien d'autre. C'est aussi pourquoi un duel ne se paie pas au barème des places.
  */
-export function survivants(effectif, manches = 3) {
-  const out = [];
-  let n = effectif;
-  for (let i = 0; i < manches - 1; i++) {
-    n = Math.max(2, Math.floor(n / 2));
-    out.push(n);
-  }
-  out.push(1);
-  // Une suite qui n'est pas strictement décroissante ferait échouer la validation du
-  // noyau de règles : on la resserre plutôt que de la laisser produire un pot ingagnable.
-  for (let i = out.length - 1; i > 0; i--) {
-    if (out[i] >= out[i - 1]) out[i - 1] = out[i] + 1;
-  }
-  return out;
+export function survivants(effectif) {
+  if (effectif < 3) return [1];
+  return economie().configPour(effectif).survivants;
+}
+
+/** Combien de manches se jouent à cet effectif. Deux joueurs → une finale, et c'est tout. */
+export function manchesPour(effectif) {
+  return survivants(effectif).length;
 }
 
 /**
@@ -72,9 +73,17 @@ export function tirerParcours(graine, manches = 3) {
  * @param {number} [p.manches]
  * @param {function} [p.surManche] appelé après chaque manche, pour observer
  */
-export function jouerPartie({ graine, inscrits, manches = 3, surManche, dureeMax = 180 }) {
-  const parcours = tirerParcours(graine, manches);
-  const paliers = survivants(inscrits.length, manches);
+export function jouerPartie({ graine, inscrits, manches = null, surManche, dureeMax = 180 }) {
+  /*
+   * LE NOMBRE DE MANCHES SUIT L'EFFECTIF.
+   *
+   * Deux joueurs disputent une finale ; trois ou quatre, une demie puis une finale ; à
+   * partir de cinq, les trois manches. C'est ce qui permet d'ouvrir de petits salons
+   * pendant le démarrage à froid sans jouer une pyramide qui n'a plus de marches.
+   */
+  const paliers = survivants(inscrits.length);
+  const nb = manches ?? paliers.length;
+  const parcours = tirerParcours(graine, nb);
 
   let enLice = inscrits.slice();
   const elimines = [];          // du dernier éliminé au premier : l'ordre inverse du rang

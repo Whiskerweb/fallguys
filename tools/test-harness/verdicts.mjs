@@ -24,6 +24,7 @@ import { avancerTick } from '../../serveur/src/tick.js';
 import { jouerManche } from '../../serveur/src/manche.js';
 import { jouerPartie, survivants } from '../../serveur/src/partie.js';
 import { creerSalon } from '../../serveur/src/salon.js';
+import { POLITIQUES, botsAutorises, BOTS } from '../../serveur/src/politique.js';
 import { creerBot } from '../../serveur/src/pilotes/bot.js';
 
 let ko = 0;
@@ -41,59 +42,110 @@ titre('1. Aucun bot dans une partie payante');
  * Le verdict le plus important du fichier. Toute la qualification « compétition de
  * skill » repose sur le fait qu'aucune machine ne décide de l'issue ; payer un joueur
  * selon son classement face à des bots serait précisément ce qu'un régulateur regarde.
+ *
+ * La garantie tient à DEUX tests indépendants — la politique, et la mise —, et c'est
+ * délibéré : une garantie qui tient à un seul test tient à une seule faute de frappe.
  */
 {
-  const gratuit = creerSalon({ taille: 16, attente: 0, mise: 0, graine: 1 });
-  gratuit.rejoindre({ nom: 'seul', faire: () => ({ entree: () => ({ x: 0, z: 0, jump: false, dive: false }) }) });
-  const g = gratuit.composer();
-  dit(g.bots === 15 && g.complete,
-    `partie GRATUITE : 1 humain complété par ${g.bots} bots`);
+  const pilote = () => ({ entree: () => ({ x: 0, z: 0, jump: false, dive: false }) });
+  const joueur = (nom) => ({ nom, faire: pilote });
 
-  for (const mise of [1_000_000, 250_000, 1]) {
-    const paye = creerSalon({ taille: 16, attente: 0, mise, graine: 1 });
-    paye.rejoindre({ nom: 'joueur', faire: () => ({ entree: () => ({ x: 0, z: 0, jump: false, dive: false }) }) });
-    const r = paye.composer();
-    dit(r.bots === 0 && !r.complete && r.raison === 'MISE_NON_NULLE_AUCUN_BOT',
-      `mise de ${mise} micros : AUCUN bot convoqué, la partie part à ${r.humains}`);
+  const banc = creerSalon({ politique: 'BANC', mise: 0, graine: 1 });
+  banc.rejoindre(joueur('seul'));
+  const g = banc.composer();
+  dit(g.bots === 15 && g.complete, `BANC, partie gratuite : 1 humain complété par ${g.bots} bots`);
+
+  // 1er test : la POLITIQUE interdit.
+  for (const nom of ['PRODUCTION', 'DUEL_TEST']) {
+    dit(POLITIQUES[nom].bots === BOTS.JAMAIS, `${nom} : les bots sont interdits par la politique`);
+    dit(botsAutorises(POLITIQUES[nom], 0) === false,
+      `${nom} : même en partie GRATUITE, aucun bot`);
   }
 
-  const paye = creerSalon({ mise: 1_000_000 });
-  dit(paye.botsAutorises() === false, 'un salon payant se déclare lui-même interdit aux bots');
+  // 2e test : la MISE interdit, même sous une politique qui les autoriserait.
+  for (const mise of [1_000_000, 250_000, 1]) {
+    dit(botsAutorises(POLITIQUES.BANC, mise) === false,
+      `mise de ${mise} micros : aucun bot, même sous BANC`);
+    const paye = creerSalon({ politique: 'BANC', mise, graine: 1 });
+    paye.rejoindre(joueur('joueur'));
+    const r = paye.composer();
+    dit(r.bots === 0 && r.raison === 'AUCUN_BOT_AUTORISE',
+      `  → le salon part à ${r.humains} joueur(s), sans bot`);
+  }
+
+  // Aucune politique ne doit pouvoir dire « toujours » : la valeur n'existe pas.
+  dit(!Object.values(BOTS).includes('toujours'),
+    'il n\'existe aucune valeur autorisant les bots inconditionnellement');
 }
 
 // ===========================================================================
-titre('2. L\'attente de quinze secondes');
+titre('2. L\'attente, et la proposition de partir à effectif réduit');
 // ===========================================================================
 {
-  // Horloge factice : sans elle, éprouver quinze secondes d'attente coûterait quinze
+  const pilote = () => ({ entree: () => ({ x: 0, z: 0, jump: false, dive: false }) });
+  const joueur = (nom) => ({ nom, faire: pilote });
+
+  // Horloge factice : sans elle, éprouver soixante secondes d'attente coûterait soixante
   // secondes, et personne ne lancerait cette suite.
   let maintenant = 1_000_000;
   const horloge = () => maintenant;
-  const salon = creerSalon({ taille: 16, attente: 15, mise: 0, graine: 7, horloge });
 
-  dit(salon.resteAAttendre() === null, 'un salon vide n\'attend rien : le compte à rebours n\'a pas commencé');
+  const banc = creerSalon({ politique: 'BANC', mise: 0, graine: 7, horloge });
+  dit(banc.resteAAttendre() === null, 'un salon vide n\'attend rien : le compte à rebours n\'a pas commencé');
 
-  salon.rejoindre({ nom: 'premier', faire: () => ({ entree: () => ({}) }) });
-  dit(salon.resteAAttendre() === 15, 'le compte à rebours démarre au PREMIER joueur');
-  dit(!salon.pretAPartir(), 'on ne part pas tant que l\'attente court');
+  // ── le cas PRODUCTION : douze joueurs, figés ────────────────────────────────
+  maintenant = 2_000_000;
+  const prod = creerSalon({ politique: 'PRODUCTION', mise: 1_000_000, graine: 3, horloge });
+  for (let i = 0; i < 12; i++) prod.rejoindre(joueur(`j${i}`));
+  dit(prod.resteAAttendre() === 15, 'le compte à rebours démarre au PREMIER joueur');
+  dit(prod.proposition() === null, 'aucune proposition tant que le délai n\'est pas écoulé');
+  dit(!prod.pretAPartir(), 'on ne part pas pendant l\'attente');
 
+  maintenant += 60_000;
+  const offre = prod.proposition();
+  dit(offre !== null && offre.joueurs === 12 && offre.manques === 4,
+    `à 60 s, on propose de partir à ${offre?.joueurs} au lieu de ${offre?.cible}`);
+  dit(offre?.pot === 12_000_000, `le pot annoncé est celui des présents : ${offre?.pot / 1e6} USDC`);
+
+  dit(!prod.pretAPartir(), 'la proposition seule ne suffit pas : il faut l\'accord de tous');
+  for (let i = 0; i < 11; i++) prod.accepter(`j${i}`);
+  dit(!prod.pretAPartir(), '11 accords sur 12 ne suffisent pas non plus');
+  prod.accepter('j11');
+  dit(prod.pretAPartir(), 'les 12 accords obtenus, on part');
+
+  const compo = prod.composer();
+  dit(compo.humains === 12 && compo.bots === 0, `12 humains, 0 bot — c'est une partie payante`);
+
+  // ── SOUS le minimum : on ne propose rien, et on ne part jamais ──────────────
+  maintenant = 3_000_000;
+  const maigre = creerSalon({ politique: 'PRODUCTION', mise: 1_000_000, graine: 3, horloge });
+  maigre.rejoindre(joueur('a'));
+  maigre.rejoindre(joueur('b'));
+  maintenant += 600_000;                       // dix minutes : largement au-delà de tout délai
+  dit(maigre.proposition() === null,
+    'sous le minimum, AUCUNE proposition — on ne propose jamais l\'impossible');
+  dit(!maigre.pretAPartir(),
+    `2 joueurs pour un minimum de ${POLITIQUES.PRODUCTION.minimum} : on ne part pas, quoi qu'ils en disent`);
+  dit(maigre.etat().sousLeMinimum === true, 'le salon le dit clairement à l\'interface');
+
+  // ── DUEL_TEST : deux machines, deux comptes, et ça part ─────────────────────
+  maintenant = 4_000_000;
+  const duel = creerSalon({ politique: 'DUEL_TEST', mise: 0, graine: 3, horloge });
+  duel.rejoindre(joueur('machine-1'));
+  dit(!duel.pretAPartir(), 'un duel à un seul joueur n\'est pas un duel');
+  duel.rejoindre(joueur('machine-2'));
+  dit(duel.pretAPartir(), 'DUEL_TEST : à deux, le salon est PLEIN et part sans attendre');
+  const d = duel.composer();
+  dit(d.humains === 2 && d.bots === 0, 'un duel se joue à deux vrais joueurs, sans aucun bot');
+
+  // ── une arrivée en cours de route ──────────────────────────────────────────
+  maintenant = 5_000_000;
+  const flux = creerSalon({ politique: 'PRODUCTION', mise: 0, graine: 3, horloge });
+  flux.rejoindre(joueur('x'));
   maintenant += 8000;
-  salon.rejoindre({ nom: 'second', faire: () => ({ entree: () => ({}) }) });
-  dit(Math.round(salon.resteAAttendre()) === 7,
-    'une arrivée en cours de route NE REPOUSSE PAS le départ (sinon le salon n\'ouvrirait jamais)');
-
-  maintenant += 7000;
-  dit(salon.resteAAttendre() === 0 && salon.pretAPartir(), 'à quinze secondes, on part');
-
-  const r = salon.composer();
-  dit(r.humains === 2 && r.bots === 14 && r.complete,
-    `2 humains + ${r.bots} bots = ${r.humains + r.bots} joueurs`);
-
-  // Un salon plein part tout de suite : personne n'attend pour rien.
-  const plein = creerSalon({ taille: 2, attente: 15, mise: 0, horloge });
-  plein.rejoindre({ nom: 'a', faire: () => ({}) });
-  plein.rejoindre({ nom: 'b', faire: () => ({}) });
-  dit(plein.pretAPartir(), 'un salon PLEIN part sans attendre la fin du compte à rebours');
+  flux.rejoindre(joueur('y'));
+  dit(Math.round(flux.resteAAttendre()) === 7,
+    'une arrivée NE REPOUSSE PAS le départ (sinon le salon n\'ouvrirait jamais)');
 }
 
 // ===========================================================================
@@ -185,7 +237,7 @@ titre('6. Une partie complète : trois manches, une couronne');
   dit(suitesValides, `de 4 à 24 joueurs, la pyramide décroît strictement et finit sur un vainqueur`
     + (details.length ? ` — fautives : ${details.join(' · ')}` : ''));
 
-  const salon = creerSalon({ taille: 16, attente: 0, mise: 0, graine: 4242 });
+  const salon = creerSalon({ politique: 'BANC', mise: 0, graine: 4242 });
   salon.rejoindre({ nom: 'humain', faire: () => ({ entree: () => ({ x: 0, z: 0, jump: false, dive: false }) }) });
   const grille = salon.composer();
 
@@ -198,7 +250,38 @@ titre('6. Une partie complète : trois manches, une couronne');
 }
 
 // ===========================================================================
-titre('7. Les trois niveaux de bot — mesure, sans verdict');
+titre('7. Les petits effectifs se jouent vraiment');
+// ===========================================================================
+/*
+ * Le cas d'usage réel du moment : deux machines, deux comptes, et ça doit marcher.
+ *
+ * On ne complète PAS avec des bots — c'est tout l'intérêt. Un duel joue le vrai chemin de
+ * code, avec deux vrais pilotes, et il n'y aura rien à démonter le jour où les bots
+ * disparaissent. La partie s'adapte à l'effectif : deux joueurs disputent une finale,
+ * quatre disputent une demie puis une finale.
+ */
+{
+  const pilote = () => ({
+    // Un pilote minimal qui avance : de quoi produire un classement, pas de quoi gagner.
+    entree: () => ({ x: 0, z: -1, jump: false, dive: false }),
+  });
+
+  for (const [effectif, manchesAttendues] of [[2, 1], [3, 2], [4, 2], [6, 3]]) {
+    const inscrits = Array.from({ length: effectif }, (_, i) => ({ nom: `j${i}`, faire: pilote }));
+    const r = jouerPartie({ graine: 31337, inscrits, dureeMax: 25 });
+
+    dit(r.manches.length === manchesAttendues,
+      `${effectif} joueurs → ${r.manches.length} manche(s) : ${r.parcours.join(' → ')}`);
+    dit(r.classement.length === effectif, `  les ${effectif} joueurs sont classés`);
+    dit(r.classement[0].rang === 1 && r.classement[effectif - 1].rang === effectif,
+      `  les rangs vont de 1 à ${effectif}`);
+    dit(new Set(r.classement.map((c) => c.nom)).size === effectif, '  chacun une seule fois');
+    dit(r.classement.every((c) => !c.estBot), '  aucun bot dans la partie');
+  }
+}
+
+// ===========================================================================
+titre('8. Les trois niveaux de bot — mesure, sans verdict');
 // ===========================================================================
 /*
  * PAS DE VERDICT ICI, ET C'EST DÉLIBÉRÉ.

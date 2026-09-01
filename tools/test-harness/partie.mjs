@@ -9,6 +9,7 @@
  */
 import { preparer } from '../../serveur/src/monde.js';
 import { creerSalon } from '../../serveur/src/salon.js';
+import { POLITIQUES } from '../../serveur/src/politique.js';
 import { jouerPartie } from '../../serveur/src/partie.js';
 
 const graine = Number(process.argv[2] ?? 4242);
@@ -22,7 +23,11 @@ await preparer();
  * secondes pour un banc d'essai, et la règle des quinze secondes est éprouvée à part,
  * sur une horloge factice, dans `verdicts.mjs`.
  */
-const salon = creerSalon({ taille, attente: 0, mise: 0, graine });
+/*
+ * Politique BANC : un seul humain suffit, les bots completent. C'est la SEULE politique
+ * qui les convoque, et elle n'a aucune raison d'apparaitre ailleurs qu'ici.
+ */
+const salon = creerSalon({ politique: { ...POLITIQUES.BANC, cible: taille }, mise: 0, graine });
 salon.rejoindre({ nom: 'observateur', faire: () => ({ entree: () => ({ x: 0, z: 0, jump: false, dive: false }) }) });
 const grille = salon.composer();
 

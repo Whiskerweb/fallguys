@@ -114,14 +114,71 @@ finirait ignorée. C'est le premier chantier de la suite.
 
 ---
 
-## Le salon
+## Le salon, et sa politique
 
-Attente de **15 secondes** à partir du **premier** joueur — pas de chaque arrivée, sinon un
-flux régulier repousserait le départ indéfiniment. À l'échéance, on complète avec des bots
-(si la mise est nulle) et on part. Un salon plein part sans attendre.
+Une **politique nommée** répond à quatre questions : combien de joueurs on vise, en dessous
+de combien on ne part pas, au bout de combien de temps on propose de partir quand même, et
+qui peut convoquer des bots.
 
-L'horloge est injectable : éprouver quinze secondes d'attente ne doit pas coûter quinze
+| Politique | cible | minimum | propose à | bots |
+|---|---|---|---|---|
+| `PRODUCTION` | 16 | **10** | 60 s | **jamais** |
+| `DUEL_TEST` | 2 | 2 | — | **jamais** |
+| `BANC` | 16 | 1 | — | si gratuit |
+
+**Enlever les bots est le choix d'une politique, pas une opération chirurgicale.** Le jour
+où de vrais joueurs remplissent les salons, on cesse d'utiliser `BANC` et il n'y a rien à
+démonter. `PRODUCTION` les interdit déjà par construction, et la mise non nulle les
+interdit une seconde fois : une garantie qui tient à un seul test tient à une seule faute
+de frappe. Il n'existe volontairement **aucune** valeur qui les autoriserait
+inconditionnellement.
+
+### Trois issues, et le salon en choisit une
+
+1. **Il se remplit** → on part tout de suite, personne n'attend pour rien.
+2. **Il se fige au-dessus du minimum** → passé le délai, on **propose** aux présents de
+   partir à effectif réduit, en leur annonçant le pot réel. Il faut l'accord de **tous** :
+   un joueur qui n'a pas dit oui n'a pas accepté un pot plus petit que celui qu'on lui
+   avait montré. Une arrivée en cours de route efface les accords — le pot a changé.
+3. **Il se fige sous le minimum** → on ne part pas, et **on ne propose rien**. On ne propose
+   jamais l'impossible : un joueur à qui l'on demande son accord pour une partie à trois
+   comprend que c'est permis, et il a raison de le comprendre.
+
+L'horloge est injectable : éprouver soixante secondes d'attente ne doit pas coûter soixante
 secondes, sinon personne ne lance la suite de tests.
+
+### La partie s'adapte à l'effectif
+
+| Joueurs | Manches | Pyramide |
+|---|---|---|
+| 2 | 1 | une finale |
+| 3-4 | 2 | 2 → 1 |
+| 5-7 | 3 | 3 → 2 → 1 |
+| 8 | 3 | 4 → 2 → 1 |
+| 16 | 3 | 8 → 4 → 1 |
+| 24 | 3 | 12 → 6 → 1 |
+
+La règle vient de `economie.js`, **la même** que celle qui calcule les gains et que le noyau
+C# `MatchConfiguration.ForPlayers`. En écrire une version « serveur » ferait diverger la
+partie *jouée* de la partie *payée* : un joueur verrait trois manches annoncées et en
+disputerait deux. Les trois implémentations sont verrouillées entre elles par les tests, de
+3 à 24 joueurs.
+
+**Deux joueurs n'ont pas de barème**, et ce n'est pas un oubli. Il faut au moins deux
+manches, donc la manche 1 laisse moins de deux joueurs, donc la manche 2 devrait en laisser
+moins d'un : structurellement impossible. Un duel se joue en une finale, hors table de
+gains — c'est ce qui rend `DUEL_TEST` nécessairement gratuit.
+
+### Tester à deux machines
+
+C'est le mode de mise au point, et il n'utilise **aucun bot** :
+
+```js
+creerSalon({ politique: 'DUEL_TEST', mise: 0 })
+```
+
+Deux vrais comptes, deux vraies machines, le vrai chemin de code. Rien à enlever ensuite, et
+rien qui masque un défaut de netcode derrière un adversaire complaisant.
 
 ---
 
@@ -129,7 +186,7 @@ secondes, sinon personne ne lance la suite de tests.
 
 ```bash
 cd tools/test-harness
-node verdicts.mjs      # 37 verdicts, ~55 s, aucun réseau ni installation
+node verdicts.mjs      # 74 verdicts, ~58 s, aucun réseau ni installation
 node partie.mjs        # une partie complète de 16 joueurs, manche par manche
 node partie.mjs 777 8  # graine 777, salon de 8
 ```

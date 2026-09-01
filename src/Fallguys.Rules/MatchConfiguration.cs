@@ -27,6 +27,58 @@ public sealed record MatchConfiguration(
     public static MatchConfiguration Default { get; } =
         new(16, new[] { 8, 4, 1 }, 1000, new[] { 40, 15, 7, 2 });
 
+    /// <summary>
+    /// Combien de manches pour un effectif donné : chaque manche élimine environ la
+    /// moitié, jusqu'au vainqueur. Plafonné à trois — au-delà, une partie devient longue
+    /// sans devenir plus intéressante, et le spec en retient trois.
+    /// </summary>
+    public static int RoundsForPlayers(int players) =>
+        Math.Clamp((int)Math.Ceiling(Math.Log2(Math.Max(2, players))), 1, 3);
+
+    /// <summary>
+    /// La configuration d'une partie à N joueurs.
+    ///
+    /// Le démarrage à froid — risque n°1 du spec — impose d'ouvrir des salons plus petits
+    /// que seize : il faut seize joueurs vivants, prêts à miser le même montant, au même
+    /// instant, et au premier jour il n'y en a aucun. Un salon réduit doit donc être payé
+    /// selon SON effectif, pas selon un barème à seize qui promettrait un pot inexistant.
+    ///
+    /// Deux joueurs sont REFUSÉS, et ce n'est pas un oubli. Il faut au moins deux manches
+    /// (<see cref="Validate"/>), donc <c>RoundSurvivors[0] &lt; 2</c> donc <c>= 1</c>, donc
+    /// la manche suivante devrait laisser moins d'un joueur. C'est structurellement
+    /// impossible. Un duel n'est pas une compétition à places : s'il faut en autoriser un,
+    /// c'est une partie d'exhibition, hors table de gains — pas un barème de plus.
+    /// </summary>
+    public static MatchConfiguration ForPlayers(int players, int rakeBasisPoints = 1000)
+    {
+        if (players < 3)
+            throw new ArgumentException(
+                $"Une partie payante demande au moins 3 joueurs ; {players} demandé(s). " +
+                "Un duel se joue hors table de gains.");
+
+        var rounds = Math.Max(2, RoundsForPlayers(players));
+        var survivors = new int[rounds];
+        for (var i = 1; i < rounds; i++)
+        {
+            // `rounds - i + 1` garantit qu'il reste toujours assez de joueurs pour tenir
+            // les manches suivantes : sans ce plancher, un petit effectif produirait une
+            // suite non strictement décroissante, que Validate() refuserait.
+            survivors[i - 1] = Math.Max(rounds - i + 1, players >> i);
+        }
+        survivors[rounds - 1] = 1;
+
+        // Le nombre de finalistes dicte combien de poids de bonus sont utilisés ; on en
+        // fournit toujours assez, en reprenant les premiers de la table de référence.
+        var finalists = survivors[rounds - 2];
+        var weights = new int[Math.Max(finalists, 4)];
+        var reference = new[] { 40, 15, 7, 2 };
+        for (var i = 0; i < weights.Length; i++) weights[i] = i < reference.Length ? reference[i] : 1;
+
+        var config = new MatchConfiguration(players, survivors, rakeBasisPoints, weights);
+        config.Validate();
+        return config;
+    }
+
     public int RoundCount => RoundSurvivors.Count;
 
     /// <summary>Rang au-delà duquel le joueur ne récupère plus sa mise : les survivants de la manche 1.</summary>

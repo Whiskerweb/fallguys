@@ -15,7 +15,7 @@
 import { banc, joueur, doter, dit, refuse, titre, bilan } from './aide.mjs';
 import { poster, compte, solde, verifierInvariant } from '../src/livre.js';
 import { engager, regler } from '../src/match/regler.js';
-import { table, PALIERS, CONFIG } from '../src/gains.js';
+import { table, PALIERS, CONFIG, configPour } from '../src/gains.js';
 import { MICROS, ecrire } from '../src/argent.js';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
@@ -255,6 +255,40 @@ titre('6. Le backend paie ce que le lobby annonce');
     for (let r = 0; r < CONFIG.joueurs; r++) if (ici.parRang[r] !== la.parRang[r]) ecarts++;
   }
   dit(ecarts === 0, `les 3 tables x 16 rangs sont identiques des deux cotes (${ecarts} ecart)`);
+
+  /*
+   * ET A TOUT EFFECTIF, de 3 a 24 joueurs.
+   *
+   * Le demarrage a froid impose d'ouvrir des salons plus petits que seize. Un salon de
+   * huit paye au bareme de seize promettrait un pot qui n'existe pas — c'est le bug
+   * d'argent que ce verdict surveille, et il ne se verrait pas en ne testant que 16.
+   */
+  let ecartsN = 0;
+  let conservation = 0;
+  for (let n = 3; n <= 24; n++) {
+    for (const usdc of PALIERS) {
+      const ici = table(usdc * MICROS, n);
+      const la = lobby.table(usdc * MICROS, n);
+      if (ici.pot !== la.pot || ici.rake !== la.rake) ecartsN++;
+      for (let r = 0; r < n; r++) if (ici.parRang[r] !== la.parRang[r]) ecartsN++;
+      // L'argent ne se cree ni ne se perd, quel que soit l'effectif.
+      if (ici.parRang.reduce((a, b) => a + b, 0) + ici.rake !== ici.pot) conservation++;
+    }
+    const c1 = configPour(n);
+    const c2 = lobby.configPour(n);
+    if (String(c1.survivants) !== String(c2.survivants)) ecartsN++;
+  }
+  dit(ecartsN === 0, `de 3 a 24 joueurs : 66 tables identiques des deux cotes (${ecartsN} ecart)`);
+  dit(conservation === 0, `l'argent est conserve a tout effectif (${conservation} rupture)`);
+
+  // Un duel n'a pas de bareme : la table des places suppose une elimination, et deux
+  // joueurs ne peuvent pas en produire deux manches strictement decroissantes.
+  let refuse = 0;
+  for (const n of [0, 1, 2]) {
+    try { configPour(n); } catch { refuse++; }
+    try { lobby.configPour(n); } catch { refuse++; }
+  }
+  dit(refuse === 6, 'moins de 3 joueurs : les deux implementations refusent de calculer un bareme');
 
   const t = table(1 * MICROS);
   dit(t.rake === 1_600_000 && t.parRang[0] === 5_000_000 && t.parRang[1] === 2_500_000

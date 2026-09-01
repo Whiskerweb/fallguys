@@ -57,6 +57,7 @@ let THREE = null;
 let Character = null;
 let MINIGAMES = null;
 let TUNING = null;
+let ECONOMIE = null;
 
 /**
  * Prépare le moteur. À appeler une fois au démarrage du processus.
@@ -78,7 +79,23 @@ export async function preparer() {
   ({ MINIGAMES } = await import(url('scenes/index.js')));
   ({ TUNING } = await import(url('tuning.js')));
 
+  /*
+   * L'ÉCONOMIE VIENT DU JEU, ELLE AUSSI.
+   *
+   * `configPour(n)` dit combien de manches se jouent et combien de joueurs survivent à
+   * chacune. Le serveur en a besoin pour arbitrer, le lobby pour annoncer les gains. En
+   * réécrire une version « serveur » ferait diverger la partie JOUÉE de la partie PAYÉE —
+   * un joueur verrait trois manches annoncées et en disputerait deux.
+   */
+  ECONOMIE = await import(url('economie.js'));
+
   return { RAPIER, THREE, Character, MINIGAMES, TUNING };
+}
+
+/** La pyramide d'élimination et la table des gains, telles que le jeu les définit. */
+export function economie() {
+  if (!ECONOMIE) throw new Error("monde : appeler preparer() d'abord");
+  return ECONOMIE;
 }
 
 /** Le moteur partagé, pour qui a besoin de lancer un rayon ou de faire un vecteur. */
