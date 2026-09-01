@@ -41,16 +41,23 @@ flottant, parce qu'un centième d'USDC perdu par arrondi à chaque partie est un
 qu'on ne retrouve plus six mois plus tard. Le lobby annonce donc exactement ce que le
 serveur de règlement paiera.
 
-Pour une table à 1 USDC, seize joueurs, commission 15 % :
+Pour une table à 1 USDC, seize joueurs, commission 10 % :
 
 | Rang | Gain | |
 |---|---|---|
-| 1er | 4,50 | ×4,5 |
+| 1er | 5,00 | ×5,0 |
 | 2e | 2,50 | ×2,5 |
-| 3e | 1,50 | ×1,5 |
-| 4e | 1,10 | ×1,1 |
+| 3e | 1,70 | ×1,7 |
+| 4e | 1,20 | ×1,2 |
 | **5e–8e** | **1,00** | **mise rendue** |
 | 9e–16e | — | rien |
+
+> La commission était de 15 % jusqu'ici, et le spec du 19 août imprime encore cette
+> table-là. Le passage à 10 % a demandé de **recalibrer les poids de bonus** —
+> `[35, 15, 5, 1]` devient `[40, 15, 7, 2]` — parce que les anciens tombaient sur des
+> chiffres ronds *à 15 %* et payaient 2,714285 USDC au deuxième une fois le taux baissé.
+> Le rake et les poids forment un couple : réviser l'un sans l'autre donne des gains justes
+> au centième et illisibles à l'écran.
 
 La bande verte est le **seuil de non-perte** : finir dans les huit rend la mise. C'est
 l'amortisseur du « mur des 95 % de perdants » décrit dans le spec, et c'est la seule chose
@@ -65,6 +72,51 @@ le vrai, et le jour où quinze adversaires arrivent, seul le rang passé change.
 
 `diag/economie.mjs` vérifie les trois tables rang par rang contre des valeurs dérivées à la
 main du C#, plus l'invariant `distribué + commission = pot`.
+
+### Le portefeuille : local, ou de vrais USDC
+
+`src/caisse.js` tient le solde, dans l'un de deux modes, et le mode se choisit tout seul.
+
+**Hors ligne** — le mode par défaut, et celui de tous les harnais de `diag/`. Le portefeuille
+est une clé de `localStorage` dotée de 25 USDC fictifs, le bouton **TOP UP** la remet à 25.
+C'est ce que le jeu a toujours fait.
+
+**En ligne** — dès que `VITE_SUPABASE_URL` est renseignée (voir `.env.example`) et qu'une
+session existe, le solde vient du grand livre du backend. La connexion se fait par **e-mail
+et mot de passe** (bouton SIGN IN dans la barre noire) : le plus simple qui existe, rien à
+configurer dans le dashboard. Discord et Google viendront plus tard et s'ajouteront à côté
+sans rien déplacer — tout le reste du jeu ne connaît que `session()` et `jeton()`.
+
+> **Un réglage Supabase à connaître.** « Confirm email » est **activé par défaut** : un
+> compte créé n'a pas de session tant que le lien reçu par e-mail n'est pas cliqué, et le
+> SMTP gratuit d'un projet Supabase est limité à quelques envois par heure. Pour un
+> prototype, décochez-le (Authentication → Providers → Email) : l'inscription devient
+> immédiate et n'envoie plus rien. L'interface gère les deux cas — elle n'annonce jamais
+> « bienvenue » à quelqu'un qui n'a pas de session. Le navigateur ne le calcule ni ne
+l'écrit **jamais** : il l'affiche. Le bouton devient **DEPOSIT** et montre l'adresse USDC
+dédiée du joueur.
+
+Le jeu ne bloque **jamais** sur le réseau : `caisse.rafraichir()` part sans `await` après
+l'affichage, et un backend absent fait simplement retomber hors ligne. Un jeu qui refuse de
+démarrer parce que son API ne répond pas est un jeu qu'on ne peut plus déboguer.
+
+La conséquence structurelle est ailleurs, et c'est le vrai coût de ce lot : **l'argent est
+devenu asynchrone**. `portefeuille.debiter()` ne pouvait pas échouer ; `caisse.engager()`
+peut être refusé, expirer, ou partir deux fois sur un double-clic. D'où deux choix visibles
+dans le code :
+
+- `startEpisode()` est `async` et n'entre en partie qu'après **confirmation** que la mise est
+  engagée — jamais en pariant qu'elle passera ;
+- `reglerPartie()` reste **synchrone** : il calcule le gain localement pour l'afficher tout
+  de suite et laisse le versement partir au backend sans l'attendre. Ce n'est pas un pari —
+  `backend/test/tout.mjs` compare les deux tables rang par rang à chaque exécution, donc le
+  chiffre affiché *est* celui qui sera payé. Et la requête étant idempotente, un réseau coupé
+  ne perd rien.
+
+Tout ce qui touche à de vrais USDC — comptes, dépôts, retraits, grand livre — vit dans
+`backend/`, dont le README porte la liste des conditions à remplir **avant tout mainnet**.
+La première d'entre elles concerne directement ce dossier : tant que le navigateur exécute
+la physique et déclare son propre rang, l'argent est en libre-service.
 
 ## Une partie, pas une épreuve
 
@@ -994,6 +1046,14 @@ l'autre moitié de son travail. Seul, tomber vaut la place juste derrière la de
 qualifiante — 9ᵉ, 5ᵉ ou 2ᵉ selon la manche, que la table des gains paie déjà sans
 modification. Le jour où seize joueurs s'affronteront, le serveur passera le vrai rang et
 cette méthode ne bougera pas d'une ligne.
+
+## Sortir des rushes video
+
+`cine/` tourne des extraits video du jeu — un tour d'orbite par carte, un plan de course
+par personnage, une vue de jeu avec des figurants — en 1920x1080. Le rendu etant logiciel,
+le harnais ne filme pas l'ecran : il ARRETE le temps du jeu et l'avance d'un trentieme de
+seconde par image rendue, ce qui donne une video fluide meme quand une image coute une
+demi-seconde a calculer. Voir `cine/README.md`.
 
 ## Ce qui se transpose dans Unity
 

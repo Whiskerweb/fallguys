@@ -13,8 +13,10 @@ import { cosmetics, MODELS } from './cosmetics.js';
 import { sfx, unlockAudio, audio } from './audio.js';
 import { RIG, RIG_RANGES } from './rig.js';
 import { settings, ACTIONS, CAMERA_RANGES, CAMERA_LABELS, keyName } from './settings.js';
-import { applyIcons, buildSkinsScreen, buildTicket, majBarre, wireEcrans } from './lobbyui.js';
-import { table, portefeuille, progression, miseChoisie, ordinal, XP_MANCHE, XP_VICTOIRE, montant } from './economie.js';
+import { applyIcons, buildSkinsScreen, buildTicket, buildCompte, majBarre, wireEcrans } from './lobbyui.js';
+import { table, progression, miseChoisie, ordinal, XP_MANCHE, XP_VICTOIRE, montant } from './economie.js';
+import { caisse } from './caisse.js';
+import { surSession } from './compte.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -396,17 +398,29 @@ class Game {
    * Lance une PARTIE : une suite de manches tirees au sort, jouees d'affilee.
    * Le joueur ne choisit pas son terrain — c'est le principe de la structure.
    */
-  startEpisode(mise = null) {
-    /*
-     * La mise est DEBITEE au lancement, pas a l'arrivee.
-     *
-     * C'est ce qui fait la difference entre un bouton et un engagement : l'argent quitte
-     * le portefeuille avant la premiere manche, et abandonner en cours de partie le perd.
-     * Le gain, lui, est credite a la fin selon le rang atteint.
-     */
+  /*
+   * La mise est DEBITEE au lancement, pas a l'arrivee.
+   *
+   * C'est ce qui fait la difference entre un bouton et un engagement : l'argent quitte le
+   * portefeuille avant la premiere manche, et abandonner en cours de partie le perd. Le
+   * gain, lui, est credite a la fin selon le rang atteint.
+   *
+   * ASYNCHRONE DEPUIS QUE L'ARGENT EST REEL. Le debit local ne pouvait pas echouer ; un
+   * debit distant peut etre refuse, expirer, ou partir deux fois sur un double-clic. On
+   * n'entre donc en partie qu'apres CONFIRMATION que la mise est engagee — jamais en
+   * pariant qu'elle passera. `caisse.engager` se verrouille contre les appels
+   * concurrents, et la base derriere lui aussi.
+   */
+  async startEpisode(mise = null) {
     const engagee = mise ?? miseChoisie();
-    if (portefeuille.solde < engagee) return;
-    portefeuille.debiter(engagee);
+
+    // Un identifiant par partie : c'est la cle d'idempotence du backend. Rejouer la meme
+    // requete ne debite qu'une fois, et le reglement s'y raccroche a la fin.
+    const matchId = (crypto.randomUUID?.() ?? String(Date.now())) + '';
+
+    if (!(await caisse.engager(matchId, engagee))) return;
+
+    this.matchId = matchId;
     this.mise = engagee;
     this.partie = { parcours: tirerParcours(NB_MANCHES), index: 0, temps: [], chutes: 0 };
     this.startRace();
@@ -422,9 +436,21 @@ class Game {
    */
   reglerPartie(rang) {
     if (!this.mise) return 0;
-    const gain = table(this.mise).parRang[rang - 1] ?? 0;
-    if (gain > 0) portefeuille.crediter(gain);
+    const mise = this.mise;
     this.mise = 0;
+
+    /*
+     * Le gain est calcule ICI pour l'afficher tout de suite ; le versement, lui, part au
+     * backend SANS ETRE ATTENDU.
+     *
+     * L'ecran de fin ne doit pas dependre du reseau — un joueur qui vient de gagner ne
+     * regarde pas une roue tourner. Ce n'est pas un pari : `backend/test/tout.mjs` compare
+     * les deux tables des gains rang par rang a chaque execution, donc le chiffre affiche
+     * ici EST celui qui sera paye. Et la requete etant idempotente, un reseau coupe ne
+     * perd rien : elle repassera.
+     */
+    const gain = table(mise).parRang[rang - 1] ?? 0;
+    caisse.regler(this.matchId, rang, mise);
     return gain;
   }
 
@@ -1176,6 +1202,20 @@ async function boot() {
   game = new Game(view, lobby);
   // Le ticket detient la mise : c'est lui qui declenche la partie, avec le montant choisi.
   buildTicket((mise) => { ecrans.montrer('play'); game.startEpisode(mise); });
+
+  /*
+   * On demande son solde au backend, SANS BLOQUER LE DEMARRAGE.
+   *
+   * Volontairement apres l'affichage du jeu et sans `await` : si le backend est absent,
+   * lent, ou si personne n'est connecte, la caisse retombe sur le portefeuille local et le
+   * jeu demarre comme avant. Un jeu qui refuse de se lancer parce que son API ne repond
+   * pas est un jeu qu'on ne peut plus deboguer — et c'est ce qui ferait tomber d'un coup
+   * les quarante harnais de `diag/`, qui n'ont jamais eu de backend.
+   */
+  buildCompte();
+  caisse.rafraichir().then(() => majBarre());
+  surSession(() => caisse.rafraichir().then(() => majBarre()));
+
   el('loading').style.display = 'none';
 
   const clock = new THREE.Clock();
@@ -1222,5 +1262,22 @@ window.__THREE = THREE;     // sondes de diagnostic (raycast sur le rendu)
 // ne peut pas cibler l'epreuve qu'il veut tester.
 window.__MINIGAMES = MINIGAMES;
 window.__probeLobbyAvatar = () => game?.lobby?.avatarHandle?.() ?? null;
+/*
+ * FABRIQUE DE FIGURANTS — un personnage RIGGE de plus, hors du monde physique.
+ *
+ * Le jeu ne connait qu'un personnage a la fois : c'est le bon choix pour un prototype
+ * solo, mais aucune capture ne peut alors montrer ce que sera une manche a seize. Cette
+ * sonde rend un modele anime, sans corps ni collider, que le harnais cinema deplace
+ * lui-meme. Elle n'ajoute rien au jeu : personne ne l'appelle en partie.
+ */
+/*
+ * La bibliotheque d'assets, pour charger un glTF que le jeu n'embarque pas.
+ *
+ * Le harnais cinema greffe des animations de DANSE sur les personnages : elles vivent
+ * dans des fichiers a part, qui n'ont rien a faire dans le manifeste puisque le jeu ne
+ * les joue jamais. Passer par le meme chargeur que le reste evite d'en instancier un
+ * second, avec ses propres reglages de couleur et de textures.
+ */
+window.__probeAssets = assets;
 
 boot().catch(fatal);

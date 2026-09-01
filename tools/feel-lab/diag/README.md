@@ -30,7 +30,9 @@ port 5273) : `node diag/<script>.mjs [arguments]`. Les captures vont dans `shots
 | `portes-leger.mjs` | Meme controle physique que `portes.mjs`, mais avec `?noassets` et sans capture : la scene retombe sur ses formes procedurales et le test passe meme quand la machine est trop chargee pour le harnais complet. |
 | `verdict.mjs` | Deux verifications d'un coup : le bandeau de fin de manche (QUALIFIE / ELIMINE) s'affiche et se REJOUE d'une manche a l'autre ; et surtout, l'apparence des portes ne trahit pas la donne — deux donnes differentes sont rejouees et comparees emplacement par emplacement. |
 | `lobbyvue.mjs` | Cadrage du lobby, vue d'accueil et vitrine : ou tombe le personnage dans l'image, et le socle donne-t-il l'impression d'etre pose sur un sol qui n'existe pas. |
-| `partie.mjs` | Deroulement d'une PARTIE : trois manches tirees au sort et enchainees jusqu'a la victoire. Verifie l'enchainement, la liberation de chaque monde physique, une couronne par partie (et non par manche), et des graines toutes distinctes. Remplace l'ancien `cycles.mjs`, qui alternait les epreuves a la main. |
+| `partie.mjs` | Deroulement d'une PARTIE : trois manches tirees au sort et enchainees jusqu'a la victoire. Verifie l'enchainement, la liberation de chaque monde physique, une couronne par partie (et non par manche), des graines toutes distinctes, et le solde final (+8,00 pour deux victoires a 1 USDC). Remplace l'ancien `cycles.mjs`, qui alternait les epreuves a la main. |
+| `economie.mjs` | Le seul diagnostic qui n'ouvre pas de navigateur : il ne juge pas une image mais des nombres. Compare les trois tables de gains rang par rang a des valeurs POSEES A LA MAIN depuis le C#, plus l'invariant `distribue + commission = pot`. Le pendant cote serveur est `backend/npm test`, qui charge reellement `src/economie.js` et compare les deux tables : le lobby annonce ce que le backend paiera, ou le test tombe. |
+| `compte.mjs` | Le panneau de connexion. S'adapte a ce qu'il trouve, et c'est le point : sans Supabase configure le bouton SIGN IN doit etre CACHE (un bouton sans backend derriere promet ce qui ne peut pas arriver) ; avec, il ouvre le panneau et verifie qu'un refus du VRAI serveur d'authentification ressort en une phrase lisible. Dans les deux cas le portefeuille local reste a 25,00 et le jeu reste jouable. |
 | `perf.mjs` | Budget de rendu map par map : draw calls, triangles, temps de construction, et poids telecharge au demarrage. Les DRAW CALLS comptent plus que les triangles — un GPU avale des millions de triangles, mais chaque appel de dessin coute un aller-retour avec le pilote. Budget vise : 100 a 300. |
 | `portrait.mjs <modele>` | Fabrique le portrait de vitrine A PARTIR DU MODELE, pas d'une image generee : la tuile et l'avatar sont ainsi garantis identiques, et le portrait ne peut pas dater d'une version anterieure. |
 | `animchar.mjs [modele]` | Personnage anime par ses PROPRES clips : verifie que les clips sont bien charges (ils vivent a cote de la scene dans un glTF et se perdent en silence), que le melange repos/marche/course suit la vitesse, et que le personnage ne PEDALE PAS en l'air. Le controle en vol appelle le rig directement, avec un temoin au sol : sans lui, un rig completement fige passerait le test. |
@@ -141,6 +143,23 @@ quelqu'un d'autre edite le depot : le rechargement a chaud de Vite recharge la p
 PLEINE MESURE, l'arene disparait sous le harnais, et les verdicts accusent la scene de
 pannes qui n'ont pas eu lieu.
 
+
+## Le jeu doit tourner SANS backend
+
+Depuis que l'argent est reel (`backend/`), le solde peut venir d'un grand livre distant.
+Aucun harnais de ce dossier n'a de backend, et c'est voulu : `src/caisse.js` retombe sur le
+portefeuille local du prototype des que Supabase n'est pas configure ou que personne n'est
+connecte, et `main.js` rafraichit la caisse **sans `await`**, apres l'affichage.
+
+Consequence a garder en tete en ecrivant un harnais : le solde lu dans `localStorage`
+(`tumble-solde`) est celui du mode HORS LIGNE. C'est le bon a mesurer ici. Un jour ou un
+harnais devra parler au vrai backend, il devra le monter lui-meme — pas esperer qu'il soit
+la.
+
+Et le piege qui va avec : `startEpisode()` est devenu **asynchrone**. Un `page.evaluate()`
+qui l'appelle doit rendre sa promesse (`() => window.__probeGame().startEpisode()` suffit,
+Playwright l'attend), sinon le harnais poursuit avant que la mise soit engagee et lit un
+etat qui n'existe pas encore.
 
 ## Trois pieges de plus, tous rencontres sur L'Hexagone
 

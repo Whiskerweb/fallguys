@@ -7,18 +7,29 @@ public class PayoutPolicyTests
 {
     private static readonly StakeContext OneDollar = StakeContext.Usdc(StakeTier.Micro, 1m);
 
+    /// <summary>
+    /// La table de reference, a 10 % de rake.
+    ///
+    /// Elle DIVERGE volontairement de celle imprimee dans le spec du 19 aout, qui supposait
+    /// un rake de 15 % : le taux a ete ramene a 10 %, et les poids de bonus recalibres pour
+    /// que les montants restent exacts. Le spec decrit une intention, ce test decrit ce que
+    /// le backend paiera reellement — c'est celui-ci qui fait foi.
+    ///
+    /// Les valeurs sont POSEES A LA MAIN, jamais recalculees par la formule testee : un test
+    /// qui refait le calcul du code teste ne teste rien.
+    /// </summary>
     [Fact]
-    public void Reproduit_exactement_la_table_de_reference_du_spec()
+    public void Reproduit_exactement_la_table_de_reference()
     {
         var table = PayoutPolicy.Compute(MatchConfiguration.Default, OneDollar);
 
         Assert.Equal(Money.FromUnits(16m), table.Pot);
-        Assert.Equal(Money.FromUnits(2.40m), table.Rake);
+        Assert.Equal(Money.FromUnits(1.60m), table.Rake);
 
-        Assert.Equal(Money.FromUnits(4.50m), table.ForRank(1));
+        Assert.Equal(Money.FromUnits(5.00m), table.ForRank(1));
         Assert.Equal(Money.FromUnits(2.50m), table.ForRank(2));
-        Assert.Equal(Money.FromUnits(1.50m), table.ForRank(3));
-        Assert.Equal(Money.FromUnits(1.10m), table.ForRank(4));
+        Assert.Equal(Money.FromUnits(1.70m), table.ForRank(3));
+        Assert.Equal(Money.FromUnits(1.20m), table.ForRank(4));
 
         for (var rank = 5; rank <= 8; rank++)
             Assert.Equal(Money.FromUnits(1m), table.ForRank(rank));

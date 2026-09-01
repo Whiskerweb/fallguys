@@ -3,6 +3,33 @@
 > Spec validée le 19 août 2026. Source amont : étude de marché en 15 sections,
 > `/Users/lucasroncey/.claude/plans/projet-gamefi-pay-to-play-earn-per-kill-graceful-sketch.md`
 
+> ## Amendements postérieurs
+>
+> Le corps du document est laissé **tel qu'il a été validé** : il dit ce qu'on croyait au
+> 19 août, et le réécrire effacerait la trace des décisions. Ce qui a changé depuis est
+> listé ici, et c'est cette liste qui fait foi en cas de contradiction.
+>
+> **31 août 2026 — le moteur.** Le § 2 retient Unity 6, desktop d'abord. Ça n'a jamais été
+> commencé : `game/` est vide. Le jeu réel est `tools/feel-lab`, en Three.js + Rapier dans
+> le navigateur, avec cinq épreuves jouables. Le § 6 (assemblies `.asmdef`) décrit donc une
+> architecture qui n'existe pas ; seul `src/Fallguys.Rules` en a été construit, et il est à
+> jour.
+>
+> **31 août 2026 — le rake passe de 15 % à 10 %,** et les poids de bonus de `[35, 15, 5, 1]`
+> à `[40, 15, 7, 2]`. Les anciens poids étaient calibrés pour tomber sur des chiffres ronds
+> *à 15 %* ; à 10 % la même formule paie 2,714285 USDC au deuxième. La table du § 3 est donc
+> périmée — la table qui fait foi est celle de `PayoutPolicyTests.cs`, vérifiée à chaque
+> exécution contre `tools/feel-lab/src/economie.js` et `backend/src/gains.js`.
+> Vainqueur ×5,0 au lieu de ×4,5 ; la règle « passe la première manche, tu récupères ta
+> mise » est inchangée.
+>
+> **31 août 2026 — l'argent réel est câblé, sur devnet.** Le § 6.7 le rangeait en « plus
+> tard » ; c'est fait, dans `backend/` : comptes Supabase, dépôts et retraits USDC, grand
+> livre en partie double. Le § 6.3 (séparation jeu / argent) est respecté. En revanche
+> **le § 6.7 supposait que le serveur autoritatif viendrait d'abord** — ce n'est pas le cas,
+> et c'est un ordre assumé pour tester la boucle financière sans risque. Les conditions à
+> remplir avant tout mainnet sont dans `backend/README.md`.
+
 ## 1. Concept
 
 Party game de parcours d'obstacles, style cartoon, avec entrée payante et redistribution

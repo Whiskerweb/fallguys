@@ -28,11 +28,17 @@ globalThis.localStorage = {
 const src = pathToFileURL(path.resolve('src/economie.js')).href;
 const { MICROS, CONFIG, PALIERS, table, echelle, montant, facteur, ordinal } = await import(src);
 
-/** Gains attendus par rang, en USDC, derives de PayoutPolicy.Compute pour 16 joueurs. */
+/**
+ * Gains attendus par rang, en USDC, pour 16 joueurs et un rake de 10 %.
+ *
+ * Ces nombres divergent volontairement de la table imprimee dans le spec du 19 aout, qui
+ * supposait 15 % : le taux a ete ramene a 10 % et les poids de bonus recalibres a
+ * [40, 15, 7, 2] pour que les montants restent exacts. Vainqueur ×5,0 au lieu de ×4,5.
+ */
 const ATTENDU = {
-  1: { pot: 16, rake: 2.4, rangs: [4.5, 2.5, 1.5, 1.1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0] },
-  2: { pot: 32, rake: 4.8, rangs: [9, 5, 3, 2.2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0] },
-  5: { pot: 80, rake: 12, rangs: [22.5, 12.5, 7.5, 5.5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0] },
+  1: { pot: 16, rake: 1.6, rangs: [5, 2.5, 1.7, 1.2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0] },
+  2: { pot: 32, rake: 3.2, rangs: [10, 5, 3.4, 2.4, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0] },
+  5: { pot: 80, rake: 8, rangs: [25, 12.5, 8.5, 6, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0] },
 };
 
 let echecs = 0;
@@ -41,7 +47,8 @@ const dit = (ok, texte) => {
   console.log(`${ok ? 'OK  ' : 'ECHEC'} ${texte}`);
 };
 
-dit(CONFIG.joueurs === 16 && CONFIG.rakeBp === 1500, `structure : ${CONFIG.joueurs} joueurs, rake ${CONFIG.rakeBp / 100} %`);
+dit(CONFIG.joueurs === 16 && CONFIG.rakeBp === 1000, `structure : ${CONFIG.joueurs} joueurs, rake ${CONFIG.rakeBp / 100} %`);
+dit(String(CONFIG.poidsFinalistes) === '40,15,7,2', `poids de bonus : ${CONFIG.poidsFinalistes.join(' / ')}`);
 dit(String(CONFIG.survivants) === '8,4,1', `survivants par manche : ${CONFIG.survivants.join(' → ')}`);
 dit(String(PALIERS) === '1,2,5', `tables ouvertes : ${PALIERS.join(' / ')} USDC`);
 
@@ -76,8 +83,8 @@ dit(lignes[5]?.gain === 0 && lignes[5]?.depuis === 9,
 
 // Point decimal et non virgule : l'interface est en anglais, ou « 4,50 » se lit comme
 // un separateur de milliers. Le format fait partie de ce qu'on affiche sur un pot.
-dit(montant(4_500_000) === '4.50', `format : ${montant(4_500_000)} USDC`);
-dit(facteur(4.5) === '×4.5', `multiplicateur : ${facteur(4.5)}`);
+dit(montant(1_700_000) === '1.70', `format : ${montant(1_700_000)} USDC`);
+dit(facteur(2.5) === '×2.5', `multiplicateur : ${facteur(2.5)}`);
 dit([1, 2, 3, 4, 11, 12, 13, 16].map(ordinal).join(' ') === '1st 2nd 3rd 4th 11th 12th 13th 16th',
   `ordinaux : ${[1, 2, 3, 4, 11, 12, 13, 16].map(ordinal).join(' ')}`);
 

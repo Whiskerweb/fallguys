@@ -1,5 +1,7 @@
 /**
- * Économie d'une partie : mise, pot, gains par rang, portefeuille, progression.
+ * Économie d'une partie : mise, pot, gains par rang, progression.
+ *
+ * Le portefeuille, lui, vit dans `caisse.js` — voir plus bas pourquoi.
  *
  * PORT FIDÈLE de `src/Fallguys.Rules` (C#). Les mêmes chiffres doivent sortir des deux
  * côtés : le lobby annonce au joueur ce que le serveur de règlement paiera réellement, et
@@ -13,12 +15,20 @@
 
 export const MICROS = 1_000_000;
 
-/** Recopie de `MatchConfiguration.Default` : 16 joueurs, 3 manches, rake 15 %. */
+/**
+ * Recopie de `MatchConfiguration.Default` : 16 joueurs, 3 manches, rake 10 %.
+ *
+ * Les poids valent [40, 15, 7, 2] et non [35, 15, 5, 1] : ces derniers tombaient sur des
+ * chiffres ronds A 15 % DE RAKE. A 10 %, la meme formule paie 2,714285 au deuxieme — un
+ * montant qu'on ne peut ni afficher ni defendre dans un jeu ou l'on engage de l'argent.
+ * Le rake et les poids forment un couple ; reviser l'un sans l'autre donne des gains justes
+ * au centieme et illisibles a l'ecran.
+ */
 export const CONFIG = {
   joueurs: 16,
   survivants: [8, 4, 1],
-  rakeBp: 1500,
-  poidsFinalistes: [35, 15, 5, 1],
+  rakeBp: 1000,
+  poidsFinalistes: [40, 15, 7, 2],
 };
 
 /** Les trois tables ouvertes, en USDC. */
@@ -147,14 +157,31 @@ export function choisirMise(usdc) {
   prevenir();
 }
 
-// ---------- portefeuille ----------
+// ---------- notifications ----------
 
-const CLE_SOLDE = 'tumble-solde';
-/** Dotation de départ du prototype. Il n'y a pas encore de dépôt : sans elle, rien à jouer. */
-export const SOLDE_DEPART = 25 * MICROS;
+/*
+ * Le portefeuille a demenage dans `caisse.js`.
+ *
+ * Tant qu'il n'etait qu'une cle de `localStorage`, sa place etait ici, aux cotes de la
+ * table des gains. Il tient desormais deux choses tres differentes — un solde local de
+ * prototype et un solde distant tenu par le grand livre du backend — et l'une d'elles est
+ * ASYNCHRONE. Les melanger a un module de calcul pur, importe jusque dans un test qui
+ * tourne sous Node, ne tenait plus.
+ *
+ * Ce fichier ne garde que ce qui se CALCULE : la table, l'echelle, les formats, la mise
+ * choisie et la progression. Rien qui touche a de l'argent reel.
+ */
 
 const auditeurs = new Set();
-const prevenir = () => { for (const fn of auditeurs) fn(); };
+
+/**
+ * Previent tout ce qui affiche de l'argent, de l'XP ou une mise.
+ *
+ * Exporte parce que `caisse.js` doit pouvoir le declencher : le solde a demenage la-bas
+ * quand il a cesse d'etre une simple cle de `localStorage`, mais il n'existe toujours
+ * qu'UN SEUL chemin de rafraichissement de l'interface. Deux en feraient diverger.
+ */
+export const prevenir = () => { for (const fn of auditeurs) fn(); };
 
 /*
  * Absence et zero ne sont pas la meme chose.
@@ -163,37 +190,12 @@ const prevenir = () => { for (const fn of auditeurs) fn(); };
  * nul, et le joueur arrivait dans un lobby ou aucune table n'etait jouable, bouton
  * RECHARGER affiche des la premiere seconde. On teste l'absence AVANT de convertir.
  */
-function lireEntier(cle, defaut) {
+export function lireEntier(cle, defaut) {
   const brut = localStorage.getItem(cle);
   if (brut === null || brut === '') return defaut;
   const n = Number(brut);
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : defaut;
 }
-
-export const portefeuille = {
-  get solde() { return lireEntier(CLE_SOLDE, SOLDE_DEPART); },
-
-  debiter(micros) {
-    const reste = Math.max(0, this.solde - micros);
-    localStorage.setItem(CLE_SOLDE, String(reste));
-    prevenir();
-    return reste;
-  },
-
-  crediter(micros) {
-    localStorage.setItem(CLE_SOLDE, String(this.solde + micros));
-    prevenir();
-  },
-
-  /** Recharge du prototype : le jour où il y a un dépôt, cette méthode disparaît. */
-  recharger() {
-    localStorage.setItem(CLE_SOLDE, String(SOLDE_DEPART));
-    prevenir();
-  },
-
-  /** La plus petite mise ouverte : en dessous, plus aucune table n'est jouable. */
-  get bloque() { return this.solde < PALIERS[0] * MICROS; },
-};
 
 // ---------- progression ----------
 

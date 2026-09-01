@@ -4,8 +4,10 @@ import { sfx } from './audio.js';
 import {
   MICROS, PALIERS, CONFIG,
   table, echelle, montant, facteur, ordinal, miseChoisie, choisirMise,
-  portefeuille, progression, surChangement,
+  progression, surChangement,
 } from './economie.js';
+import { portefeuille, caisse } from './caisse.js';
+import { CONFIGURE, session, connecter, creerCompte, deconnecter, messageErreur } from './compte.js';
 
 /**
  * Interface du lobby : la barre noire, le ticket d'entrée, la vitrine des personnages.
@@ -76,7 +78,21 @@ export function majBarre() {
   el('balance').textContent = montant(portefeuille.solde);
   const court = portefeuille.solde < miseChoisie();
   el('solde').classList.toggle('court', court);
-  el('recharger').classList.toggle('hidden', !portefeuille.bloque);
+
+  /*
+   * TOP UP hors ligne, DEPOSIT en ligne — le meme bouton, deux gestes opposes.
+   *
+   * Hors ligne, il se redonne 25 USDC fictifs : c'est la dotation du prototype. En ligne,
+   * il n'existe evidemment aucun bouton pour se donner de l'argent ; il montre l'adresse
+   * ou envoyer de vrais USDC. Garder le libelle « TOP UP » sur un compte reel promettrait
+   * exactement ce que le bouton ne fait pas.
+   */
+  const bouton = el('recharger');
+  bouton.classList.toggle('hidden', !portefeuille.bloque);
+  bouton.textContent = caisse.enLigne ? 'DEPOSIT' : 'TOP UP';
+  bouton.title = caisse.enLigne
+    ? 'Show your personal USDC deposit address'
+    : 'Prototype: restores the starting balance';
 }
 
 // ---------- le ticket ----------
@@ -117,10 +133,32 @@ export function buildTicket(onJouer) {
     onJouer?.(mise);
   });
 
-  el('recharger').addEventListener('click', (e) => {
+  el('recharger').addEventListener('click', async (e) => {
     e.stopPropagation();
-    portefeuille.recharger();
     sfx.click();
+
+    if (!caisse.enLigne) { portefeuille.recharger(); return; }
+
+    /*
+     * En ligne : on montre l'adresse de depot du joueur, et on la copie.
+     *
+     * Une adresse Solana ne se recopie pas a la main sans faute de frappe, et une faute de
+     * frappe sur une adresse envoie les fonds dans le vide, definitivement. Le
+     * presse-papiers n'est donc pas un confort : c'est la seule facon sure de transmettre
+     * une adresse a un humain.
+     */
+    const note = el('play-note');
+    const adresse = caisse.profil?.adresseDepot;
+    if (!adresse) { note.textContent = 'Sign in to get a deposit address.'; return; }
+
+    try { await navigator.clipboard.writeText(adresse); } catch { /* refus du navigateur */ }
+    const mini = montant(caisse.profil.depotMinimum);
+    note.textContent = `Send USDC (${caisse.profil.reseau}) to ${adresse} — copied. `
+      + `Minimum ${mini} USDC.`;
+
+    // On va voir tout de suite si quelque chose est deja arrive : le joueur qui vient de
+    // deposer rouvre le lobby et veut son solde, pas un delai de guetteur.
+    caisse.releverDepots().catch(() => {});
   });
 
   // Un seul chemin de rafraichissement : toute variation de solde, d'XP ou de mise
@@ -323,4 +361,108 @@ export function wireEcrans(onEcran, onChangePerso) {
   el('btn-retour').addEventListener('click', () => { sfx.click(); montrer('play'); });
 
   return { montrer };
+}
+
+// ---------- le panneau de compte ----------
+
+/**
+ * Connexion par e-mail et mot de passe.
+ *
+ * Le panneau n'existe QUE si Supabase est configure. Sans backend, le jeu tourne sur le
+ * portefeuille local et un bouton SIGN IN ne promettrait rien — on le cache plutot que de
+ * le laisser echouer.
+ */
+export function buildCompte(onChangement) {
+  const bouton = el('btn-compte');
+  if (!CONFIGURE) { bouton.classList.add('hidden'); return; }
+
+  const fond = el('compte-fond');
+  const mail = el('compte-mail');
+  const mdp = el('compte-mdp');
+  const msg = el('compte-msg');
+
+  const dire = (texte, ok = false) => {
+    msg.textContent = texte;
+    msg.classList.toggle('ok', ok);
+  };
+
+  /** Bascule entre « connectez-vous » et « vous etes connecte ». */
+  async function peindre() {
+    const s = await session();
+    const connecte = Boolean(s);
+    el('compte-titre').textContent = connecte ? 'Your account' : 'Sign in';
+    el('compte-note').textContent = connecte
+      ? s.user.email
+      : 'Your balance and winnings are tied to this account.';
+    for (const id of ['compte-mail', 'compte-mdp', 'compte-actions']) {
+      el(id).classList.toggle('hidden', connecte);
+    }
+    el('compte-connecte').classList.toggle('hidden', !connecte);
+    bouton.textContent = connecte ? 'ACCOUNT' : 'SIGN IN';
+
+    // L'adresse de depot est la seule chose que le panneau ait a montrer une fois
+    // connecte : c'est par elle que l'argent entre.
+    const adr = caisse.profil?.adresseDepot;
+    el('compte-adresse').textContent = adr
+      ? `Deposit address (${caisse.profil.reseau}):\n${adr}`
+      : 'Deposit address unavailable — is the backend running?';
+  }
+
+  /*
+   * Toute action desactive les boutons le temps de son aller-retour.
+   *
+   * Ce n'est pas de la cosmetique : sans cela, deux clics rapides sur CREATE ACCOUNT
+   * envoient deux inscriptions, et Supabase rate-limite l'adresse pour les minutes qui
+   * suivent. Le joueur se retrouve alors bloque par sa propre impatience.
+   */
+  const boutons = ['compte-entrer', 'compte-creer', 'compte-sortir'];
+  async function pendant(travail) {
+    for (const b of boutons) el(b).disabled = true;
+    try { await travail(); } finally { for (const b of boutons) el(b).disabled = false; }
+  }
+
+  const apres = async () => { await caisse.rafraichir(); await peindre(); majBarre(); onChangement?.(); };
+
+  el('compte-entrer').addEventListener('click', () => pendant(async () => {
+    dire('Signing in…');
+    try {
+      await connecter(mail.value.trim(), mdp.value);
+      dire('Signed in.', true);
+      await apres();
+    } catch (e) { dire(messageErreur(e)); }
+  }));
+
+  el('compte-creer').addEventListener('click', () => pendant(async () => {
+    dire('Creating account…');
+    try {
+      const r = await creerCompte(mail.value.trim(), mdp.value);
+      if (r.confirmationRequise) {
+        // On ne dit PAS « bienvenue » : il n'y a pas de session, et le premier appel a
+        // l'API serait rejete. Mieux vaut annoncer l'etape qui manque.
+        dire(`Account created. Confirm ${r.email} from your inbox, then sign in.`, true);
+        return;
+      }
+      dire('Account created.', true);
+      await apres();
+    } catch (e) { dire(messageErreur(e)); }
+  }));
+
+  el('compte-sortir').addEventListener('click', () => pendant(async () => {
+    await deconnecter();
+    dire('Signed out.');
+    await apres();
+  }));
+
+  const ouvrir = async () => { dire(''); fond.classList.remove('hidden'); await peindre(); };
+  const fermer = () => fond.classList.add('hidden');
+
+  bouton.addEventListener('click', () => { sfx.click(); ouvrir(); });
+  el('compte-fermer').addEventListener('click', () => { sfx.click(); fermer(); });
+  fond.addEventListener('click', (e) => { if (e.target === fond) fermer(); });
+  // Entree vaut SIGN IN : c'est le geste attendu quand on vient de taper un mot de passe.
+  for (const champ of [mail, mdp]) {
+    champ.addEventListener('keydown', (e) => { if (e.key === 'Enter') el('compte-entrer').click(); });
+  }
+
+  peindre();
 }

@@ -109,13 +109,21 @@ console.log('\n--- partie 2 ---');
 const p2 = await jouerUnePartie(2);
 await page.waitForFunction(() => window.__probeGame().mode === 'lobby', { timeout: 60000 });
 
-/* Deux parties gagnees a 1 USDC : -1 de mise +4,50 de gain, deux fois. Le solde doit
-   donc monter de 7,00 exactement — un centieme d'ecart signalerait un arrondi fautif. */
+/* Deux parties gagnees a 1 USDC : -1,00 de mise, +5,00 de gain, deux fois. Le solde doit
+   donc monter de 8,00 exactement — un centieme d'ecart signalerait un arrondi fautif.
+
+   Le gain valait 4,50 tant que le rake etait a 15 % ; il vaut 5,00 depuis qu'il est a
+   10 %. La valeur est posee A LA MAIN et non relue dans `economie.js` : un test qui refait
+   le calcul du code teste ne teste rien.
+
+   Ce verdict lit le portefeuille LOCAL (`tumble-solde`), donc le mode hors ligne. C'est
+   voulu : ce harnais n'a pas de backend, et c'est precisement ce qu'on veut prouver — le
+   jeu doit continuer a tourner entierement sans lui. */
 const soldeApres = await lireSolde();
 const delta = soldeApres - soldeAvant;
 console.log(`\nsolde : ${(soldeAvant / 1e6).toFixed(2)} -> ${(soldeApres / 1e6).toFixed(2)} USDC `
-  + `(${delta >= 0 ? '+' : ''}${(delta / 1e6).toFixed(2)}, attendu +7,00 : 2 x (-1,00 de mise + 4,50 de gain))`);
-if (delta !== 7_000_000) ko++;
+  + `(${delta >= 0 ? '+' : ''}${(delta / 1e6).toFixed(2)}, attendu +8,00 : 2 x (-1,00 de mise + 5,00 de gain))`);
+if (delta !== 8_000_000) ko++;
 
 const graines = [...p1, ...p2].map((m) => m.graine);
 const uniques = new Set(graines).size;

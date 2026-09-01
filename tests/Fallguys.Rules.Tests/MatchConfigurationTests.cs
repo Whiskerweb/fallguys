@@ -11,7 +11,7 @@ public class MatchConfigurationTests
         var config = MatchConfiguration.Default;
         Assert.Equal(16, config.PlayerCount);
         Assert.Equal(new[] { 8, 4, 1 }, config.RoundSurvivors);
-        Assert.Equal(1500, config.RakeBasisPoints);
+        Assert.Equal(1000, config.RakeBasisPoints);
         Assert.Equal(3, config.RoundCount);
         Assert.Equal(8, config.RefundThreshold);
         Assert.Equal(4, config.FinalistCount);

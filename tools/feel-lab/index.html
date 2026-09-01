@@ -246,6 +246,37 @@
   }
   #play-note.alerte { color:#ff8ba6; }
 
+  /* ---------- panneau de compte ---------- */
+  #compte-fond { position:fixed; inset:0; background:rgba(6,10,24,.72); backdrop-filter:blur(6px);
+    display:flex; align-items:center; justify-content:center; z-index:60; }
+  #compte-fond.hidden { display:none; }
+  #compte-boite { position:relative; width:min(92vw,380px); padding:26px 26px 22px;
+    border-radius:18px; background:#141a33; border:1px solid #2b3560;
+    box-shadow:0 18px 50px rgba(0,0,0,.55); font:14px/1.45 system-ui,sans-serif; color:#dfe6ff; }
+  #compte-boite h3 { margin:0 0 6px; font-size:20px; letter-spacing:.5px; }
+  #compte-note { margin:0 0 16px; color:#8f9cc8; font-size:12.5px; }
+  #compte-boite input { width:100%; box-sizing:border-box; margin-bottom:10px; padding:11px 13px;
+    border-radius:10px; border:1px solid #2b3560; background:#0d1226; color:#eef2ff; font-size:14px; }
+  #compte-boite input:focus { outline:none; border-color:#4de0ff; }
+  #compte-actions { display:flex; gap:9px; margin-top:6px; }
+  #compte-boite button { flex:1; padding:11px; border-radius:10px; border:1px solid #2b3560;
+    background:#1d264a; color:#dfe6ff; font-weight:700; font-size:12.5px; letter-spacing:.6px; cursor:pointer; }
+  #compte-boite button.primaire { background:#4de0ff; color:#06213a; border-color:#4de0ff; }
+  #compte-boite button:disabled { opacity:.5; cursor:default; }
+  #compte-msg { min-height:17px; margin:2px 0 6px; font-size:12.5px; color:#ffd479; }
+  #compte-msg.ok { color:#8bf5b0; }
+  #compte-adresse { margin:4px 0 12px; padding:10px; border-radius:9px; background:#0d1226;
+    font:11px/1.5 ui-monospace,monospace; color:#8f9cc8; word-break:break-all; }
+  /* Selecteur double : `#compte-boite button` (un id + un element) l'emporte sur un id
+     seul, et la croix heritait donc du fond plein des vrais boutons — elle s'affichait
+     comme un gros pave clair en haut a droite. */
+  #compte-boite #compte-fermer { position:absolute; top:8px; right:10px; width:28px; height:28px;
+    flex:none; padding:0; background:transparent; border:none; color:#7f8cb8; font-size:20px;
+    font-weight:400; line-height:1; }
+  #compte-boite #compte-fermer:hover { color:#dfe6ff; }
+  #btn-compte { font-size:11px; font-weight:700; letter-spacing:.6px; width:auto; padding:0 11px; }
+  #btn-compte.hidden { display:none; }
+
   /* Écran court : on resserre l'échelle et le pot plutôt que de laisser le ticket
      passer sous la barre ou déborder du cadre. */
   @media (max-height: 800px) {
@@ -744,7 +775,31 @@
       <span id="balance">25,00</span><small>USDC</small>
       <button id="recharger" class="hidden" title="Prototype: restores the starting balance">TOP UP</button>
     </div>
+    <button class="navbtn" id="btn-compte" title="Sign in">SIGN IN</button>
     <button class="navbtn" id="btn-settings" title="Settings">⚙</button>
+  </div>
+
+  <!--
+    Panneau de compte. Il n'apparait QUE si Supabase est configure : sans backend, le jeu
+    tourne sur le portefeuille local et un bouton de connexion ne promettrait rien.
+  -->
+  <div id="compte-fond" class="hidden">
+    <div id="compte-boite">
+      <h3 id="compte-titre">Sign in</h3>
+      <p id="compte-note">Your balance and winnings are tied to this account.</p>
+      <input id="compte-mail" type="email" autocomplete="email" placeholder="you@example.com">
+      <input id="compte-mdp" type="password" autocomplete="current-password" placeholder="Password (6+ characters)">
+      <div id="compte-msg"></div>
+      <div id="compte-actions">
+        <button id="compte-entrer" class="primaire">SIGN IN</button>
+        <button id="compte-creer">CREATE ACCOUNT</button>
+      </div>
+      <div id="compte-connecte" class="hidden">
+        <div id="compte-adresse"></div>
+        <button id="compte-sortir">SIGN OUT</button>
+      </div>
+      <button id="compte-fermer" title="Close">×</button>
+    </div>
   </div>
 
   <div id="leftpanel">
