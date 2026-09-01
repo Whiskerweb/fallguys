@@ -73,7 +73,7 @@ browser = await chromium.launch({
 });
 
 /** Ouvre une page, la mène jusqu'au lobby, et la connecte au serveur sous ce nom. */
-async function ouvrir(nom) {
+async function ouvrir(nom, base = BASE) {
   const page = await browser.newPage({ viewport: { width: 900, height: 560 } });
   page.setDefaultTimeout(300000);
   const erreurs = [];
@@ -81,7 +81,7 @@ async function ouvrir(nom) {
 
   // `noassets` : le rendu logiciel de ce harnais mettrait une éternité à charger cent
   // cinquante mégaoctets de GLB, et les figurants savent se replier sur une capsule.
-  await page.goto(`${BASE}/?lowfx&nointro&noassets`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${base}/?lowfx&nointro&noassets`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => {
     const l = document.getElementById('loading');
     return l && getComputedStyle(l).display === 'none';
@@ -203,7 +203,88 @@ await un.page.screenshot({ path: 'shots/duel-machine-1.png' });
 await deux.page.screenshot({ path: 'shots/duel-machine-2.png' });
 console.log('     shots/duel-machine-1.png · shots/duel-machine-2.png');
 
-const erreurs = [...un.erreurs, ...deux.erreurs];
+/*
+ * ON FERME LES DEUX PREMIERES PAGES AVANT LA SUITE.
+ *
+ * La section suivante en ouvre deux autres. Les laisser toutes vivre ferait tourner
+ * QUATRE mondes physiques wasm dans un seul navigateur en rendu logiciel — une charge que
+ * personne ne rencontrera jamais, et qui a produit une fois un `RuntimeError: unreachable`
+ * dans Rapier que je n'ai pas su reproduire en jeu normal (200 s à deux pages, avec chutes
+ * et recalages : rien).
+ *
+ * Un harnais qui fabrique ses propres pannes cesse de dire quoi que ce soit sur le jeu.
+ */
+const erreurs123 = [...un.erreurs, ...deux.erreurs];
+await un.page.close();
+await deux.page.close();
+
+// ===========================================================================
+titre('4. La fin de partie se VOIT');
+// ===========================================================================
+/*
+ * Sans cet écran, une partie en ligne se terminait par un retour au lobby sans que le
+ * joueur sache s'il avait gagné. Le solo affiche un verdict depuis toujours : il n'y a
+ * aucune raison que la version qui compte soit la plus muette des deux.
+ *
+ * On monte un second serveur à manche COURTE. Ces navigateurs tournant au dixième de la
+ * vitesse réelle, ils seront encore dans leur décompte quand le serveur clôturera — et
+ * c'est très bien : ce qu'on veut vérifier, c'est que le message de fin arrive et
+ * s'affiche, quel que soit l'état du client.
+ */
+{
+  const court = await demarrerServeur({
+    port: 0,
+    politique: { nom: 'DUEL_TEST', cible: 2, minimum: 2, attente: 1, proposerApres: 1, bots: 'jamais', dureeManche: 12 },
+    graine: 4242,
+  });
+  const baseCourt = `http://127.0.0.1:${court.port}`;
+
+  const a = await ouvrir('fin-1', baseCourt);
+  const b = await ouvrir('fin-2', baseCourt);
+
+  for (const j of [a, b]) {
+    await j.page.waitForFunction(() => window.__probeGame()?.mode === 'racing', { timeout: 120000 });
+  }
+  dit(true, 'la partie courte a démarré');
+
+  // On attend le verdict — pas une durée : la cadence de ces pages n'a rien à voir avec
+  // celle d'un vrai navigateur.
+  await a.page.waitForFunction(() => {
+    const v = document.getElementById('verdict');
+    return v && !v.classList.contains('hidden');
+  }, { timeout: 180000 });
+
+  const vu = await a.page.evaluate(() => ({
+    verdict: document.getElementById('verdict-texte')?.textContent,
+    etiquette: document.querySelector('#verdict-sous .etiquette')?.textContent,
+    valeur: document.querySelector('#verdict-sous .valeur')?.textContent,
+    carte: document.getElementById('result-card')?.classList.contains('show'),
+    titre: document.getElementById('result-title')?.textContent,
+    podium: document.getElementById('result-line')?.textContent,
+  }));
+  console.log(`     verdict « ${vu.verdict} » · ${vu.etiquette} · ${vu.valeur}`);
+  console.log(`     carte : ${vu.titre} · podium ${vu.podium}`);
+
+  dit(Boolean(vu.verdict), 'un verdict s\'affiche à la fin de la partie');
+  dit(/of \d+$/.test(vu.etiquette ?? ''), `le rang est annoncé : « ${vu.etiquette} »`);
+  dit(vu.carte === true, 'la carte de résultat est visible');
+  dit(/\d\. /.test(vu.podium ?? ''), `le podium est affiché : « ${vu.podium} »`);
+
+  // La capture se prend MAINTENANT, pendant que le verdict est à l'écran : la prendre
+  // après le retour au lobby photographierait le lobby, ce qui ne prouve rien.
+  await a.page.screenshot({ path: 'shots/duel-fin.png' });
+  console.log('     shots/duel-fin.png');
+
+  // Et l'on revient au lobby de soi-même.
+  await a.page.waitForFunction(() => window.__probeGame().mode === 'lobby', { timeout: 30000 });
+  dit(true, 'le joueur est ramené au lobby après lecture');
+
+  erreurs123.push(...a.erreurs, ...b.erreurs);
+  await a.page.close(); await b.page.close();
+  await court.arreter();
+}
+
+const erreurs = erreurs123;
 console.log(erreurs.length ? `\nerreurs : ${[...new Set(erreurs)].join(' | ')}` : '\nerreurs : aucune');
 
 await browser.close();

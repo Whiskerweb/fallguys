@@ -11,6 +11,7 @@
  */
 
 import { creerSession } from './session.js';
+import { montant, ordinal, table, miseChoisie } from '../economie.js';
 
 /**
  * @param {object} jeu  l'instance de `Game`
@@ -69,13 +70,60 @@ export function brancherEnLigne(jeu, { url, nom, mise = 0, surEvenement }) {
 
   session.sur('fin-partie', (msg) => {
     dire('fin-partie', msg);
+
     const moi = msg.classement.find((c) => c.nom === nom);
+    const rang = moi?.rang ?? msg.classement.length;
+    const total = msg.classement.length;
+
+    /*
+     * ON COUPE LA SESSION AVANT D'AFFICHER.
+     *
+     * La boucle de jeu envoie une entrée par image tant que `jeu.enligne` existe ; la
+     * laisser vivre pendant les quatre secondes du verdict enverrait deux cent quarante
+     * paquets à une partie qui n'existe plus.
+     */
     jeu.imposee = null;
     jeu.enligne = null;
     session.detacher();
-    // Le rang vient du SERVEUR, jamais du client : c'est tout l'objet de l'exercice.
-    if (moi) jeu.reglerPartie?.(moi.rang);
-    jeu.returnToLobby?.();
+
+    /*
+     * LE RANG VIENT DU SERVEUR, jamais du client — c'est tout l'objet de l'exercice.
+     *
+     * Et il faut le MONTRER : sans cet écran, une partie en ligne se terminait par un
+     * retour au lobby sans que le joueur sache s'il avait gagné. Le solo, lui, affiche un
+     * verdict depuis toujours ; il n'y a aucune raison que la version qui compte soit la
+     * plus muette des deux.
+     */
+    const gain = jeu.reglerPartie?.(rang) ?? 0;
+    const gagne = rang === 1;
+
+    jeu.verdict?.(
+      gagne ? 'VICTORY!' : 'MATCH OVER',
+      { etiquette: `${ordinal(rang)} of ${total}`, valeur: gain > 0 ? `+${montant(gain)} USDC` : '—' },
+      gagne ? 'win' : (gain > 0 ? 'ok' : 'ko'),
+    );
+
+    /*
+     * Le PODIUM, en clair. Trois lignes suffisent : dans un jeu à mises, ce que le joueur
+     * veut savoir en premier c'est qui a pris la couronne, et ensuite seulement où il
+     * s'est classé lui-même.
+     */
+    const podium = msg.classement.slice(0, 3)
+      .map((c) => `${c.rang}. ${c.nom}`).join('   ');
+    const ecran = document.getElementById('result-line');
+    if (ecran) ecran.textContent = podium;
+    const titre = document.getElementById('result-title');
+    if (titre) titre.textContent = gagne ? 'MATCH WON' : `${ordinal(rang)} PLACE`;
+    const temps = document.getElementById('result-time');
+    if (temps) temps.textContent = gain > 0 ? `+${montant(gain)} USDC` : 'No payout';
+    document.getElementById('result-card')?.classList.add('show');
+
+    // On laisse le verdict se lire avant de rendre la main. Quatre secondes : la durée que
+    // le jeu s'accorde déjà pour ses propres cartes de résultat.
+    setTimeout(() => {
+      document.getElementById('result-card')?.classList.remove('show');
+      jeu.returnToLobby?.();
+    }, 4000);
   });
 
   session.connecter();
