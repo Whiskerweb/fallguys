@@ -4,10 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Serveur de jeu AUTORITATIF. Il ne connait aucun solde et ne declenche aucun paiement : il produit un resultat de partie signe.",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "node test/tout.mjs",
     "partie": "node test/une-partie.mjs"
   },
-  "dependencies": {}
+  "dependencies": {
+    "ws": "^8.21.3"
+  }
 }

@@ -11,7 +11,7 @@
  * de l'effectif, ils ne sont pas écrits en dur.
  */
 
-import { jouerManche } from './manche.js';
+import { creerManche, HZ } from './manche.js';
 import { epreuves, economie } from './monde.js';
 
 /** mulberry32 — le générateur de graines du jeu. */
@@ -65,15 +65,18 @@ export function tirerParcours(graine, manches = 3) {
 }
 
 /**
- * Joue une partie entière.
+ * Crée une partie prête à être avancée — trois manches, une couronne.
+ *
+ * Même raison d'être que `creerManche` : un serveur doit avancer d'un tick et rendre la
+ * main. La partie enchaîne les manches, tient la comptabilité des éliminés et produit le
+ * classement final ; elle ne décide de rien d'autre.
  *
  * @param {object} p
  * @param {number} p.graine
- * @param {Array}  p.inscrits    la grille de départ, telle que `salon.composer()` la rend
- * @param {number} [p.manches]
- * @param {function} [p.surManche] appelé après chaque manche, pour observer
+ * @param {Array}  p.inscrits   la grille de départ, telle que `salon.composer()` la rend
+ * @param {number} [p.manches]  forcé, sinon déduit de l'effectif
  */
-export function jouerPartie({ graine, inscrits, manches = null, surManche, dureeMax = 180 }) {
+export function creerPartie({ graine, inscrits, manches = null, dureeMax = 180 }) {
   /*
    * LE NOMBRE DE MANCHES SUIT L'EFFECTIF.
    *
@@ -89,43 +92,126 @@ export function jouerPartie({ graine, inscrits, manches = null, surManche, duree
   const elimines = [];          // du dernier éliminé au premier : l'ordre inverse du rang
   const details = [];
 
-  for (let m = 0; m < parcours.length && enLice.length > 1; m++) {
-    const qualifies = Math.min(paliers[m], enLice.length - 1);
-    // Une graine par manche, dérivée de celle de la partie : deux manches de la même
-    // partie ne doivent pas se ressembler, et la partie entière doit rester reproductible.
-    const graineManche = (graine ^ ((m + 1) * 0x85EBCA6B)) >>> 0;
+  let index = -1;               // index de la manche en cours
+  let manche = null;
+  let finie = false;
+  let resultat = null;
 
-    const r = jouerManche({
-      epreuve: parcours[m],
+  /** Ouvre la manche suivante, ou clôt la partie s'il n'y en a plus. */
+  function suivante() {
+    manche?.liberer();
+    manche = null;
+    index++;
+
+    if (index >= parcours.length || enLice.length <= 1) { clore(); return; }
+
+    // Une graine par manche, dérivée de celle de la partie : deux manches de la même
+    // partie ne se ressemblent pas, et la partie entière reste reproductible.
+    const graineManche = (graine ^ ((index + 1) * 0x85EBCA6B)) >>> 0;
+    manche = creerManche({
+      epreuve: parcours[index],
       graine: graineManche,
       inscrits: enLice,
-      qualifies,
+      qualifies: Math.min(paliers[index], enLice.length - 1),
       dureeMax,
     });
-
-    const passent = new Set(r.qualifies);
-    // Les éliminés de cette manche sont empilés du MOINS bon au meilleur : à la fin, on
-    // dépile pour obtenir les rangs, et ceux qui sont allés le plus loin ressortent devant.
-    const sortis = r.classement.filter((c) => !passent.has(c.nom)).reverse();
-    for (const c of sortis) elimines.push(c.nom);
-
-    enLice = enLice.filter((i) => passent.has(i.nom));
-    details.push({ manche: m + 1, ...r });
-    surManche?.(m + 1, r, enLice);
   }
 
-  /*
-   * LE CLASSEMENT FINAL.
-   *
-   * Les survivants en tête — dans l'ordre de la dernière manche —, puis les éliminés du
-   * plus récent au plus ancien. Aller loin dans la partie vaut donc mieux que tomber tôt,
-   * ce qui est la seule chose que le joueur attend d'un classement.
-   */
-  const ordre = [...enLice.map((i) => i.nom), ...elimines.reverse()];
-  const classement = ordre.map((nom, i) => {
-    const inscrit = inscrits.find((x) => x.nom === nom);
-    return { nom, rang: i + 1, estBot: Boolean(inscrit?.estBot), niveau: inscrit?.niveau ?? null };
-  });
+  /** Encaisse le résultat d'une manche terminée et prépare la suivante. */
+  function encaisser() {
+    const r = manche.resultat;
+    const passent = new Set(r.qualifies);
 
-  return { graine, parcours, paliers, classement, manches: details };
+    // Les éliminés sont empilés du MOINS bon au meilleur : à la fin on dépile, et ceux qui
+    // sont allés le plus loin ressortent devant.
+    for (const c of r.classement.filter((c) => !passent.has(c.nom)).reverse()) {
+      elimines.push(c.nom);
+    }
+    enLice = enLice.filter((i) => passent.has(i.nom));
+    details.push({ manche: index + 1, ...r });
+    return r;
+  }
+
+  function clore() {
+    if (finie) return;
+    finie = true;
+    manche?.liberer();
+    manche = null;
+
+    /*
+     * Les survivants en tête — dans l'ordre de la dernière manche —, puis les éliminés du
+     * plus récent au plus ancien. Aller loin dans la partie vaut mieux que tomber tôt,
+     * ce qui est la seule chose que le joueur attend d'un classement.
+     */
+    const ordre = [...enLice.map((i) => i.nom), ...elimines.reverse()];
+    resultat = {
+      graine,
+      parcours,
+      paliers,
+      classement: ordre.map((nom, i) => {
+        const inscrit = inscrits.find((x) => x.nom === nom);
+        return { nom, rang: i + 1, estBot: Boolean(inscrit?.estBot), niveau: inscrit?.niveau ?? null };
+      }),
+      manches: details,
+    };
+  }
+
+  return {
+    graine,
+    parcours,
+    paliers,
+    get finie() { return finie; },
+    get resultat() { return resultat; },
+    get manche() { return manche; },
+    get numeroManche() { return index + 1; },
+    get enLice() { return enLice.slice(); },
+
+    /** Ouvre la première manche. À appeler une fois. */
+    demarrer() { if (index < 0) suivante(); return manche; },
+
+    /**
+     * Avance d'un tick.
+     *
+     * @param {Map<string, object>} [entrees] les entrées reçues du réseau
+     * @returns {{finManche?: object, finPartie?: object}} ce qui vient de se produire —
+     *   la boucle appelante s'en sert pour prévenir les joueurs.
+     */
+    avancer(entrees) {
+      if (finie) return { finPartie: resultat };
+      if (!manche) { suivante(); if (finie) return { finPartie: resultat }; }
+
+      if (!manche.avancer(entrees)) return {};
+
+      const r = encaisser();
+      suivante();
+      return finie ? { finManche: r, finPartie: resultat } : { finManche: r };
+    },
+
+    /** Termine la partie avant l'heure — plus personne au bout du fil, serveur qui s'arrête. */
+    interrompre() {
+      if (manche && !manche.fini) { manche.interrompre(); encaisser(); }
+      clore();
+    },
+  };
+}
+
+/**
+ * Joue une partie entière, d'un trait.
+ *
+ * L'enveloppe que le harnais et les tests utilisent : elle boucle sur `avancer()` aussi
+ * vite que la machine le permet. Même suite de ticks qu'un serveur sur son horloge.
+ */
+export function jouerPartie({ graine, inscrits, manches = null, surManche, dureeMax = 180 }) {
+  const partie = creerPartie({ graine, inscrits, manches, dureeMax });
+  partie.demarrer();
+
+  // Garde-fou : `avancer()` s'arrête tout seul, cette borne n'est là que pour qu'aucune
+  // boucle ne puisse être infinie.
+  const plafond = (dureeMax + 10) * HZ * (partie.paliers.length + 1);
+  for (let i = 0; i < plafond && !partie.finie; i++) {
+    const e = partie.avancer();
+    if (e.finManche) surManche?.(partie.numeroManche - 1, e.finManche, partie.enLice);
+  }
+  partie.interrompre();
+  return partie.resultat;
 }
