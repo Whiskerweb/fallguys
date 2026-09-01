@@ -182,13 +182,28 @@ rien qui masque un défaut de netcode derrière un adversaire complaisant.
 
 ---
 
-## Lancer
+## Lancer, et jouer
+
+**Un seul processus sert la page ET la partie.** Ce n'est pas un raccourci : la seconde
+machine ouvre une adresse et la WebSocket part vers ce même hôte. Rien à saisir, rien à
+faire correspondre — deux serveurs sur deux ports obligeraient à retrouver une IP deux
+fois, et cette friction-là suffit à ce qu'on ne teste pas.
+
+```bash
+cd tools/feel-lab && npm run build   # une fois, et à chaque changement du jeu
+cd serveur && npm start              # affiche les adresses à ouvrir
+```
+
+`POLITIQUE=PRODUCTION npm start` pour des salons de seize.
 
 ```bash
 cd tools/test-harness
-node verdicts.mjs      # 74 verdicts, ~58 s, aucun réseau ni installation
+node verdicts.mjs      # 74 verdicts — la simulation, sans réseau
+node reseau.mjs        # 21 verdicts — le serveur et de vraies WebSockets
+node client.mjs        # 16 verdicts — la prédiction contre l'autorité
 node partie.mjs        # une partie complète de 16 joueurs, manche par manche
-node partie.mjs 777 8  # graine 777, salon de 8
+
+cd ../feel-lab && node diag/duel.mjs   # 14 verdicts — DEUX navigateurs, une partie
 ```
 
 Les dépendances viennent de `tools/feel-lab/node_modules` : les modules du jeu résolvent

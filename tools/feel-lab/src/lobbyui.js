@@ -492,8 +492,27 @@ export function buildEnLigne(jeu) {
   const accepter = el('enligne-accepter');
   const hud = el('enligne-hud');
 
-  url.value = localStorage.getItem(CLE_URL) ?? 'ws://127.0.0.1:8080';
+  /*
+   * L'ADRESSE SE DEVINE, ELLE NE SE TAPE PAS.
+   *
+   * Le serveur de jeu sert aussi le jeu compilé : quand la page vient de lui, la partie
+   * est au même endroit et il n'y a rien à saisir. On le vérifie en interrogeant `/etat`,
+   * que lui seul répond — le serveur de développement de Vite, lui, rend un 404.
+   *
+   * C'est la friction qui empêche le plus sûrement un essai à deux machines : retrouver
+   * une adresse IP dans les réglages système, la recopier sans faute, et recommencer sur
+   * l'autre poste. Une adresse qu'on n'a pas à taper est une adresse qu'on ne rate pas.
+   */
+  const memorisee = localStorage.getItem(CLE_URL);
+  url.value = memorisee ?? 'ws://127.0.0.1:8080';
   pseudo.value = localStorage.getItem(CLE_NOM) ?? '';
+
+  fetch('/etat').then((r) => (r.ok ? r.json() : null)).then((etat) => {
+    if (!etat) return;
+    const protocole = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    url.value = `${protocole}//${location.host}`;
+    el('enligne-note').textContent = 'Server found on this page. Just pick a name.';
+  }).catch(() => { /* pas de serveur ici : on garde l'adresse memorisee */ });
 
   let branche = null;
 

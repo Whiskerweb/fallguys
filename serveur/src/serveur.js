@@ -13,6 +13,10 @@
  */
 
 import { createServer } from 'node:http';
+import { readFile, stat } from 'node:fs/promises';
+import { networkInterfaces } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { preparer } from './monde.js';
 import { creerMatchmaking } from './matchmaking.js';
@@ -21,6 +25,68 @@ import { typeDe, decoderEntree, TYPE } from './reseau.js';
 
 /** Cadence du matchmaking. Une fois par seconde suffit : il ne simule rien. */
 const BATTEMENT = 1000;
+
+const ICI = path.dirname(fileURLToPath(import.meta.url));
+/** Le jeu compilé. `npm run build` dans tools/feel-lab le produit. */
+const DIST = path.resolve(ICI, '..', '..', 'tools', 'feel-lab', 'dist');
+
+const TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp',
+  '.glb': 'model/gltf-binary', '.wasm': 'application/wasm',
+  '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+};
+
+/**
+ * Les adresses par lesquelles une AUTRE machine peut joindre ce serveur.
+ *
+ * On les affiche au démarrage. Sans cela, tester à deux commence par une chasse à
+ * l'adresse IP — dans les réglages système, ou avec `ifconfig` et ses vingt lignes — et
+ * cette friction-là suffit à ce qu'on ne teste pas.
+ */
+function adressesLocales() {
+  const out = [];
+  for (const cartes of Object.values(networkInterfaces())) {
+    for (const c of cartes ?? []) {
+      if (c.family === 'IPv4' && !c.internal) out.push(c.address);
+    }
+  }
+  return out;
+}
+
+/**
+ * Sert le jeu compilé.
+ *
+ * LE MÊME PROCESSUS SERT LA PAGE ET LA PARTIE, et ce n'est pas un raccourci : c'est ce qui
+ * rend l'essai à deux machines possible sans configuration. La seconde machine ouvre une
+ * adresse, et la WebSocket part vers ce même hôte — rien à saisir, rien à faire
+ * correspondre. Deux serveurs sur deux ports obligeraient à retrouver une IP deux fois, et
+ * à se tromper une fois sur deux.
+ */
+async function servirFichier(req, res) {
+  const url = new URL(req.url, 'http://x');
+  let rel = decodeURIComponent(url.pathname);
+  if (rel === '/' || rel === '') rel = '/index.html';
+
+  // Aucune remontée hors de `dist` : `path.resolve` normalise, et on vérifie que le
+  // résultat reste dans le dossier. Sans ce test, `/../../.env` serait servi.
+  const fichier = path.resolve(DIST, '.' + rel);
+  if (!fichier.startsWith(DIST)) { res.writeHead(403).end(); return true; }
+
+  try {
+    const info = await stat(fichier);
+    if (!info.isFile()) return false;
+    const type = TYPES[path.extname(fichier).toLowerCase()] ?? 'application/octet-stream';
+    res.writeHead(200, { 'content-type': type, 'content-length': info.size });
+    res.end(await readFile(fichier));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * @param {object} p
@@ -57,14 +123,16 @@ export async function demarrerServeur({
 
   const mm = creerMatchmaking({ politique, envoyer, graine });
 
-  const http = createServer((req, res) => {
+  const http = createServer(async (req, res) => {
     // Un point de contrôle, pour savoir d'un coup d'œil ce que le serveur fait.
     if (req.url === '/etat') {
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ joueurs: liens.size, ...mm.etat() }));
       return;
     }
-    res.writeHead(404).end();
+    if (await servirFichier(req, res)) return;
+    res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+    res.end('Introuvable. Le jeu compile manque ? `cd tools/feel-lab && npm run build`');
   });
 
   const wss = new WebSocketServer({ server: http });
@@ -146,10 +214,13 @@ export async function demarrerServeur({
 
   const battement = setInterval(() => mm.battre(), BATTEMENT);
 
-  await new Promise((resoudre) => http.listen(port, resoudre));
+  // `0.0.0.0` et non `127.0.0.1` : une seconde machine doit pouvoir se connecter, ce qui
+  // est tout l'objet de l'exercice.
+  await new Promise((resoudre) => http.listen(port, '0.0.0.0', resoudre));
 
   return {
     port: http.address().port,
+    adresses: adressesLocales(),
     matchmaking: mm,
     get joueurs() { return liens.size; },
     async arreter() {

@@ -16,14 +16,25 @@
  *   - le personnage local avance, donc le joueur a la main ;
  *   - la latence affichée est plausible.
  *
- * Lancer depuis tools/feel-lab, avec le serveur de jeu ARRÊTÉ (le harnais le démarre) :
- *   node diag/duel.mjs        ·  FEELLAB_PORT=5291 node diag/duel.mjs
+ * Aucun serveur à lancer d'avance : le harnais démarre le sien, qui sert aussi la page.
+ * Il faut en revanche que le jeu soit compilé.
+ *
+ *   cd tools/feel-lab && npm run build && node diag/duel.mjs
  */
 
 import { chromium } from 'playwright';
 import { demarrerServeur } from '../../../serveur/src/serveur.js';
 
-const BASE = `http://127.0.0.1:${process.env.FEELLAB_PORT ?? 5273}`;
+/*
+ * PAS DE SERVEUR DE DEVELOPPEMENT ICI.
+ *
+ * Le serveur de jeu sert lui-même le jeu compilé, et c'est exactement le chemin qu'un
+ * joueur empruntera : une seule adresse, une seule origine, la WebSocket qui part vers le
+ * même hôte. Tester à travers Vite testerait un montage que personne n'utilisera.
+ *
+ * Il faut donc que `tools/feel-lab/dist` soit à jour : `npm run build`.
+ */
+let BASE = null;
 
 let ko = 0;
 let total = 0;
@@ -54,8 +65,8 @@ serveur = await demarrerServeur({
   politique: { nom: 'DUEL_TEST', cible: 2, minimum: 2, attente: 1, proposerApres: 1, bots: 'jamais', dureeManche: 300 },
   graine: 20260901,
 });
-const wsUrl = `ws://127.0.0.1:${serveur.port}`;
-console.log(`serveur de jeu sur ${wsUrl}`);
+BASE = `http://127.0.0.1:${serveur.port}`;
+console.log(`serveur de jeu et page sur ${BASE}`);
 
 browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
@@ -77,7 +88,12 @@ async function ouvrir(nom) {
   }, { timeout: 300000 });
 
   await page.click('#btn-enligne');
-  await page.fill('#enligne-url', wsUrl);
+  // L'adresse se DEVINE : la page vient du serveur de jeu, donc le champ se remplit tout
+  // seul. On ne la saisit pas — c'est justement ce qu'on veut vérifier.
+  await page.waitForFunction(
+    () => document.getElementById('enligne-url').value.includes(location.host),
+    { timeout: 20000 },
+  );
   await page.fill('#enligne-nom', nom);
   await page.click('#enligne-jouer');
   return { nom, page, erreurs };
@@ -85,6 +101,7 @@ async function ouvrir(nom) {
 
 titre('1. Deux navigateurs rejoignent le même serveur');
 const un = await ouvrir('machine-1');
+dit(true, 'l\'adresse du serveur s\'est remplie toute seule — rien à saisir');
 const deux = await ouvrir('machine-2');
 
 // Le salon est plein à deux : la manche doit s'annoncer d'elle-même.
