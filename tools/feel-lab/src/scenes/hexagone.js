@@ -761,7 +761,20 @@ export function buildHexagone(RAPIER, assets, { seed = 1 } = {}) {
   function update(elapsed, dt, focus, camera, enJeu = true) {
     updateFlags(elapsed);
     for (const m of moulinets) m.rotation.z = elapsed * m.userData.tourne;
-    if (enJeu && focus) sonder(focus);
+    /*
+     * `focus` accepte desormais UNE position ou UNE LISTE de positions.
+     *
+     * Le contrat de scene a ete ecrit pour un seul joueur : ce terrain ne cedait donc que
+     * sous le personnage local. Sur un serveur qui arbitre seize joueurs, cela voudrait dire
+     * qu'un seul d'entre eux use le sol — et que les quinze autres marchent sur un plancher
+     * que leurs pas ne coutent rien.
+     *
+     * Le client continue de passer un `Vector3` et ne voit aucune difference.
+     */
+    if (enJeu && focus) {
+      if (Array.isArray(focus)) for (const f of focus) sonder(f);
+      else sonder(focus);
+    }
     // Les hexagones déjà condamnés continuent leur course même hors jeu : sinon la tour se
     // figerait en plein effondrement pendant les 3,2 s du verdict.
     avancerHexas(dt);

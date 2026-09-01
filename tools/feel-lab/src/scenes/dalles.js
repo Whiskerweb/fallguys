@@ -583,9 +583,16 @@ export function buildDalles(RAPIER, assets, { seed = 1 } = {}) {
 
   function update(elapsed, dt, focus) {
     updateFlags(elapsed);
-    if (focus && dt > 0) sonder(focus);
+    // `focus` accepte une position ou une LISTE de positions : sur un serveur qui arbitre
+    // seize joueurs, une seule reference ferait ceder le damier sous un seul d'entre eux,
+    // et les quinze autres marcheraient sur un sol que leurs pas ne coutent rien.
+    // Le client passe toujours un `Vector3` et ne voit aucune difference.
+    if (focus && dt > 0) {
+      if (Array.isArray(focus)) for (const f of focus) sonder(f);
+      else sonder(focus);
+    }
     avancer(dt);
-    confetti.update(dt, elapsed, focus ?? spawn);
+    confetti.update(dt, elapsed, (Array.isArray(focus) ? focus[0] : focus) ?? spawn);
     poussiere.update(dt);
   }
 

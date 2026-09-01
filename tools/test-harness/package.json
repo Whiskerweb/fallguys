@@ -1,0 +1,11 @@
+{
+  "name": "fallguys-test-harness",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Le banc du serveur de jeu : parties completes remplies de bots, sans navigateur et sans reseau.",
+  "scripts": {
+    "test": "node verdicts.mjs",
+    "partie": "node partie.mjs"
+  }
+}

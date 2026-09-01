@@ -7,6 +7,21 @@ import { sfx } from './audio.js';
 import { PuffSystem, SparkBurst } from './effects.js';
 import { createRiggedCharacter } from './rig.js';
 
+/**
+ * mulberry32 — le même générateur que les graines de manche.
+ *
+ * Un état de 32 bits, une suite reproductible. Il ne sert ici qu'à la culbute, mais c'est
+ * la seule chose de ce fichier qui touche à la physique sans venir des touches du joueur.
+ */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 const RADIUS = 0.45;
 const HALF_HEIGHT = 0.35;          // hauteur totale = 2*HALF_HEIGHT + 2*RADIUS = 1.6 m
 const FOOT = HALF_HEIGHT + RADIUS;
@@ -75,10 +90,35 @@ class Dust {
 }
 
 export class Character {
-  constructor(RAPIER, world, scene, spawn) {
+  /**
+   * @param {number} [graine] graine de la culbute — voir `this.alea` plus bas.
+   */
+  constructor(RAPIER, world, scene, spawn, graine = 0) {
     this.RAPIER = RAPIER;
     this.world = world;
     this.spawn = spawn.clone();
+
+    /*
+     * LE TIRAGE DE LA CULBUTE, ET POURQUOI IL EST SEMÉ.
+     *
+     * `enterTumble()` imposait une vitesse angulaire tirée par `Math.random()`. C'était un
+     * générateur aléatoire DANS LE MONDE PHYSIQUE — exactement ce que la spec interdit
+     * (section 5), et pour une raison qui n'est pas théorique : la façon dont un joueur
+     * culbute décide de l'endroit où il se relève, donc de sa place, donc de son gain.
+     * Une machine qui tire un dé au milieu d'une compétition de compétence est le point
+     * précis sur lequel un régulateur se penche.
+     *
+     * C'était aussi, plus prosaïquement, la seule source de non-reproductibilité du jeu :
+     * deux parties lancées avec la même graine ne donnaient pas le même classement, et
+     * aucun replay n'aurait rien reproduit.
+     *
+     * La suite est donc semée. Client et serveur dérivent la même graine — graine de
+     * manche et numéro de joueur — et culbutent donc à l'identique, ce qui est la
+     * condition pour que la prédiction du client colle à l'autorité du serveur.
+     *
+     * Graine 0 par défaut : le comportement reste déterministe même sans être renseignée.
+     */
+    this.alea = mulberry32(graine >>> 0);
 
     const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
       .setTranslation(spawn.x, spawn.y, spawn.z)
@@ -508,8 +548,13 @@ export class Character {
   enterTumble() {
     this.enterState(State.Tumbling);
     this.body.setEnabledRotations(true, true, true, true);
-    const spin = 7 + Math.random() * 6;
-    this.body.setAngvel({ x: (Math.random() - 0.5) * spin, y: (Math.random() - 0.5) * spin, z: (Math.random() - 0.5) * spin }, true);
+    // Semé, jamais `Math.random` : c'est de la physique, et elle décide d'un classement.
+    const spin = 7 + this.alea() * 6;
+    this.body.setAngvel({
+      x: (this.alea() - 0.5) * spin,
+      y: (this.alea() - 0.5) * spin,
+      z: (this.alea() - 0.5) * spin,
+    }, true);
     this.squashVel -= 9;
     this.dust.burst(this.position, 1.2);
     this.sparks.emit(this.position, 1.2);

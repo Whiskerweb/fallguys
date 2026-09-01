@@ -691,7 +691,7 @@ export function buildDoors(RAPIER, assets, { seed = 1 } = {}) {
   function update(elapsed, dt = 0.016, focus = null, camera = null) {
     updateFlags(elapsed);
     for (const fn of animated) fn(elapsed);
-    if (focus) confetti.update(dt, elapsed, focus);
+    if (focus) confetti.update(dt, elapsed, Array.isArray(focus) ? focus[0] : focus);
     masquerMurs(camera);
 
     // Respiration : TOUTES les feuilles battent, franchissables ou non. N'animer que les
@@ -708,10 +708,13 @@ export function buildDoors(RAPIER, assets, { seed = 1 } = {}) {
         // `p.ouverte` est INDISPENSABLE ici. Cette boucle parcourt tous les panneaux,
         // depuis que la respiration s'applique aussi aux portes condamnées ; sans ce
         // test, chacune cédait a l'approche et le mur entier devenait franchissable.
-        if (p.ouverte && focus
-            && Math.abs(focus.x - p.x) < p.demiL + 0.35
-            && Math.abs(focus.y - p.y) < p.demiH + 0.6
-            && Math.abs(focus.z - p.z) < DIST_RUPTURE) {
+        // `focus` accepte une position ou une LISTE : seize joueurs doivent tous pouvoir
+        // enfoncer une porte, pas seulement le personnage local. Le client passe toujours
+        // un `Vector3` et ne voit aucune difference.
+        if (p.ouverte && focus && (Array.isArray(focus) ? focus : [focus]).some((f) => f
+            && Math.abs(f.x - p.x) < p.demiL + 0.35
+            && Math.abs(f.y - p.y) < p.demiH + 0.6
+            && Math.abs(f.z - p.z) < DIST_RUPTURE)) {
           briser(p);
         }
         continue;
