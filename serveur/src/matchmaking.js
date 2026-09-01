@@ -102,6 +102,7 @@ export function creerMatchmaking({
       id,
       graine: graineePartie,
       inscrits: grille.inscrits,
+      dureeMax: salon.dureeManche,
       envoyer,
       horloge,
       surFin: (resultat) => {

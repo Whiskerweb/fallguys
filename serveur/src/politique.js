@@ -13,6 +13,12 @@
  *   `attente`        secondes avant de considérer le salon comme figé
  *   `proposerApres`  secondes avant de proposer un départ à effectif réduit
  *   `bots`           qui peut les convoquer, et à quelle condition
+ *   `dureeManche`    secondes au-delà desquelles une manche s'arrête d'elle-même
+ *
+ * `dureeManche` n'est pas un détail de confort. Depuis que les parties tournent en TEMPS
+ * RÉEL, une manche de trois minutes prend trois minutes : un harnais qui joue deux manches
+ * attendrait six minutes, et personne ne lance une suite de tests qui dure six minutes.
+ * Les politiques de test raccourcissent donc, sans rien changer aux règles.
  */
 
 /**
@@ -39,6 +45,7 @@ export const POLITIQUES = {
     attente: 15,
     proposerApres: 60,
     bots: BOTS.JAMAIS,
+    dureeManche: 180,
   },
 
   /**
@@ -56,6 +63,7 @@ export const POLITIQUES = {
     attente: 5,
     proposerApres: 5,
     bots: BOTS.JAMAIS,
+    dureeManche: 180,
   },
 
   /**
@@ -71,6 +79,7 @@ export const POLITIQUES = {
     attente: 0,
     proposerApres: 0,
     bots: BOTS.SI_GRATUIT,
+    dureeManche: 180,
   },
 };
 

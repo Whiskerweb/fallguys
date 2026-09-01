@@ -14,7 +14,7 @@
  */
 
 import { demarrerServeur } from '../../serveur/src/serveur.js';
-import { encoderEntree, decoderInstantane, typeDe, TYPE } from '../../serveur/src/reseau/protocole.js';
+import { encoderEntree, decoderInstantane, typeDe, TYPE } from '../../serveur/src/reseau.js';
 import { POLITIQUES } from '../../serveur/src/politique.js';
 
 let ko = 0;

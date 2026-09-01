@@ -28,7 +28,7 @@
 
 import { creerPartie } from './partie.js';
 import { HZ } from './manche.js';
-import { encoderInstantane } from './reseau/protocole.js';
+import { encoderInstantane } from './reseau.js';
 
 const MS_PAR_TICK = 1000 / HZ;
 
@@ -54,8 +54,8 @@ const RATTRAPAGE_MAX = 4;
  * @param {(resultat: object) => void} [p.surFin]
  * @param {() => number} [p.horloge] pour les tests
  */
-export function creerInstance({ id, graine, inscrits, envoyer, surFin, horloge = Date.now }) {
-  const partie = creerPartie({ graine, inscrits });
+export function creerInstance({ id, graine, inscrits, envoyer, surFin, dureeMax = 180, horloge = Date.now }) {
+  const partie = creerPartie({ graine, inscrits, dureeMax });
 
   /*
    * Les entrées, une par joueur : la PLUS RÉCENTE reçue, et rien d'autre.

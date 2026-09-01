@@ -17,7 +17,7 @@ import { WebSocketServer } from 'ws';
 import { preparer } from './monde.js';
 import { creerMatchmaking } from './matchmaking.js';
 import { POLITIQUES } from './politique.js';
-import { typeDe, decoderEntree, TYPE } from './reseau/protocole.js';
+import { typeDe, decoderEntree, TYPE } from './reseau.js';
 
 /** Cadence du matchmaking. Une fois par seconde suffit : il ne simule rien. */
 const BATTEMENT = 1000;

@@ -53,6 +53,7 @@ export function creerSalon({
     get mise() { return mise; },
     get cible() { return regle.cible; },
     get minimum() { return regle.minimum; },
+    get dureeManche() { return regle.dureeManche ?? 180; },
     get humains() { return humains.slice(); },
     get lance() { return lance; },
 
