@@ -964,7 +964,21 @@ class Game {
      * cinquieme en silence : la modification leur est litteralement invisible.
      */
     const enJeu = this.mode === 'racing' && !this.intro && this.countdown <= 0;
-    this.arena.update(elapsed, paused ? 0 : dt, this.character?.position ?? null, this.view.camera, enJeu);
+    /*
+     * LE DECOR REAGIT A TOUT LE MONDE, PAS SEULEMENT A NOUS.
+     *
+     * En solo il n'y a qu'une position ; en ligne il en faut autant qu'il y a de joueurs.
+     * Sans cela, chacun voyait un monde intact traverse par des fantomes : une porte
+     * enfoncee par un adversaire restait fermee sur notre ecran, et on le voyait passer au
+     * travers. Le serveur, lui, passait deja toutes les positions.
+     *
+     * Les cartes acceptent une position OU une liste — Les Dalles, Les Portes et
+     * L'Hexagone sont les trois qui en tiennent compte.
+     */
+    const focus = this.enligne
+      ? this.enligne.positions(this.character?.position ?? null)
+      : (this.character?.position ?? null);
+    this.arena.update(elapsed, paused ? 0 : dt, focus, this.view.camera, enJeu);
     if (paused) { this.updateCamera(dt, this.character.position.clone()); return; }
 
     // Sequence d'entree : le decor vit deja (les barils roulent, les drapeaux battent) mais

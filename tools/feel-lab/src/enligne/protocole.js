@@ -157,7 +157,15 @@ export function decoderInstantane(buf) {
  * dans la manche dans les quatre bits hauts. Le client en a besoin pour choisir une
  * animation et pour griser un joueur éliminé — deux choses qu'une position seule ne dit pas.
  */
-const POSES = ['grounded', 'airborne', 'diving', 'tumbling', 'getup'];
+/*
+ * Les MEMES chaines que `State` dans `character.js`, a la lettre pres.
+ *
+ * `gettingUp` etait ecrit `getup` ici : `indexOf` rendait -1, ramene a 0 par le
+ * `Math.max`, et l'etat partait donc encode comme « au sol ». Un adversaire en train de se
+ * relever apparaissait debout et courant. Une table de correspondance qui se trompe d'un
+ * caractere ne leve aucune erreur — elle ment.
+ */
+const POSES = ['grounded', 'airborne', 'diving', 'tumbling', 'gettingUp'];
 const COURSE = ['court', 'qualifie', 'elimine'];
 
 function codeEtat(j) {

@@ -42,6 +42,9 @@ const MEMOIRE = 1.5;
 
 /** Taille du personnage, la même que le contrôleur local. */
 const HAUTEUR = 1.60;
+/** Distance du centre de la capsule au sol — la même constante que `character.js`. */
+const PIED = 0.80;
+const RAYON = 0.45;
 
 export function creerFigurants({ scene, assets }) {
   /** Les avatars, par index de joueur. */
@@ -74,13 +77,63 @@ export function creerFigurants({ scene, assets }) {
       groupe.add(corps);
     }
 
+    /*
+     * L'OMBRE DE CONTACT — ce qui rend un saut LISIBLE.
+     *
+     * Sans elle, un adversaire qui saute monte de deux mètres… et rien ne le dit. Le
+     * personnage local en a une depuis toujours : elle reste au sol, s'estompe et grandit
+     * à mesure qu'on s'élève. C'est ce décollement entre le personnage et son ombre qui
+     * fait lire le saut — bien plus que la pose, qui ne change presque pas.
+     *
+     * Mesuré : le figurant montait bien de 2,06 m, exactement l'apex du saut local. La
+     * position passait ; c'est la lecture qui manquait.
+     */
+    const ombre = new THREE.Mesh(
+      new THREE.CircleGeometry(RAYON * 1.25, 20),
+      new THREE.MeshBasicMaterial({ color: 0x1a2b45, transparent: true, opacity: 0.28, depthWrite: false }),
+    );
+    ombre.rotation.x = -Math.PI / 2;
+    scene.add(ombre);
+
     scene.add(groupe);
-    return { index, nom, groupe, rig: rigge?.rig ?? null, dernierY: 0, cap: 0 };
+    return {
+      index, nom, groupe, ombre,
+      rig: rigge?.rig ?? null,
+      cap: 0,
+      solY: 0,              // dernière hauteur de sol connue, pour poser l'ombre
+      auSol: true,          // pour détecter l'atterrissage
+    };
   }
 
   return {
     get retard() { return RETARD; },
     get avatars() { return [...avatars.values()]; },
+
+    /**
+     * Où se trouvent les autres joueurs, à l'instant affiché.
+     *
+     * Sert à faire vivre le DÉCOR : c'est en passant ces positions à `arena.update` que
+     * les portes qu'un adversaire enfonce s'ouvrent aussi sur notre écran, et que les
+     * dalles qu'il use cèdent aussi chez nous. Sans elles, chacun voyait un monde intact
+     * traversé par des fantômes.
+     */
+    positions() {
+      return [...avatars.values()]
+        .filter((a) => a.groupe.visible)
+        /*
+         * Le CENTRE de la capsule, pas les pieds.
+         *
+         * `groupe.position` porte le personnage posé au sol — on lui a retranché `PIED`
+         * pour l'afficher. Mais les cartes attendent la position que le contrôleur leur
+         * donne, qui est celle du CENTRE : c'est ce que le serveur leur passe, et c'est ce
+         * que le joueur local leur passe.
+         *
+         * Quatre-vingts centimètres d'écart en hauteur, et une porte cède chez l'un sans
+         * céder chez l'autre. Mesuré : un client voyait une porte brisée quinze secondes
+         * avant celui qui la poussait.
+         */
+        .map((a) => ({ x: a.groupe.position.x, y: a.groupe.position.y + PIED, z: a.groupe.position.z }));
+    },
 
     /**
      * Déclare qui joue cette manche.
@@ -162,8 +215,31 @@ export function creerFigurants({ scene, assets }) {
         if (vitesse > 0.3) a.cap = Math.atan2(dx, dz);
         a.groupe.rotation.y = a.cap;
 
-        // `pose` porte l'état du personnage : c'est ce qui distingue une course d'une chute.
-        a.rig?.update(dt, vitesse, TUNING.maxSpeed, p1.pose, (p1.y - p0.y) / Math.max(0.0001, span));
+        /*
+         * LE REBOND DU RIG, qu'on jetait.
+         *
+         * `rig.update` REND un décalage vertical — le ballant de la course, l'écrasement à
+         * l'atterrissage. Le personnage local l'applique à sa racine ; on l'ignorait ici,
+         * et les figurants couraient donc raides comme des piquets.
+         */
+        const vy = (p1.y - p0.y) / Math.max(0.0001, span);
+        const rebond = a.rig?.update(dt, vitesse, TUNING.maxSpeed, p1.pose, vy) ?? 0;
+        a.groupe.position.y += rebond;
+
+        /*
+         * L'ombre reste au SOL et s'estompe avec la hauteur.
+         *
+         * On mémorise la hauteur du sol quand le personnage y est posé : c'est la seule
+         * information dont on dispose, et elle suffit. Une ombre qui suivrait le
+         * personnage en l'air ne raconterait rien.
+         */
+        if (p1.pose === 'grounded') a.solY = y - PIED;
+        const hauteur = Math.max(0, y - PIED - a.solY);
+        a.ombre.position.set(x, a.solY + 0.05, z);
+        a.ombre.material.opacity = Math.max(0, 0.28 - hauteur * 0.05);
+        a.ombre.scale.setScalar(1 + hauteur * 0.06);
+        a.ombre.visible = p1.etat !== 'elimine';
+        a.auSol = p1.pose === 'grounded';
 
         // Un joueur éliminé s'efface plutôt que de disparaître d'un coup : on comprend
         // qu'il vient de tomber au lieu de se demander où il est passé.
@@ -175,6 +251,9 @@ export function creerFigurants({ scene, assets }) {
     vider() {
       for (const a of avatars.values()) {
         scene.remove(a.groupe);
+        scene.remove(a.ombre);
+        a.ombre.geometry.dispose();
+        a.ombre.material.dispose();
         a.groupe.traverse((n) => {
           if (!n.isMesh || n.userData.partage) return;
           n.geometry?.dispose();

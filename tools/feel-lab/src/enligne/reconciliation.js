@@ -45,6 +45,19 @@ const SEUIL_RECALAGE = 2.0;
 /** Sur combien de temps on absorbe un écart ordinaire. */
 const ABSORPTION = 0.150;
 
+/**
+ * Au-delà, la position du client n'est plus une prédiction : c'est une explosion.
+ *
+ * Mesuré : un personnage coincé contre une porte, corrigé à chaque image, atteignait
+ * z = −191 467. Le solveur repousse le corps, la correction le réécrit, le solveur repousse
+ * plus fort — la boucle classique. Le solo, lui, cale proprement contre la même porte sans
+ * jamais dépasser 39 m : c'est bien la correction qui emballe, pas le jeu.
+ *
+ * Dans ce cas on ne CORRIGE plus, on REPOSE le personnage là où le serveur le voit. Il n'y
+ * a plus rien à réconcilier avec une position qui n'a aucun sens.
+ */
+const ABSURDE = 500;
+
 export function creerReconciliation() {
   // L'écart restant à absorber, en mètres, dans le repère du monde.
   let ex = 0;
@@ -88,7 +101,28 @@ export function creerReconciliation() {
        * Sans référence (premiers instantanés, reconnexion), on retombe sur le présent :
        * mieux vaut une correction grossière que pas de correction du tout.
        */
-      const base = reference ?? perso.body.translation();
+      const ici = perso.body.translation();
+
+      /*
+       * GARDE-FOU. Position non finie, ou partie dans le décor : on repose le personnage
+       * sur l'autorité, sans chercher à réconcilier quoi que ce soit.
+       *
+       * Un NaN rend TOUTE comparaison fausse — `ecart < seuil` et `ecart > seuil` sont
+       * faux tous les deux — donc sans ce test on tomberait dans la branche « absorbe » et
+       * l'on propagerait le NaN à chaque image.
+       */
+      const finie = Number.isFinite(ici.x) && Number.isFinite(ici.y) && Number.isFinite(ici.z);
+      const loin = Math.hypot(ici.x - autorite.x, ici.y - autorite.y, ici.z - autorite.z);
+      if (!finie || loin > ABSURDE) {
+        perso.body.setTranslation({ x: autorite.x, y: autorite.y, z: autorite.z }, true);
+        perso.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        perso.limiterVitesse?.();
+        ex = 0; ey = 0; ez = 0;
+        recalages++;
+        return 'recale';
+      }
+
+      const base = reference ?? ici;
       const dx = autorite.x - base.x;
       const dy = autorite.y - base.y;
       const dz = autorite.z - base.z;
@@ -113,9 +147,9 @@ export function creerReconciliation() {
          * joueur tout le déplacement qu'il a prédit depuis. On corrige l'écart, pas le
          * temps qui a passé.
          */
-        const ici = perso.body.translation();
         perso.body.setTranslation({ x: ici.x + dx, y: ici.y + dy, z: ici.z + dz }, true);
         perso.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        perso.limiterVitesse?.();
         ex = 0; ey = 0; ez = 0;
         recalages++;
         return 'recale';
@@ -142,6 +176,16 @@ export function creerReconciliation() {
         { x: p.x + ex * part, y: p.y + ey * part, z: p.z + ez * part },
         true,
       );
+
+      /*
+       * On BORNE la vitesse après avoir écrit la position.
+       *
+       * C'est le garde-fou que le jeu applique déjà après chaque pas de physique, et pour
+       * la même raison : déplacer un corps en contact profond fait produire au solveur une
+       * impulsion d'expulsion sans limite. Corriger à chaque image un personnage coincé
+       * contre une porte, c'est exactement cette situation — d'où l'emballement mesuré.
+       */
+      perso.limiterVitesse?.();
 
       ex -= ex * part;
       ey -= ey * part;

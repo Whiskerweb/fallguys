@@ -93,6 +93,8 @@ export function creerSession({ url, nom }) {
     get monIndex() { return monIndex; },
     /** `true` quand on a été éliminé : on regarde la suite, on n'y joue plus. */
     get estSpectateur() { return monIndex < 0; },
+    /** Les avatars des autres joueurs — pour les diagnostics, et rien d'autre. */
+    get figurants() { return figurants; },
     get latence() { return latence; },
     get statistiques() {
       return {
@@ -141,6 +143,38 @@ export function creerSession({ url, nom }) {
       figurants = null;
       perso = null;
       recon.reinitialiser();
+    },
+
+    /**
+     * TOUTES les positions à passer au décor — la nôtre, prédite, et celles des autres,
+     * interpolées.
+     *
+     * C'est ce qui fait que le monde évolue pareil chez tout le monde. Le serveur passe
+     * déjà toutes les positions à `arena.update` ; le client n'y passait que la sienne, et
+     * ne voyait donc céder que le sol qu'il usait lui-même. Une porte enfoncée par un
+     * adversaire restait fermée sur notre écran, et on le voyait la traverser.
+     *
+     * La nôtre est la position PRÉDITE, pas celle du serveur : notre propre porte doit
+     * s'ouvrir sans attendre l'aller-retour. Celles des autres arrivent avec les cent
+     * millisecondes de l'interpolation — leur porte s'ouvre donc un dixième de seconde
+     * après leur passage, ce que personne ne remarque.
+     */
+    positions(locale) {
+      /*
+       * DES COPIES, jamais les objets vivants.
+       *
+       * `character.position` rend un `Vector3` TEMPORAIRE PARTAGÉ, réutilisé à chaque
+       * appel — et les positions des figurants sont celles de leurs groupes THREE, qu'on
+       * réécrit à chaque image. Les passer telles quelles à une scène qui les parcourt,
+       * casse des portes et retire des colliders au passage, revient à lui donner des
+       * références qui changent sous ses pieds pendant qu'elle travaille.
+       *
+       * Une copie coûte trois nombres par joueur et par image. C'est le prix le moins
+       * cher de ce fichier.
+       */
+      const out = locale ? [{ x: locale.x, y: locale.y, z: locale.z }] : [];
+      for (const p of figurants?.positions() ?? []) out.push({ x: p.x, y: p.y, z: p.z });
+      return out;
     },
 
     /**
