@@ -37,6 +37,10 @@ crashlytics-build.properties
 [Bb]in/
 [Oo]bj/
 
+# Python — cache d'octets, regenere a chaque execution
+__pycache__/
+*.pyc
+
 # Node / backend
 node_modules/
 dist/

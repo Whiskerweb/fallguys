@@ -11,7 +11,7 @@ import { buildLobbyScreen, LOBBY, SHOWCASE_POS, SHOWCASE_LOOK } from './scenes/l
 import { Character } from './character.js';
 import { cosmetics, MODELS } from './cosmetics.js';
 import { sfx, unlockAudio, audio } from './audio.js';
-import { RIG, RIG_RANGES } from './rig.js';
+import { RIG, RIG_RANGES, createRiggedCharacter } from './rig.js';
 import { settings, ACTIONS, CAMERA_RANGES, CAMERA_LABELS, keyName } from './settings.js';
 import { applyIcons, buildSkinsScreen, buildTicket, buildCompte, buildEnLigne, majBarre, wireEcrans } from './lobbyui.js';
 import { table, progression, miseChoisie, ordinal, XP_MANCHE, XP_VICTOIRE, montant } from './economie.js';
@@ -1324,6 +1324,7 @@ window.__probeLobbyAvatar = () => game?.lobby?.avatarHandle?.() ?? null;
  * sonde rend un modele anime, sans corps ni collider, que le harnais cinema deplace
  * lui-meme. Elle n'ajoute rien au jeu : personne ne l'appelle en partie.
  */
+window.__probeFigurant = (nom, hauteur = 1.6) => createRiggedCharacter(assets, hauteur, nom);
 /*
  * La bibliotheque d'assets, pour charger un glTF que le jeu n'embarque pas.
  *
