@@ -113,6 +113,36 @@ dans le code :
   chiffre affiché *est* celui qui sera payé. Et la requête étant idempotente, un réseau coupé
   ne perd rien.
 
+### Jouer en ligne
+
+Un bouton **ONLINE** dans la barre du haut : adresse du serveur, pseudo, et on entre dans
+la file. Le panneau montre le salon qui se remplit, et propose de partir à effectif réduit
+quand le serveur le permet.
+
+Le netcode vit dans `src/enligne/` — `main.js` n'a que **cinq points d'accroche** :
+`imposee` (l'épreuve et la graine viennent du serveur), `enligne` (la session),
+`attacher` (le personnage et la scène), `envoyer` (l'entrée de cette image) et
+`avancer` (la correction). C'est délibéré : ce fichier est édité par plusieurs mains, il
+ne doit pas devenir le lieu où vit le réseau.
+
+Trois choses changent en ligne, et elles suivent toutes du même principe — **le client ne
+décide plus de rien** :
+
+- il ne tire ni la carte ni la graine : le serveur les impose, sans quoi seize joueurs
+  construiraient seize mondes différents et aucune prédiction ne tiendrait ;
+- il ne conclut ni chute, ni réapparition, ni qualification : le serveur arbitre et
+  annonce. Laisser le client conclure produirait deux verdicts pour la même manche ;
+- il ne joue pas le survol d'intro : le serveur ne compte que trois secondes là où le
+  survol en dure sept, et le garder ferait démarrer la manche pendant que le joueur
+  regarde encore le décor.
+
+Il continue en revanche de **prédire** son déplacement, et c'est ce qui rend le jeu
+réactif malgré la latence. Mesuré (`tools/test-harness/client.mjs`) : **6,5 cm** d'erreur
+médiane entre la prédiction et l'autorité, sans aucun recalage sec.
+
+Le serveur se lance depuis `serveur/`, le harnais à deux navigateurs par
+`node diag/duel.mjs`.
+
 Tout ce qui touche à de vrais USDC — comptes, dépôts, retraits, grand livre — vit dans
 `backend/`, dont le README porte la liste des conditions à remplir **avant tout mainnet**.
 La première d'entre elles concerne directement ce dossier : tant que le navigateur exécute

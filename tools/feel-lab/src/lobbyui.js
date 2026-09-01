@@ -466,3 +466,152 @@ export function buildCompte(onChangement) {
 
   peindre();
 }
+
+// ---------- le panneau EN LIGNE ----------
+
+/** Mémorisés : on rejoue le plus souvent sur le même serveur, sous le même nom. */
+const CLE_URL = 'tumble-serveur';
+const CLE_NOM = 'tumble-pseudo';
+
+/**
+ * Se connecter à un serveur de jeu et entrer dans la file d'attente.
+ *
+ * L'adresse est SAISIE, et c'est volontaire pour l'instant : deux machines qui se testent
+ * ne visent pas la même adresse (`127.0.0.1` pour l'une, l'IP du réseau local pour
+ * l'autre), et coder l'adresse en dur rendrait justement impossible le seul essai qu'on
+ * veuille faire aujourd'hui. Le jour où il y aura un serveur de production, elle viendra
+ * de la configuration et ce champ deviendra un réglage avancé.
+ */
+export function buildEnLigne(jeu) {
+  const bouton = el('btn-enligne');
+  const fond = el('enligne-fond');
+  const url = el('enligne-url');
+  const pseudo = el('enligne-nom');
+  const msg = el('enligne-msg');
+  const salon = el('enligne-salon');
+  const accepter = el('enligne-accepter');
+  const hud = el('enligne-hud');
+
+  url.value = localStorage.getItem(CLE_URL) ?? 'ws://127.0.0.1:8080';
+  pseudo.value = localStorage.getItem(CLE_NOM) ?? '';
+
+  let branche = null;
+
+  const dire = (texte, ok = false) => { msg.textContent = texte; msg.classList.toggle('ok', ok); };
+
+  const peindre = () => {
+    const connecte = Boolean(branche);
+    el('enligne-jouer').classList.toggle('hidden', connecte);
+    el('enligne-quitter').classList.toggle('hidden', !connecte);
+    bouton.classList.toggle('actif', connecte);
+    bouton.textContent = connecte ? 'ONLINE ●' : 'ONLINE';
+  };
+
+  /** Le bandeau de partie : ce qu'un joueur veut voir sans ouvrir de panneau. */
+  function majHud() {
+    if (!branche || !jeu.enligne) { hud.classList.add('hidden'); return; }
+    const s = jeu.enligne.statistiques;
+    hud.classList.remove('hidden');
+    hud.textContent = `${s.latence} ms · ${s.figurants + 1} joueurs`
+      + (s.recalages ? ` · ${s.recalages} recalages` : '');
+  }
+  setInterval(majHud, 500);
+
+  function evenement(quoi, data) {
+    if (quoi === 'etat') {
+      if (data.etat === 'ouvert') dire('Connected. Looking for a match…', true);
+      else if (data.etat === 'connexion') dire('Connecting…');
+      else dire('Disconnected — retrying…');
+      return;
+    }
+
+    if (quoi === 'salon') {
+      salon.classList.remove('hidden');
+      const reste = data.resteAAttendre;
+      salon.textContent = `${data.humains} / ${data.cible} players`
+        + (reste > 0 ? ` — starting in ${Math.ceil(reste)} s` : '');
+
+      /*
+       * La proposition de partir à effectif réduit, et ce qu'elle doit dire.
+       *
+       * Le joueur accepte un POT PLUS PETIT que celui qu'on lui a montré : il faut donc
+       * l'annoncer, pas seulement demander « on y va ? ». Sous le minimum, le serveur ne
+       * propose rien — et le panneau doit alors expliquer pourquoi on attend, sinon
+       * l'attente ressemble à une panne.
+       */
+      accepter.classList.toggle('hidden', !data.proposition);
+      if (data.proposition) {
+        accepter.textContent = `START NOW WITH ${data.proposition.joueurs} PLAYERS`
+          + ` (${data.proposition.accords}/${data.proposition.attendus} agreed)`;
+      }
+      if (data.sousLeMinimum) {
+        salon.textContent = `${data.humains} players — need at least ${data.minimum} to start.`;
+      }
+      return;
+    }
+
+    if (quoi === 'manche') {
+      fond.classList.add('hidden');
+      salon.classList.add('hidden');
+      accepter.classList.add('hidden');
+      if (data.spectateur) jeu.banner?.('SPECTATING', 3);
+      return;
+    }
+
+    if (quoi === 'fin-partie') {
+      salon.classList.add('hidden');
+      hud.classList.add('hidden');
+      dire('Match over. Find another one?', true);
+      return;
+    }
+
+    if (quoi === 'refus') dire(`Refused: ${data.raison}`);
+  }
+
+  el('enligne-jouer').addEventListener('click', async () => {
+    const adresse = url.value.trim();
+    const nom = pseudo.value.trim();
+    if (!adresse || !nom) { dire('Server address and name are both required.'); return; }
+
+    localStorage.setItem(CLE_URL, adresse);
+    localStorage.setItem(CLE_NOM, nom);
+    sfx.click();
+    dire('Connecting…');
+
+    // Chargé à la demande : un joueur qui ne fait que du solo n'a pas à télécharger le
+    // netcode, et surtout les quarante harnais de `diag/` ne doivent jamais l'exécuter.
+    const { brancherEnLigne } = await import('./enligne/brancher.js');
+    branche = brancherEnLigne(jeu, { url: adresse, nom, mise: 0, surEvenement: evenement });
+    peindre();
+
+    // On entre dans la file dès que la connexion est ouverte.
+    const attendre = setInterval(() => {
+      if (jeu.enligne?.etat === 'ouvert' || branche.session.etat === 'ouvert') {
+        clearInterval(attendre);
+        branche.rejoindre(0);
+      }
+    }, 100);
+  });
+
+  el('enligne-quitter').addEventListener('click', () => {
+    sfx.click();
+    branche?.debrancher();
+    branche = null;
+    salon.classList.add('hidden');
+    accepter.classList.add('hidden');
+    hud.classList.add('hidden');
+    dire('Left the queue.');
+    peindre();
+  });
+
+  accepter.addEventListener('click', () => { sfx.click(); branche?.accepter(); });
+
+  bouton.addEventListener('click', () => { sfx.click(); fond.classList.remove('hidden'); peindre(); });
+  el('enligne-fermer').addEventListener('click', () => { sfx.click(); fond.classList.add('hidden'); });
+  fond.addEventListener('click', (e) => { if (e.target === fond) fond.classList.add('hidden'); });
+  for (const champ of [url, pseudo]) {
+    champ.addEventListener('keydown', (e) => { if (e.key === 'Enter') el('enligne-jouer').click(); });
+  }
+
+  peindre();
+}

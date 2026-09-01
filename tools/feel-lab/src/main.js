@@ -13,7 +13,7 @@ import { cosmetics, MODELS } from './cosmetics.js';
 import { sfx, unlockAudio, audio } from './audio.js';
 import { RIG, RIG_RANGES } from './rig.js';
 import { settings, ACTIONS, CAMERA_RANGES, CAMERA_LABELS, keyName } from './settings.js';
-import { applyIcons, buildSkinsScreen, buildTicket, buildCompte, majBarre, wireEcrans } from './lobbyui.js';
+import { applyIcons, buildSkinsScreen, buildTicket, buildCompte, buildEnLigne, majBarre, wireEcrans } from './lobbyui.js';
 import { table, progression, miseChoisie, ordinal, XP_MANCHE, XP_VICTOIRE, montant } from './economie.js';
 import { caisse } from './caisse.js';
 import { surSession } from './compte.js';
@@ -464,7 +464,16 @@ class Game {
 
   startRace() {
     closePause();
-    const jeu = this.partie ? this.partie.parcours[this.partie.index] : MINIGAMES[0];
+    /*
+     * EN LIGNE, LE CLIENT NE TIRE PLUS RIEN.
+     *
+     * `this.imposee` est renseignee par le serveur : epreuve et graine. Les seize joueurs
+     * construisent alors exactement le meme monde, ce qui est la condition de la
+     * prediction — deux mondes differents ne se corrigent pas, ils divergent.
+     */
+    const jeu = this.imposee
+      ? (MINIGAMES.find((m) => m.id === this.imposee.epreuve) ?? MINIGAMES[0])
+      : (this.partie ? this.partie.parcours[this.partie.index] : MINIGAMES[0]);
     this.jeuId = jeu.id;
     // Graine TIREE AU SORT a chaque manche : deux parties ne se ressemblent pas, et un
     // parcours appris par coeur ne vaut plus rien. Une seule graine par manche, pas une
@@ -473,7 +482,9 @@ class Game {
     // redonne la meme carte, et c'est exactement ce que fera le serveur en multijoueur —
     // le harnais emprunte donc le vrai chemin de code, pas une porte derobee.
     const forcee = Number(new URLSearchParams(location.search).get('graine'));
-    this.manche = Number.isFinite(forcee) && forcee > 0 ? forcee >>> 0 : graineDeManche();
+    this.manche = this.imposee
+      ? this.imposee.graine >>> 0
+      : (Number.isFinite(forcee) && forcee > 0 ? forcee >>> 0 : graineDeManche());
     // Ordre imperatif, le meme que dans enterLobby : le personnage detient un corps dans
     // le monde physique de l'arene sortante. Liberer ce monde avant lui laisserait
     // `character.dispose()` retirer un corps d'un monde deja detruit — un pointeur wasm
@@ -493,7 +504,8 @@ class Game {
     this.lobby.group.visible = false;
     this.arena.group.visible = true;
     el('race-title').textContent = jeu.name;
-    const n = (this.partie?.index ?? 0) + 1, total = this.partie?.parcours.length ?? 1;
+    const n = this.imposee ? this.imposee.numero : (this.partie?.index ?? 0) + 1;
+    const total = this.imposee ? this.imposee.sur : (this.partie?.parcours.length ?? 1);
     el('race-manche').textContent = n === total ? 'FINAL' : `ROUND ${n} / ${total}`;
     el('race-manche').classList.toggle('finale', n === total);
     // Ambiance : chaque epreuve impose son ciel. Une map spatiale gardee sous le ciel
@@ -510,6 +522,10 @@ class Game {
     el('race-ui').classList.remove('hidden');
     el('verdict').className = 'hidden';
     this.character = new Character(RAPIER, this.arena.world, this.view.scene, this.arena.spawn);
+    // La session recoit le personnage local et la scene : c'est ici que naissent les
+    // figurants des autres joueurs, pas avant (il faut une scene) ni apres (les premiers
+    // instantanes arriveraient sans personne a animer).
+    this.enligne?.attacher({ personnage: this.character, scene: this.view.scene, assets });
     const p = this.arena.spawn;
     this.camTarget.set(p.x, p.y + settings.camera.height, p.z + settings.camera.distance);
     this.ySlow = undefined;
@@ -520,7 +536,10 @@ class Game {
     // L'arene peut imposer son objectif ; sinon celui du registre fait foi. Les deux
     // existent parce qu'une carte a parfois besoin de nuancer la phrase du catalogue.
     el('hud-objectif').textContent = this.arena.objectif ?? jeu.objectif ?? 'COURIR À L’ARRIVÉE !';
-    this.survivants = SURVIVANTS[Math.min(manche, SURVIVANTS.length - 1)];
+    // En ligne, le nombre de places vient du SERVEUR : il connaît l'effectif réel, et un
+    // salon de deux ne met pas huit places en jeu.
+    this.survivants = this.imposee?.qualifies
+      ?? SURVIVANTS[Math.min(manche, SURVIVANTS.length - 1)];
     el('hud-qualifies').textContent = `0/${this.survivants}`;
     el('timer').textContent = formaterChrono(0);
 
@@ -541,7 +560,18 @@ class Game {
     // mesure, et certains enchainent des dizaines de manches. Le drapeau ne change rien a
     // ce qui est joue — l'epreuve et la graine sont deja tirees — donc une mesure faite
     // sans intro reste une mesure du vrai jeu.
-    if (new URLSearchParams(location.search).has('nointro')) {
+    /*
+     * EN LIGNE, PAS DE SURVOL.
+     *
+     * Le serveur ne compte que trois secondes ; le survol du client en dure sept. Les
+     * garder ferait demarrer la manche pendant que le joueur regarde encore le decor —
+     * quatre secondes de retard sur seize adversaires, ce qui est perdu d'avance.
+     *
+     * On aligne donc le client sur le decompte que le serveur annonce, et le survol
+     * reviendra le jour ou le serveur attendra qu'il soit fini. C'est un raccord a faire,
+     * pas une renonciation.
+     */
+    if (this.enligne || new URLSearchParams(location.search).has('nointro')) {
       this.intro = null;
       this.survol = null;
       el('nextup').classList.add('hidden');
@@ -549,7 +579,9 @@ class Game {
       el('titlecard').className = 'hidden';
       el('race-ui').classList.remove('presentation');
       this.snapCamera = true;
-      this.countdown = 3 * DECOMPTE_PAS;
+      // Le decompte du serveur fait foi quand il y en a un : c'est lui qui decide quand la
+      // manche commence reellement, et le client ne fait que l'afficher.
+      this.countdown = (this.imposee?.decompte ?? 3) * DECOMPTE_PAS;
       el('countdown').classList.remove('hidden');
       return;
     }
@@ -961,6 +993,15 @@ class Game {
       }
     }
 
+    /*
+     * EN LIGNE : on envoie l'entree AVANT de simuler.
+     *
+     * Le numero attribue identifie ce que le serveur accusera, et c'est lui qui permettra
+     * de comparer sa reponse a l'endroit ou l'on se croyait AU MEME INSTANT. Envoyer
+     * apres coup rendrait cette comparaison impossible.
+     */
+    this.enligne?.envoyer(input);
+
     const world = this.arena.world;
     this.accumulator += dt;
     let steps = 0;
@@ -1051,7 +1092,16 @@ class Game {
      * tourne pendant le decompte, et sans cette garde un depart mal pose tuerait le joueur
      * avant le GO.
      */
-    if (pos.y < this.arena.killY) {
+    /*
+     * EN LIGNE, LE CLIENT NE DECIDE PLUS DE RIEN.
+     *
+     * Ni la chute, ni la reapparition, ni la qualification : c'est le serveur qui arbitre
+     * et qui l'annonce. Laisser le client conclure produirait deux verdicts differents
+     * pour la meme manche — et c'est precisement le trou que le serveur autoritatif est la
+     * pour fermer. Il continue de PREDIRE son deplacement ; il n'en tire aucune
+     * consequence de jeu.
+     */
+    if (!this.enligne && pos.y < this.arena.killY) {
       if (this.arena.survie) {
         if (this.mode === 'racing' && this.countdown <= 0) this.perdreManche();
       } else {
@@ -1063,12 +1113,15 @@ class Game {
 
     if (this.mode === 'racing' && this.countdown <= 0) {
       this.runTime += dt;
+      if (this.enligne) { this.enligne.avancer(dt); this.enligne.mesurerLatence(60); }
       // Deux facons de gagner une manche, une ligne chacune : ARRIVER quelque part, ou
       // TENIR assez longtemps. La duree annoncee n'est pas une invention destinee a
       // masquer l'absence d'adversaires — la reference elle-meme s'arrete au bout d'un
       // delai, et tous les survivants prennent alors la couronne. On garde la regle, on
       // raccourcit l'horloge.
-      if (this.arena.survie) {
+      if (this.enligne) {
+        // Rien : le serveur annoncera la fin de manche.
+      } else if (this.arena.survie) {
         if (this.runTime >= this.arena.survie.duree) this.finishRace();
       } else if (pos.z <= this.arena.finishZ) this.finishRace();
     } else if (this.mode === 'finished') {
@@ -1213,6 +1266,7 @@ async function boot() {
    * les quarante harnais de `diag/`, qui n'ont jamais eu de backend.
    */
   buildCompte();
+  buildEnLigne(game);
   caisse.rafraichir().then(() => majBarre());
   surSession(() => caisse.rafraichir().then(() => majBarre()));
 

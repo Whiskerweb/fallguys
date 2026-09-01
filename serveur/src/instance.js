@@ -95,6 +95,9 @@ export function creerInstance({ id, graine, inscrits, envoyer, surFin, dureeMax 
       epreuve: m.epreuve,
       graine: m.graine,
       decompte: m.resteDecompte(),
+      // Combien de places sont en jeu. Le client l'affichait depuis sa table à seize
+      // joueurs : un duel annonçait « 0/8 » alors qu'une seule place existait.
+      qualifies: partie.paliers[partie.numeroManche - 1] ?? 1,
       // La correspondance index → nom, une seule fois. Les instantanés n'envoient ensuite
       // que l'index : un octet au lieu d'une chaîne, trente fois par seconde.
       joueurs: m.etatCoureurs().map((c) => ({ index: c.index, nom: c.nom })),
