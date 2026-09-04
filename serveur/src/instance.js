@@ -30,6 +30,8 @@ import { randomInt } from 'node:crypto';
 import { creerPartie } from './partie.js';
 import { HZ } from './manche.js';
 import { encoderInstantane } from './reseau.js';
+import { creerTampon, resumer } from './tampon.js';
+import { SOUS_PAS } from './tick.js';
 
 const MS_PAR_TICK = 1000 / HZ;
 
@@ -82,7 +84,12 @@ export function creerInstance({ id, graine, inscrits, envoyer, surFin, dureeMax 
   /** Le personnage choisi par chacun, annoncé aux autres au début de chaque manche. */
   const modeles = new Map(inscrits.map((i) => [i.nom, i.modele ?? null]));
 
-  const entrees = new Map();
+  /**
+   * Un tampon d'entrées PAR JOUEUR (`tampon.js`) : les images arrivent numérotées par pas
+   * de physique, et chaque sous-pas du tick en tire une. Créé au premier paquet ; un
+   * joueur qui n'a jamais rien envoyé reste sous son pilote.
+   */
+  const tampons = new Map();
   const humains = new Set(inscrits.filter((i) => !i.estBot).map((i) => i.nom));
   const connectes = new Set(humains);
 
@@ -170,31 +177,22 @@ export function creerInstance({ id, graine, inscrits, envoyer, surFin, dureeMax 
     for (const nom of humains) {
       // L'accusé est propre à chaque destinataire : c'est le numéro de SA dernière entrée
       // appliquée, sans quoi il ne peut pas réconcilier sa prédiction.
-      const accuse = entrees.get(nom)?.seq ?? 0;
+      const accuse = tampons.get(nom)?.accuse ?? 0;
       envoyer(nom, encoderInstantane(m.tick, etats, accuse));
     }
   }
 
   /**
-   * L'entrée à jouer ce tick, par joueur — et on efface les boutons au passage.
+   * Les entrées à jouer ce tick, par joueur : UNE IMAGE PAR SOUS-PAS, tirée du tampon.
    *
-   * Deux choses s'y passent, et les deux comptent :
-   *
-   *   1. **On rend une COPIE.** `avancerJeu` passe l'objet reçu tel quel au personnage, et
-   *      `avancerTick` y remet `jump` à faux entre ses deux sous-pas. Sans copie, ce geste
-   *      légitime — un front ne vaut qu'un sous-pas — irait effacer l'état du serveur.
-   *
-   *   2. **On efface les boutons, pas les axes.** Un appui consommé ne doit pas se rejouer
-   *      au tick suivant ; une direction maintenue, si, jusqu'au prochain paquet. C'est la
-   *      même asymétrie que dans `entree()`, vue depuis l'autre bout.
+   * La valeur rendue est le résumé du tick (`resumer`) — axes de la dernière image,
+   * boutons de toutes — augmenté de `pas`, les images elles-mêmes. `avancerJeu` joue
+   * `pas` ; les espions des tests lisent le résumé. Les images sont des objets NEUFS à
+   * chaque tick : `avancerTick` peut y effacer les fronts sans toucher au tampon.
    */
   function consommerEntrees() {
     const carte = new Map();
-    for (const [nom, e] of entrees) {
-      carte.set(nom, { x: e.x, z: e.z, jump: e.jump, dive: e.dive });
-      e.jump = false;
-      e.dive = false;
-    }
+    for (const [nom, tampon] of tampons) carte.set(nom, resumer(tampon.tirer(SOUS_PAS, pasTotal)));
     return carte;
   }
 
@@ -299,51 +297,32 @@ export function creerInstance({ id, graine, inscrits, envoyer, surFin, dureeMax 
     },
 
     /**
-     * Une entrée arrive du réseau.
+     * Une entrée arrive du réseau : on la range dans le tampon du joueur.
      *
-     * ─── UN AXE EST UN ÉTAT, UN BOUTON EST UN ÉVÉNEMENT ─────────────────────
+     * ─── UN AXE EST UN ÉTAT, UN BOUTON EST UN ÉVÉNEMENT — ET DÉSORMAIS, UNE IMAGE EST
+     * UN PAS ────────────────────────────────────────────────────────────────
      *
-     * Le client envoie à 60 Hz, le serveur consomme à 30 : entre deux ticks il arrive deux
-     * paquets. Ne garder que le dernier — ce que faisait ce code — revient à jeter une
-     * image sur deux.
+     * L'ancienne version ne gardait que la dernière entrée reçue, en accumulant les
+     * boutons par OU : elle avait rendu leurs sauts aux joueurs (16 demandés, 10 joués,
+     * avant elle), mais elle rejouait cette entrée à chaque tick sans attendre les
+     * suivantes, et accusait toujours le même numéro. Sa position « à l'entrée N »
+     * portait donc l'aller-retour complet — 2 m à 300 ms — et le client recalait à sec
+     * vingt fois par seconde. C'est le tampon (`tampon.js`) qui tient la règle
+     * maintenant : chaque image est jouée une fois, à son rang, par un sous-pas.
      *
-     * Pour une direction, c'est sans conséquence : elle est maintenue pendant des dizaines
-     * d'images, et en perdre une ne se voit pas. Pour un saut, c'est fatal : `jump` n'est
-     * vrai qu'une SEULE image, et l'écraser, c'est le perdre entièrement. Mesuré avant
-     * correctif : **16 sauts demandés, 10 joués — 38 % perdus**, ce qui donnait un jeu où
-     * l'on saute à l'écran sans franchir l'obstacle, parce que le serveur, lui, n'a jamais
-     * sauté.
-     *
-     * D'où le traitement, qui suit la nature de chacun : **les axes se remplacent, les
-     * boutons s'accumulent**. On fait un OU sur toutes les images encore inédites du
-     * paquet, et `consommerEntrees()` remet les boutons à zéro une fois joués — donc aucun
-     * appui perdu, et aucun rejoué.
-     *
-     * C'est aussi ce qui donne enfin un rôle à la redondance : chaque paquet porte les
-     * trois dernières images, et on les lit toutes. Perdre un paquet devient invisible
-     * tant qu'on n'en perd pas trois d'affilée — ce pour quoi elle avait été écrite, et
-     * qu'elle ne faisait pas tant qu'on ne lisait que `frames[frames.length - 1]`.
-     *
-     * On ignore ce qui est plus VIEUX que ce qu'on a déjà : les paquets arrivent dans le
-     * désordre, et rejouer une entrée périmée ferait revenir le personnage en arrière.
+     * La redondance garde son rôle : chaque paquet porte les trois dernières images, et on
+     * range celles qu'on n'a pas encore. Ce qui est plus vieux que ce qu'on a déjà est
+     * ignoré en bloc — rejouer une entrée périmée ferait revenir le personnage en arrière.
      */
     entree(nom, { tick: seq, frames }) {
-      const courant = entrees.get(nom) ?? { seq: 0, x: 0, z: 0, jump: false, dive: false };
-      if (seq <= courant.seq) return false;
+      let tampon = tampons.get(nom);
+      if (!tampon) { tampon = creerTampon({ sousPas: SOUS_PAS }); tampons.set(nom, tampon); }
+      return tampon.deposer(seq, frames);
+    },
 
-      for (const f of frames) {
-        if (f.tick <= courant.seq) continue;   // déjà vue dans un paquet précédent
-        courant.jump = courant.jump || f.jump;
-        courant.dive = courant.dive || f.dive;
-      }
-
-      const derniere = frames[frames.length - 1];
-      courant.x = derniere.x;
-      courant.z = derniere.z;
-      courant.seq = seq;
-
-      entrees.set(nom, courant);
-      return true;
+    /** L'état des tampons, par joueur — pour les diagnostics et les tests. */
+    get reseau() {
+      return Object.fromEntries([...tampons].map(([nom, t]) => [nom, t.statistiques]));
     },
 
     /**
@@ -358,11 +337,11 @@ export function creerInstance({ id, graine, inscrits, envoyer, surFin, dureeMax 
      * réessaie, mais la manche ne l'attend pas. Une partie à mises ne peut pas suspendre
      * quinze joueurs le temps qu'un seizième retrouve son wifi.
      *
-     * Sa dernière entrée est effacée, sinon un corps figé garderait une touche pressée.
+     * Son tampon est jeté, sinon un corps figé garderait une touche pressée.
      */
     deconnecter(nom) {
       connectes.delete(nom);
-      entrees.delete(nom);
+      tampons.delete(nom);
       partie.abandonner?.(nom);
       if (!connectes.size) {
         // Plus personne au bout du fil : inutile de simuler pour des bots. On clôt, et le

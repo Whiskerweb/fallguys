@@ -31,12 +31,18 @@ export const SOUS_PAS = 2;
  * Avance la simulation d'un tick.
  *
  * @param {object} monde       l'arène de `monde.js`
- * @param {Array}  acteurs     `[{ perso, entree }]` — l'entrée est consommée ici
+ * @param {Array}  acteurs     `[{ perso, entree }]` — l'entrée est consommée ici — ou
+ *                             `[{ perso, entrees: [f0, f1] }]`, UNE image par sous-pas :
+ *                             c'est la forme d'un joueur réseau, dont le tampon a rendu
+ *                             exactement les pas que son client a joués
  * @param {number} elapsed     secondes écoulées depuis le début de la manche
  * @param {number} dt          durée du tick (1/30)
  * @param {boolean} enJeu      la manche a-t-elle commencé ? (faux pendant le décompte)
+ * @param {{ apresSousPas?: (s: number) => void }} [options]  un rappel après chaque
+ *                             sous-pas — le client sans navigateur y note sa position
+ *                             pas par pas, comme `main.js` le fait dans sa boucle
  */
-export function avancerTick(monde, acteurs, elapsed, dt, enJeu) {
+export function avancerTick(monde, acteurs, elapsed, dt, enJeu, { apresSousPas = null } = {}) {
   const arene = monde.arene;
   const world = arene.world;
 
@@ -53,9 +59,10 @@ export function avancerTick(monde, acteurs, elapsed, dt, enJeu) {
   arene.update?.(elapsed, dt, positions, null, enJeu);
 
   for (let s = 0; s < SOUS_PAS; s++) {
-    for (const a of acteurs) a.perso.update(world.timestep, a.entree, 0);
+    for (const a of acteurs) a.perso.update(world.timestep, a.entrees ? a.entrees[s] : a.entree, 0);
     world.step();
     for (const a of acteurs) a.perso.limiterVitesse();
+    apresSousPas?.(s);
 
     /*
      * Les fronts — saut et plongeon — ne valent que pour UN sous-pas.
@@ -69,7 +76,10 @@ export function avancerTick(monde, acteurs, elapsed, dt, enJeu) {
      * Ça n'a pas toujours été le cas — on effaçait alors l'accumulateur du serveur, donc
      * l'appui suivant du joueur.
      */
-    for (const a of acteurs) { a.entree.jump = false; a.entree.dive = false; }
+    for (const a of acteurs) {
+      if (!a.entree) continue;   // une image par sous-pas : chacune ne sert qu'une fois
+      a.entree.jump = false; a.entree.dive = false;
+    }
   }
 
   for (const a of acteurs) {

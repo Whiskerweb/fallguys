@@ -9,9 +9,12 @@ processus Node. Une partie complète de seize joueurs coûte une quinzaine de se
 calcul.
 
 ```bash
+npm test               # tout le banc — 302 verdicts
 node verdicts.mjs      # 74 verdicts · ~58 s
 node partie.mjs        # une partie, manche par manche
 node partie.mjs 777 8  # graine 777, salon de 8
+node tampon.mjs        # 38 — le tampon d'entrées à sec : flux, perte, silence, coupure, rafale
+node gigue.mjs         #  8 — deux clients sans navigateur à 240 ms d'aller-retour, coupures de 300 ms
 ```
 
 ## Ce que `verdicts.mjs` prouve
@@ -37,9 +40,21 @@ pire, parce qu'elle donnerait l'illusion d'une garantie.
 On mesure donc, on affiche, et le chiffre dit où en est le pilote. Le jour où l'ordre
 tiendra partout, ce bloc deviendra un verdict.
 
+## Le réseau, simulé dans le processus
+
+`client.mjs` fait jouer deux clients sans navigateur contre un vrai serveur, par de
+vraies WebSockets locales. `gigue.mjs` pose par-dessus un réseau qui gigote — 120 ms
+d'aller simple, et toutes les deux secondes une coupure de 300 ms pendant laquelle rien
+ne passe, puis tout arrive d'un coup — en remplaçant `WebSocket` côté client, avec un
+fil qui livre dans l'ordre (une minuterie par message ne le garantit pas sous Node). Le
+serveur, lui, ne sait pas qu'on le fait attendre : c'est le point. La barre est la même
+que sans latence — erreur médiane sous 15 cm, zéro recalage — parce qu'un réseau lent
+doit coûter de la latence, jamais des téléportations. C'est ce banc qui a révélé, l'un
+après l'autre, les quatre défauts du 4 septembre 2026 (voir `CLAUDE.md`, « Le jeu en
+ligne »).
+
 ## Ce qui manque encore
 
-Le nom du dossier promet « 1 serveur + 15 clients headless ». Pour l'instant, les quinze
-clients sont dans le même processus et il n'y a pas de réseau : c'est la phase 2. Le
-harnais y gagnera la latence et la perte de paquets simulées, qui sont la moitié de son
-intérêt.
+La perte de paquets n'est pas simulée : sur WebSocket (TCP) elle se manifeste comme une
+coupure suivie d'une rafale, ce que `gigue.mjs` couvre, mais un banc UDP le jour où le
+transport changera devra la poser explicitement.

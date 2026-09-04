@@ -25,6 +25,7 @@
 import { chromium } from 'playwright';
 import { dossierDeBanc } from '../src/boutique.js';
 import { demarrerServeur } from '../../../serveur/src/serveur.js';
+import { SEUIL_RECALAGE } from '../src/enligne/reconciliation.js';
 
 /*
  * PAS DE SERVEUR DE DEVELOPPEMENT ICI.
@@ -475,16 +476,26 @@ titre('8. Un plongeon se VOIT à travers le réseau');
   });
 
   let bascule = 0;
+  // Ce que machine-1 fait CHEZ ELLE, en parallele : si elle ne plonge pas localement, le
+  // fil n'y est pour rien ; si elle plonge et que machine-2 ne voit rien, c'est le fil.
+  const etatsLocaux = new Set();
+  const seqAvant = await un.page.evaluate(() => window.__probeGame().enligne?.lien?.enAttente?.at(-1)?.seq ?? 0);
   for (let i = 0; i < 6; i++) {
     await plonger();
     for (let k = 0; k < 12; k++) {
       const v = await inclinaison();
       if (v !== null) bascule = Math.max(bascule, v);
+      etatsLocaux.add(await un.page.evaluate(() => window.__probeCharacter()?.state ?? '?'));
       await new Promise((r) => setTimeout(r, 60));
     }
   }
+  const seqApres = await un.page.evaluate(() => window.__probeGame().enligne?.lien?.enAttente?.at(-1)?.seq ?? 0);
+  const statsSession = await un.page.evaluate(() => JSON.stringify(window.__probeGame().enligne?.statistiques ?? null));
+  const reseau = serveur.matchmaking.instances[0]?.reseau ?? {};
 
   console.log(`     ${deux.nom} a vu ${un.nom} basculer de ${(bascule * 100).toFixed(0)} %`);
+  console.log(`     ${un.nom} chez elle : etats ${[...etatsLocaux].join('/')} · ${seqApres - seqAvant} entrees envoyees pendant la mesure`);
+  console.log(`     session ${statsSession} · tampon serveur ${JSON.stringify(reseau[un.nom] ?? null)}`);
   dit(bascule > 0.15,
     `le plongeon de ${un.nom} bascule le corps chez ${deux.nom} — sans quoi il glisserait tout droit`);
 }
@@ -496,7 +507,9 @@ for (let i = 0; i < 2; i++) {
     + ` · écart max ${(s.ecartMax * 100).toFixed(0)} cm · reste ${(s.enCours * 100).toFixed(0)} cm`);
   // Ce qui compte n'est pas le NOMBRE de corrections — un client lent en reçoit beaucoup —
   // mais le fait qu'elles s'ABSORBENT au lieu de s'accumuler.
-  dit(s.enCours < 2.0, `l'écart en cours reste sous 2 m : la correction absorbe`);
+  // `enCours` est ce que le VISUEL doit encore rattraper : par construction, un écart
+  // absorbé est sous le seuil de recalage (3 m) — au-delà, le corps ET le visuel sautent.
+  dit(s.enCours < SEUIL_RECALAGE, `l'écart en cours reste sous ${SEUIL_RECALAGE} m : la correction absorbe`);
 }
 
 await un.page.screenshot({ path: 'shots/duel-machine-1.png' });

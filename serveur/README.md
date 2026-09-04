@@ -78,6 +78,33 @@ rencontrés :
 3. **Un rayon ne touche rien tant que le monde n'a pas fait un pas** : la structure
    d'accélération de Rapier n'existe pas avant. Le décompte s'en charge.
 
+## Le tampon d'entrées, et pourquoi l'écart ne porte plus la latence
+
+Jusqu'au 4 septembre 2026, le serveur gardait la dernière entrée reçue de chaque joueur
+et la rejouait à chaque tick, que quelque chose soit arrivé ou non, en accusant toujours
+le même numéro. Le client comparait alors sa position « à l'entrée N » à celle du
+serveur — qui avait continué sans lui pendant tout l'aller-retour. L'écart valait la
+vitesse fois la latence : invisible en local, 2 m et plus depuis les Canaries, c'est-à-dire
+le seuil de recalage sec, vingt fois par seconde.
+
+`tampon.js` remplace cela par une file par joueur. Le client numérote **une entrée par pas
+de physique** (1/60 s), le serveur les range dans l'ordre et **chaque sous-pas du tick en
+tire une** : après l'entrée N, les deux simulations ont joué les mêmes pas, et l'écart ne
+mesure plus que les vrais désaccords. Trois règles, toutes mesurées au banc :
+
+- **En famine, on extrapole** (les derniers axes, jamais un bouton) et l'accusé ne bouge
+  pas — le client sait qu'il n'y a rien de neuf à comparer.
+- **À la reprise, on saute autant d'images qu'on a extrapolé de pas** (boutons reportés) :
+  sinon le serveur jouerait la coupure deux fois et le joueur serait propulsé.
+- **La réserve d'avance ne se reconstitue que joueur immobile** — au décompte, à
+  l'arrêt — parce que c'est gratuit à ce moment-là. Un joueur qui court ne paie jamais
+  d'attente ; la latence ajoutée sur un réseau propre est de 33 ms.
+
+`tools/test-harness/gigue.mjs` rejoue la connexion du directeur produit — 240 ms
+d'aller-retour, une coupure de 300 ms toutes les deux secondes — et exige la même barre
+que sans latence : erreur médiane sous 15 cm, zéro recalage. `tampon.mjs` éprouve la
+file à sec, cas par cas.
+
 ---
 
 ## Les bots

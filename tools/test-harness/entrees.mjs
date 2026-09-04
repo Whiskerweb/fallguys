@@ -244,7 +244,11 @@ titre('5. Le plongeon voyage — l\'appui ET la bascule du corps');
   }, 1000 / 60);
 
   await dormir(10000);
-  clearInterval(env); clearInterval(guet); inst.arreter();
+  clearInterval(env);
+  // Le tampon du serveur garde quelques images d'avance (`tampon.js`) : on laisse le
+  // dernier plongeon en sortir avant de compter, sinon on le compterait comme perdu.
+  await dormir(250);
+  clearInterval(guet); inst.arreter();
 
   console.log(`     ${demandes} plongeons demandés · ${recus} arrivés · ${enPlongeon} relevés en pose « diving »`);
   console.log(`     bascule du corps transportée : ${(basculeMax * 100).toFixed(0)} % d'écart à la verticale`);

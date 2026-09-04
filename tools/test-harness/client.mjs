@@ -54,6 +54,7 @@ function creerJoueur(url, nom, strategie) {
     ecarts: [],                 // position actuelle vs autorité — porte la latence
     erreurs: [],                // autorité vs position AU MEME INSTANT — la vraie erreur
     effets: { ignore: 0, absorbe: 0, recale: 0 },
+    instantanes: 0,             // tout ce que le serveur envoie, corrigé ou non
     manches: 0,
     spectateur: false,
     fini: null,
@@ -103,6 +104,7 @@ function creerJoueur(url, nom, strategie) {
   });
 
   session.sur('fin-partie', (msg) => { j.fini = msg; });
+  session.lien.sur('instantane', () => { j.instantanes++; });
 
   j.jouer = () => {
     /*
@@ -130,18 +132,27 @@ function creerJoueur(url, nom, strategie) {
       reste += (maintenant - precedent) / 1000;
       precedent = maintenant;
 
-      const entree = strategie(j);
+      // Pendant le décompte on ne pilote pas — comme le vrai client, qui met l'entrée à
+      // zéro tant que le compte n'est pas écoulé. Le serveur, lui, ne consomme rien.
+      const entree = session.enDecompte ? { x: 0, z: 0, jump: false, dive: false } : strategie(j);
 
-      // On envoie à chaque image : le numéro rendu identifie ce que le serveur accusera.
-      session.envoyer(entree);
-
-      // Et on simule au pas du serveur, pas plus vite. Plafonné à trois pas : rattraper
+      // On simule au pas du serveur, pas plus vite. Plafonné à trois ticks : rattraper
       // un gros retard d'un coup ferait bondir le personnage.
       let pas = 0;
       while (reste >= 1 / 30 && pas < 3) {
         reste -= 1 / 30;
         pas++;
-        avancerTick(j.monde, [{ perso: j.perso, entree: { ...entree } }], 0, 1 / 30, true);
+        // UNE entrée PAR SOUS-PAS, comme `main.js` : le numéro identifie le pas que le
+        // serveur jouera. Un tick en fait deux ; on les envoie avant, on note après chacun.
+        const seqs = [session.envoyer(entree), session.envoyer(entree)];
+        // L'horloge du décor est celle du SERVEUR (`tempsMonde`), comme dans le vrai
+        // client : à zéro, une plate-forme qui bouge n'est pas là où le serveur la voit.
+        avancerTick(
+          j.monde,
+          [{ perso: j.perso, entrees: [{ ...entree }, { ...entree }] }],
+          session.tempsMonde, 1 / 30, true,
+          { apresSousPas: (s) => session.noterPas(seqs[s]) },
+        );
       }
 
       session.avancer(1 / 60);
@@ -298,28 +309,38 @@ titre('2. Une partie complète, du salon au classement');
 titre('3. Le client survit à une coupure');
 // ===========================================================================
 {
-  const s = await demarrerServeur({ port: 0, politique: 'DUEL_TEST', graine: 31337 });
+  // À TROIS, pas à deux : depuis que quitter vaut élimination, un duel dont l'autre part
+  // est GAGNÉ sur-le-champ — la partie se clôt, plus aucun instantané ne part, et ce
+  // verdict mesurait zéro en accusant le lien. À trois, la manche continue pour les deux
+  // qui restent, et c'est bien leur lien qu'on éprouve.
+  const petite = { nom: 'TEST_3', cible: 3, minimum: 3, attente: 1, proposerApres: 1,
+    bots: 'jamais', dureeManche: 30 };
+  const s = await demarrerServeur({ port: 0, politique: petite, graine: 31337 });
   const url = `ws://127.0.0.1:${s.port}`;
 
   const a = creerJoueur(url, 'resistant', () => ({ x: 0, z: -1, jump: false, dive: false }));
   const b = creerJoueur(url, 'partant', () => ({ x: 0, z: -1, jump: false, dive: false }));
-  a.session.connecter(); b.session.connecter();
-  await jusqua(() => a.session.etat === 'ouvert' && b.session.etat === 'ouvert', 5000, 'connexion');
-  a.session.rejoindre(0); b.session.rejoindre(0);
-  await jusqua(() => a.monde && b.monde, 20000, 'manche');
-  a.jouer(); b.jouer();
+  const c = creerJoueur(url, 'temoin', () => ({ x: 0.3, z: -1, jump: false, dive: false }));
+  for (const j of [a, b, c]) j.session.connecter();
+  await jusqua(() => [a, b, c].every((j) => j.session.etat === 'ouvert'), 5000, 'connexion');
+  for (const j of [a, b, c]) j.session.rejoindre(0);
+  await jusqua(() => a.monde && b.monde && c.monde, 20000, 'manche');
+  for (const j of [a, b, c]) j.jouer();
 
   await patienter(a.session.manche.decompte * 1000 + 800);
-  const avant = a.ecarts.length;
+  const avant = a.instantanes;
 
   b.arreter();                                   // l'autre ferme son onglet
   await patienter(2500);
 
-  dit(a.ecarts.length > avant + 30,
-    `le joueur restant continue de recevoir (${a.ecarts.length - avant} corrections depuis la coupure)`);
+  // On compte les INSTANTANÉS, pas les corrections : le départ de b clôt la manche (deux
+  // restants pour deux places), la suivante s'ouvre sur un décompte, et pendant un
+  // décompte le client ne corrige rien. Le lien, lui, doit continuer de parler.
+  dit(a.instantanes > avant + 30,
+    `le joueur restant continue de recevoir (${a.instantanes - avant} instantanés depuis la coupure)`);
   dit(a.session.etat === 'ouvert', 'sa propre session est intacte');
 
-  a.arreter();
+  a.arreter(); c.arreter();
   await s.arreter();
 }
 

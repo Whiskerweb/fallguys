@@ -222,6 +222,25 @@ export function creerLien({ url, nom, jeton = null }) {
       return historique.find((h) => h.seq === seq)?.pos ?? null;
     },
 
+    /**
+     * Une correction vient d'être appliquée au personnage : on la répercute sur tout ce
+     * qu'on avait noté APRÈS l'entrée accusée.
+     *
+     * Ces positions ont été calculées à partir d'un état qu'on vient de corriger ; la
+     * trajectoire corrigée, c'est l'ancienne déplacée du même écart. Sans ce décalage,
+     * chaque instantané suivant retrouvait une référence d'avant la correction, mesurait
+     * le MÊME écart, et l'appliquait une fois de plus — autant de fois qu'il y a
+     * d'entrées en vol. À 45 ms d'aller-retour c'était une fois de trop ; à 500 ms, dix,
+     * et le personnage partait en spirale à plusieurs centaines de mètres. Mesuré au banc
+     * `tools/test-harness/gigue.mjs`, avant ce décalage.
+     */
+    decaler(apresSeq, { dx = 0, dy = 0, dz = 0 }) {
+      for (const h of historique) {
+        if (h.seq <= apresSeq || !h.pos) continue;
+        h.pos = { x: h.pos.x + dx, y: h.pos.y + dy, z: h.pos.z + dz };
+      }
+    },
+
     fermer() {
       ferme = true;
       try { ws?.close(); } catch { /* déjà fermée */ }

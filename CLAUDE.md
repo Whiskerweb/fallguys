@@ -487,7 +487,8 @@ spectateur.
 dotnet test                                   # 120 — modes, dix issues, roue par rang (PATH=$HOME/.dotnet)
 cd backend            && npm test             # 154 — grand livre, RLS, retraits, tirage, et la CHAÎNE (factice) : mises, annulation, reprise, brûlage
 cd backend            && npm run cycle:local  # le cycle COMPLET sur un validateur local : dépôt, mise, gain, brûlage, retrait (SOL + Token-2022 réels)
-cd tools/test-harness && npm test             # 244 — serveur, files, graine de roue, réseau, entrées, mises
+cd tools/test-harness && npm test             # 302 — serveur, files, graine de roue, réseau, entrées, tampon, GIGUE, mises
+cd tools/test-harness && node gigue.mjs       #   8 — le netcode à 240 ms d'aller-retour et une coupure de 300 ms toutes les 2 s
 cd tools/feel-lab     && node diag/economie.mjs #  87 — les dix lignes, les roues, l'espérance, sans navigateur
 cd tools/feel-lab     && node diag/duel.mjs   #  53 — DEUX navigateurs, un duel payant
 cd tools/feel-lab     && node diag/boutique.mjs #  45 — la boutique, le post, la possession, sans navigateur
@@ -503,6 +504,15 @@ cd tools/test-harness && node franchissable.mjs # un RAPPORT, pas un test : les 
 Rien ne demande Docker ni base de données. Seuls les deux harnais `web3-*` visent des
 serveurs lancés d'avance (`cd backend && npm start`, `cd serveur && npm start`) et des
 comptes Supabase confirmés avec de l'USDC devnet.
+
+**Les bancs navigateur (`diag/duel.mjs`, `franchir-rondin.mjs`, `hex-finale.mjs`…) jouent
+le jeu COMPILÉ** : le serveur de jeu sert `tools/feel-lab/dist`. Une modification du
+client n'y est pas tant qu'on n'a pas refait `npm run build` — j'ai relancé deux fois un
+duel qui échouait sur une version que je venais de corriger. Et sous Playwright en rendu
+logiciel, un client tourne à ~9 pas de physique par seconde : c'est un client LENT, qui
+affame le serveur en permanence. Ce que ces bancs mesurent sur le netcode est donc un cas
+extrême, pas le jeu à 60 images par seconde ; `tools/test-harness/gigue.mjs` mesure le
+réseau proprement.
 
 **Les harnais pilotent réellement le personnage**, ils ne jugent pas des images. Et ils ne
 mesurent **jamais en images** : à ~10 images/s en rendu logiciel, compter des frames mesure
@@ -588,12 +598,67 @@ En ligne, **le client ne décide de rien** : ni la carte ni la graine (le serveu
 impose), ni la chute, ni la qualification, **ni le barème** — le mode et la variante de
 roue viennent du salon. Il **prédit** son déplacement, et c'est tout.
 
-`main.js` a **cinq points d'accroche netcode** (`imposee`, `enligne`, `attacher`,
-`envoyer`, `avancer`), **deux de lobby** (`jouer`, `surAbandon`, posés par
+`main.js` a **six points d'accroche netcode** (`imposee`, `enligne`, `attacher`,
+`envoyer`, `noterPas`, `avancer`), **deux de lobby** (`jouer`, `surAbandon`, posés par
 `matchmaking.js`) et **deux d'argent** (`engagerEnLigne`, `reglerPartie`) — la mise part
 au lancement de la manche 1, le gain est versé au classement rendu par le serveur. Tout le
 netcode vit dans `tools/feel-lab/src/enligne/`. Ce fichier est édité par plusieurs mains :
 ne pas y installer de logique réseau.
+
+**UNE ENTRÉE PAR PAS DE PHYSIQUE, et le serveur les joue TOUTES, dans l'ordre, une par
+sous-pas (4 septembre 2026).** Le serveur rejouait la dernière entrée reçue à chaque tick
+sans attendre les suivantes, en accusant toujours le même numéro : sa position « à
+l'entrée N » portait l'aller-retour COMPLET — 34 cm à 45 ms en local, ce qu'on tolérait
+sans le comprendre ; 2 m et plus depuis les Canaries, soit le seuil de recalage sec,
+vingt fois par seconde. Le directeur produit a filmé « 153 resyncs », le personnage
+téléporté d'un bout à l'autre de la carte et la caméra qui suit. Le client numérote
+désormais une entrée par `world.step()` — pas par image rendue, un écran à 120 Hz en
+envoyait deux par pas — et note sa position après chacun (`noterPas`) ; le serveur les
+range dans un **tampon par joueur** (`serveur/src/tampon.js`) et chaque sous-pas en tire
+une. Après l'entrée N, les deux côtés ont joué les mêmes pas : l'écart ne porte plus la
+latence. `tools/test-harness/gigue.mjs` le prouve à 240 ms d'aller-retour avec une
+coupure de 300 ms toutes les deux secondes : médiane 2 à 4 cm, zéro recalage — la
+MÊME barre que sans latence.
+
+**Le tampon extrapole en famine, et SAUTE ensuite ce qu'il a extrapolé.** Quand la file
+est vide (paquet en route, coupure TCP), il rejoue les derniers axes — jamais un bouton —
+et garde l'accusé en place : le client, lui, ne compare rien tant que l'accusé n'a pas
+bougé. Chaque pas extrapolé est une DETTE ; à la reprise, le tampon saute autant
+d'images en attente (boutons reportés sur la première gardée), sinon le serveur aurait
+joué la coupure deux fois et le joueur serait propulsé de 2 m. La réserve d'avance (la
+« cible », 2 à 12 images, adaptative) ne se reconstitue que quand le joueur est
+IMMOBILE — au décompte, à l'arrêt — parce que c'est là que ça ne coûte rien ; un joueur
+qui court ne paie jamais d'attente. Trente-trois millisecondes de latence ajoutée sur un
+réseau propre, jamais de téléportation sur un mauvais.
+
+**Une correction s'applique au CORPS d'un coup, au VISUEL en douceur, et à l'HISTORIQUE
+tout de suite.** Déplacer le corps petit à petit produisait deux choses : des expulsions
+du solveur (un corps déplacé en contact profond), et des positions notées « ni avant ni
+après » qui faisaient mesurer à chaque accusé un écart né de la correction précédente —
+entre un et trois mètres, sans jamais converger. Désormais `reconciliation.js` pose le
+corps sur l'écart, `decalageVisuel` (sur le personnage) porte la différence avec ce qu'on
+affiche et fond en 150 à 500 ms, la caméra suit `positionVisuelle`, et `lien.decaler`
+répercute l'écart sur toutes les positions notées après l'accusé. Sans ce dernier point,
+la même correction se réappliquait à chaque instantané tant que des entrées étaient en
+vol : à 500 ms, dix fois, et le personnage partait en spirale à plusieurs centaines de
+mètres. Mesuré au banc avant chaque correctif, pas deviné.
+
+**Pas de correction pendant le décompte, et la réapparition se PRÉDIT.** Le serveur
+simule dès qu'il annonce la manche, le client un aller simple plus tard : pendant ce
+temps le personnage tombe de sa place (2,4 m) au sol (0,8 m), et comparer nos premiers
+pas aux siens appliquait 1,6 m vers le bas à un corps déjà posé — sous le sol, chute
+sans fin. Tant que `tick` vaut zéro, personne ne bouge une fois posé : rien à corriger.
+Et en course, tomber sous `killY` repose sur le dernier point de passage des DEUX côtés
+(même `checkpointFor`, même `respawn`) ; ne pas le prédire laissait le client tomber tout
+l'aller-retour puis le reposait sous la plate-forme, d'où il retombait — c'était le
+« bug de caméra quand je tombe dans le vide ». En survie, tomber est une élimination :
+elle reste au serveur.
+
+**Un message arrivé pendant la vérification de `bonjour` est mis en attente, pas
+jeté.** La vérification du jeton est un aller-retour HTTP ; sur un réseau qui relâche
+par rafales, `rejoindre` peut arriver dans la même milliseconde que `bonjour`, et il se
+perdait : PLAY ne faisait rien. `serveur.js` les garde (32 au plus) et les rejoue dans
+l'ordre une fois le joueur connu.
 
 **`Game.mode` est l'état de la boucle** (`lobby` / `racing` / `finished` / `podium`), publié par
 `__probeGame()` et attendu par les deux harnais navigateur. Le format de partie s'appelle

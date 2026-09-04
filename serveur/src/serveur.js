@@ -178,8 +178,29 @@ export async function demarrerServeur({
     let nom = null;
     /** L'identifiant Supabase vérifié, ou `null` pour un invité. */
     let compte = null;
+    /**
+     * Les messages arrivés PENDANT la vérification de `bonjour`, rejoués après elle.
+     *
+     * La vérification est un aller-retour HTTP vers Supabase ; ce qui arrivait entre-temps
+     * était jeté, `nom` étant encore nul. Sur un réseau propre ça ne se voyait pas — le
+     * joueur clique PLAY des secondes après l'ouverture. Sur un réseau qui coupe et
+     * relâche par rafales, `bonjour` et `rejoindre` peuvent arriver dans la même
+     * milliseconde, et le second se perdait : le joueur restait devant un bouton qui ne
+     * faisait rien. Vu au banc `tools/test-harness/gigue.mjs`, pas deviné.
+     */
+    let enAttente = null;
+    const PLAFOND_ATTENTE = 32;
 
-    ws.on('message', (donnees, estBinaire) => {
+    const traiter = (donnees, estBinaire) => {
+      if (!nom && enAttente) {
+        if (enAttente.length < PLAFOND_ATTENTE) enAttente.push([donnees, estBinaire]);
+        return;
+      }
+      recevoir(donnees, estBinaire);
+    };
+    ws.on('message', traiter);
+
+    function recevoir(donnees, estBinaire) {
       /*
        * LE CHEMIN CHAUD D'ABORD.
        *
@@ -218,8 +239,9 @@ export async function demarrerServeur({
            * que le client sache d'emblée s'il est reconnu. Les messages qui arriveraient
            * entre-temps sont ignorés (`nom` est encore nul).
            */
-          if (nom) return;
+          if (nom || enAttente) return;
           const voulu = String(msg.nom ?? '').slice(0, 32) || `joueur-${liens.size + 1}`;
+          enAttente = [];
           verifierJeton(msg.jeton).then((identite) => {
             if (ws.readyState !== ws.OPEN) return;
             if (liens.has(voulu)) { ws.close(4001, 'nom deja pris'); return; }
@@ -240,7 +262,11 @@ export async function demarrerServeur({
             // La présence tout de suite, sans attendre le battement : le lobby s'ouvre sur
             // l'état des files, pas sur une seconde de cases vides.
             envoyer(nom, mm.presence());
-          }).catch(() => { try { ws.close(4002, 'identite invalide'); } catch {} });
+            // Et ce qui attendait pendant la vérification passe maintenant, dans l'ordre.
+            const differes = enAttente;
+            enAttente = null;
+            for (const [d, b] of differes) recevoir(d, b);
+          }).catch(() => { enAttente = null; try { ws.close(4002, 'identite invalide'); } catch {} });
           break;
         }
 
@@ -299,7 +325,7 @@ export async function demarrerServeur({
         default:
           break;
       }
-    });
+    }
 
     ws.on('close', () => {
       if (!nom) return;

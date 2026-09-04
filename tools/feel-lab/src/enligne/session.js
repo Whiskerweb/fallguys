@@ -3,13 +3,24 @@
  *
  * Elle assemble les trois pièces : le lien (`lien.js`), la correction de position
  * (`reconciliation.js`) et les autres joueurs (`figurants.js`). Le reste du jeu n'a que
- * quatre choses à faire, et c'est délibéré — `main.js` est édité par plusieurs mains, il
+ * cinq choses à faire, et c'est délibéré — `main.js` est édité par plusieurs mains, il
  * ne doit pas devenir le lieu où vit le netcode :
  *
  *   1. `sur('manche', …)`  construire l'arène annoncée par le serveur ;
  *   2. `attacher(...)`     donner le personnage local et la scène ;
- *   3. `envoyer(entree)`   à chaque image, au lieu de simuler dans le vide ;
- *   4. `avancer(dt)`       à chaque image, après la physique.
+ *   3. `envoyer(entree)`   avant CHAQUE PAS DE PHYSIQUE, au lieu de simuler dans le vide ;
+ *   4. `noterPas()`        après ce pas — où l'entrée nous a menés ;
+ *   5. `avancer(dt)`       à chaque image, après la physique.
+ *
+ * ─── UNE ENTRÉE PAR PAS, PAS PAR IMAGE ──────────────────────────────────────
+ *
+ * Le numéro d'une entrée compte les PAS de 1/60 s, pas les images rendues. Un écran à
+ * 120 Hz envoyait deux entrées par pas, une page à 30 images par seconde une entrée pour
+ * deux pas, et le serveur — qui rejouait la dernière reçue à chaque tick — n'avait aucun
+ * moyen de jouer les mêmes pas que le client. Depuis le tampon d'entrées du serveur
+ * (`serveur/src/tampon.js`), chaque numéro est joué UNE fois, par UN sous-pas, dans
+ * l'ordre : la position accusée pour l'entrée N est comparable à celle qu'on a notée
+ * après le pas N, et l'écart ne porte plus la latence.
  *
  * ─── LA GRAINE VIENT DU SERVEUR ─────────────────────────────────────────────
  *
@@ -41,6 +52,7 @@ export function creerSession({ url, nom, jeton = null }) {
   let instantaneRecuA = 0;
   let latence = 0;                // aller-retour estimé, en ms
   let dernierSeq = 0;             // le numéro de la dernière entrée envoyée
+  let dernierAccuse = -1;         // le dernier numéro que le serveur a accusé ET qu'on a comparé
 
   const ecouteurs = new Map();
   const emettre = (type, d) => { for (const fn of ecouteurs.get(type) ?? []) fn(d); };
@@ -72,6 +84,7 @@ export function creerSession({ url, nom, jeton = null }) {
         perso = null;
         sorti = false;        // manche neuve, on repart en course
         elimine = false;
+        dernierAccuse = -1;
         recon.reinitialiser();
       }
       /*
@@ -106,11 +119,35 @@ export function creerSession({ url, nom, jeton = null }) {
      * dans le décor. Le cas se produit vraiment : un instantané de la manche précédente
      * peut arriver après l'annonce de la suivante.
      */
-    if (perso && monIndex >= 0) {
+    /*
+     * ET SEULEMENT SI LE SERVEUR A JOUÉ QUELQUE CHOSE DE NEUF.
+     *
+     * Quand son tampon est vide — nos entrées sont en route, ou coincées derrière une
+     * perte — le serveur EXTRAPOLE et accuse toujours le même numéro. Sa position n'est
+     * alors plus celle de l'entrée N : il a continué sans nous, et la comparer à ce qu'on
+     * avait noté à N mesurerait le retard du réseau, pas un désaccord. C'était exactement
+     * l'ancien défaut, et il téléportait le joueur. On attend le prochain numéro neuf.
+     */
+    /*
+     * ET PAS PENDANT LE DÉCOMPTE.
+     *
+     * Le serveur simule dès qu'il annonce la manche ; nous, dès que l'arène est construite,
+     * un aller simple plus tard. Pendant ce temps le personnage TOMBE de sa place de
+     * départ (2,4 m) sur le sol (0,8 m) — et à notre premier pas, le serveur a déjà
+     * atterri. Comparer nos premiers pas aux siens mesurait cette chute : 1,6 m vers le
+     * bas, appliqués d'un coup à un corps déjà posé, qui passait alors SOUS le sol et
+     * tombait sans fin. Vu au banc `gigue.mjs`, une fois sur deux. Pendant le décompte
+     * (`tick` nul), tout le monde est immobile une fois posé : il n'y a rien à corriger.
+     */
+    if (perso && monIndex >= 0 && instantane.tick > 0 && instantane.accuse !== dernierAccuse) {
       const moi = instantane.joueurs.find((j) => j.index === monIndex);
       if (moi) {
+        dernierAccuse = instantane.accuse;
         const effet = recon.corriger(perso, moi, instantane.posAccusee);
-        emettre('correction', { effet, moi, reference: instantane.posAccusee });
+        // Ce qu'on vient de corriger vaut aussi pour tout ce qu'on a noté depuis : voir
+        // `lien.decaler` — sans lui, la même correction se réappliquait à chaque accusé.
+        if (effet !== 'ignore') lien.decaler(instantane.accuse, recon.derniereCorrection);
+        emettre('correction', { effet, moi, reference: instantane.posAccusee, accuse: instantane.accuse });
       }
     }
   });
@@ -148,6 +185,8 @@ export function creerSession({ url, nom, jeton = null }) {
       if (!dernierInstantane) return 0;
       return dernierInstantane.tick / HZ + Math.max(0, performance.now() / 1000 - instantaneRecuA);
     },
+    /** Vrai tant que le serveur n'a pas joué son premier tick de jeu : le décompte, vu de lui. */
+    get enDecompte() { return !dernierInstantane || dernierInstantane.tick === 0; },
     /** Éliminé pendant la manche en cours : le serveur ne pilote plus ce personnage. */
     get estElimine() { return elimine; },
     /** Sorti de la manche, éliminé ou qualifié : le serveur a figé ce personnage. */
@@ -215,6 +254,7 @@ export function creerSession({ url, nom, jeton = null }) {
        */
       lien.oublier();
       latence = 0;
+      dernierAccuse = -1;
     },
 
     /**
@@ -250,14 +290,32 @@ export function creerSession({ url, nom, jeton = null }) {
     },
 
     /**
-     * Envoie l'entrée de cette image.
+     * Envoie l'entrée d'UN PAS DE PHYSIQUE.
      *
-     * À appeler AVANT de simuler localement : le numéro rendu identifie l'entrée que le
-     * serveur accusera, et c'est ce numéro qui permettra de savoir ce qu'il a déjà vu.
+     * À appeler AVANT chaque `world.step()`, jamais une fois par image : le numéro rendu
+     * identifie le pas que le serveur jouera et accusera. Une image qui fait deux pas
+     * envoie deux entrées ; une image qui n'en fait aucun n'envoie rien.
      */
     envoyer(entree) {
       dernierSeq = lien.envoyerEntree(entree);
       return dernierSeq;
+    },
+
+    /**
+     * Le pas est joué : on note où il nous a menés.
+     *
+     * C'est le point de comparaison que le serveur nous renverra dans son accusé. Le
+     * noter AVANT toute correction est essentiel : sinon on enregistrerait une position
+     * déjà corrigée, et la correction suivante se comparerait à elle-même — l'écart
+     * mesuré tomberait à zéro alors que rien n'aurait convergé.
+     *
+     * @param {number} [seq] le pas qu'on note — le dernier envoyé, sauf à en avoir envoyé
+     *   plusieurs avant de simuler, comme le client sans navigateur des tests.
+     */
+    noterPas(seq = dernierSeq) {
+      if (!perso) return;
+      const p = perso.body.translation();
+      lien.noterPosition(seq, { x: p.x, y: p.y, z: p.z });
     },
 
     /**
@@ -267,19 +325,7 @@ export function creerSession({ url, nom, jeton = null }) {
      * à l'instant qu'ils doivent occuper à l'écran.
      */
     avancer(dt) {
-      if (perso) {
-        /*
-         * On NOTE d'abord où l'entrée qu'on vient d'envoyer nous a menés.
-         *
-         * C'est le point de comparaison que le serveur nous renverra dans son accusé. Le
-         * noter avant d'appliquer la correction est essentiel : sinon on enregistrerait
-         * une position déjà corrigée, et la correction suivante se comparerait à
-         * elle-même — l'écart mesuré tomberait à zéro alors que rien n'aurait convergé.
-         */
-        const p = perso.body.translation();
-        lien.noterPosition(dernierSeq, { x: p.x, y: p.y, z: p.z });
-        recon.appliquer(perso, dt);
-      }
+      if (perso) recon.appliquer(perso, dt);
       figurants?.update(dt);
     },
 
@@ -287,10 +333,12 @@ export function creerSession({ url, nom, jeton = null }) {
      * Mesure de latence.
      *
      * Le serveur accuse la dernière entrée qu'il a appliquée ; le nombre d'entrées encore
-     * en attente dit donc combien d'images se sont écoulées depuis. À 60 Hz, cinq entrées
-     * en attente valent environ 83 ms d'aller-retour. C'est une estimation, pas un ping —
+     * en attente dit donc combien de PAS se sont écoulés depuis. À 60 pas par seconde,
+     * cinq entrées en attente valent environ 83 ms. C'est une estimation, pas un ping —
      * mais elle mesure exactement ce qui compte : le retard entre une touche pressée et sa
-     * prise en compte, ce qu'un ping ne dit pas.
+     * prise en compte, tampon du serveur compris, ce qu'un ping ne dit pas. Et comme une
+     * entrée est un pas, la mesure ne dépend plus de la cadence d'affichage — avant, un
+     * écran à 120 Hz la doublait.
      */
     mesurerLatence(hz = 60) {
       // Moins un : l'historique garde l'entrée ACCUSÉE comme point de comparaison, et

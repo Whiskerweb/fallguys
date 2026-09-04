@@ -1469,13 +1469,15 @@ class Game {
     }
 
     /*
-     * EN LIGNE : on envoie l'entree AVANT de simuler.
+     * EN LIGNE : on envoie l'entree AVANT CHAQUE PAS de physique, et on note la position
+     * APRES — dans la boucle ci-dessous, pas ici.
      *
-     * Le numero attribue identifie ce que le serveur accusera, et c'est lui qui permettra
-     * de comparer sa reponse a l'endroit ou l'on se croyait AU MEME INSTANT. Envoyer
-     * apres coup rendrait cette comparaison impossible.
+     * Le numero attribue identifie le pas que le serveur jouera et accusera, et c'est lui
+     * qui permettra de comparer sa reponse a l'endroit ou l'on se croyait AU MEME PAS.
+     * Une entree par IMAGE — ce que faisait ce code — ne correspondait a rien : un ecran a
+     * 120 Hz en envoyait deux par pas, une page a 30 images par seconde une pour deux pas,
+     * et le serveur ne pouvait pas jouer les memes pas que nous.
      */
-    this.enligne?.envoyer(input);
 
     const world = this.arena.world;
     this.accumulator += dt;
@@ -1503,11 +1505,13 @@ class Game {
      */
     const pilotable = !this._fin && !this.enligne?.estSorti;
     while (this.accumulator >= world.timestep && steps < 3) {
+      this.enligne?.envoyer(input);
       this.character.update(world.timestep, pilotable ? input : INERTE, camYaw);
       world.step();
       // Garde-fou APRES le pas : c'est le solveur qui produit les expulsions, donc c'est
       // apres lui qu'il faut les borner. Pose avant, la limite serait ecrasee par le pas.
       this.character.limiterVitesse();
+      this.enligne?.noterPas();
       this.accumulator -= world.timestep;
       steps++;
       if (input.jump) { input.jump = false; jumpEdge = false; }
@@ -1618,10 +1622,24 @@ class Game {
      * apres avoir gagne — et le « of 16 » venait de la table par defaut de cette voie
      * hors ligne, pas de l'effectif reel de sa partie.
      */
-    if (!this.enligne && !this._fin && pos.y < this.arena.killY) {
+    /*
+     * SAUF LA REAPPARITION D'UNE COURSE, QUI EST DU DEPLACEMENT, PAS UNE CONCLUSION.
+     *
+     * Le serveur repose un joueur tombe sur son dernier point de passage (`manche.js`),
+     * avec le meme `checkpointFor` et le meme `respawn` que nous. Ne pas le predire
+     * laissait le personnage tomber pendant tout l'aller-retour, puis la correction le
+     * reposait la ou il etait tombe PLUS la chute faite entre-temps — sous la plate-forme,
+     * d'ou il retombait ; et ainsi de suite, un instantane apres l'autre, le personnage
+     * ballotte sous la carte et la camera avec lui. Vu sur la video du 4 septembre 2026.
+     *
+     * On predit donc la reapparition comme on predit un pas : sans compter une chute pour
+     * le classement (le serveur la compte), sans conclure quoi que ce soit. En SURVIE,
+     * tomber est une elimination — une conclusion — et elle reste au serveur.
+     */
+    if (!this._fin && pos.y < this.arena.killY) {
       if (this.arena.survie) {
-        if (this.mode === 'racing' && this.countdown <= 0) this.perdreManche();
-      } else {
+        if (!this.enligne && this.mode === 'racing' && this.countdown <= 0) this.perdreManche();
+      } else if (!this.enligne?.estSorti) {
         if (this.mode === 'racing') this.falls++;
         this.character.respawn(this.arena.checkpointFor(pos.z));
         this.ySlow = undefined;
@@ -1726,6 +1744,12 @@ class Game {
   updateCamera(dt, pos) {
     // Gel utilise par les scripts de diagnostic pour cadrer librement le parcours.
     if (this.freezeCamera) return;
+    // La camera suit ce qui s'AFFICHE, pas le corps : en ligne, une correction reseau
+    // deplace le corps d'un coup et laisse le visuel rattraper (`character.js`,
+    // `positionVisuelle`). Suivre le corps ferait sauter la camera a chaque correction —
+    // c'etait le « bug de camera » vu depuis les Canaries, le 4 septembre 2026.
+    const dv = this.character?.decalageVisuel;
+    if (dv && (dv.x || dv.y || dv.z)) pos = pos.clone().add(new THREE.Vector3(dv.x, dv.y, dv.z));
     // Chaque epreuve a besoin d'un champ different : sur un parcours etroit on veut etre
     // pres du personnage, devant un mur de portes il faut le voir EN ENTIER assez tot pour
     // le lire. L'arene propose donc un ecart, ADDITIF : les reglages du joueur restent

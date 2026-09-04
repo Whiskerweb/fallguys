@@ -139,6 +139,8 @@ export class Character {
     scene.add(this.container);
     this.root = new THREE.Group();
     this.visual = new THREE.Group();
+    /** Ecart entre ce qu'on affiche et le corps physique — voir `positionVisuelle`. */
+    this.decalageVisuel = { x: 0, y: 0, z: 0 };
     this.root.add(this.visual);
     this.container.add(this.root);
 
@@ -252,7 +254,24 @@ export class Character {
     return this._tmp.set(t.x, t.y, t.z);
   }
 
+  /**
+   * La position AFFICHEE : le corps, plus le decalage visuel.
+   *
+   * En ligne, la reconciliation corrige le corps d'un coup — il doit se cogner aux memes
+   * murs que son homologue sur le serveur, tout de suite — et laisse le VISUEL rattraper
+   * en douceur : `decalageVisuel` est la difference entre les deux, et il fond vers zero
+   * en quelques images (`reconciliation.js`). La camera suit ce point-la, pas le corps :
+   * une correction se voit comme une trajectoire legerement infléchie, jamais comme un
+   * saut. Hors ligne le decalage vaut zero et les deux positions sont confondues.
+   */
+  get positionVisuelle() {
+    const t = this.body.translation();
+    const d = this.decalageVisuel;
+    return this._tmp.set(t.x + d.x, t.y + d.y, t.z + d.z);
+  }
+
   respawn(at) {
+    this.decalageVisuel.x = 0; this.decalageVisuel.y = 0; this.decalageVisuel.z = 0;
     this.body.setTranslation({ x: at.x, y: at.y, z: at.z }, true);
     this.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
     this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
@@ -605,7 +624,8 @@ export class Character {
   updateVisual(dt, speedH) {
     const T = TUNING;
     const t = this.body.translation();
-    this.root.position.set(t.x, t.y, t.z);
+    const d = this.decalageVisuel;
+    this.root.position.set(t.x + d.x, t.y + d.y, t.z + d.z);
 
     // Ressort de squash & stretch, à volume conservé
     const accel = (1 - this.squash) * T.squashSpring - this.squashVel * T.squashDamping;

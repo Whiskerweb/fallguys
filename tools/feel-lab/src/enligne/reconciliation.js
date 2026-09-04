@@ -25,11 +25,37 @@
  *
  *   < 5 cm     on ignore. La quantification du réseau vaut déjà un centimètre, et lutter
  *              contre ce bruit ferait vibrer le personnage en permanence.
- *   5 cm – 2 m on ABSORBE l'écart en 150 ms. Le joueur ne voit pas une correction, il voit
- *              son personnage suivre une trajectoire très légèrement différente.
- *   > 2 m      on RECALE d'un coup. À cette distance il ne s'agit plus d'un désaccord mais
- *              d'un événement : une chute, une réapparition, une bousculade encaissée. Les
- *              lisser sur 150 ms donnerait un personnage qui glisse à travers le décor.
+ *   5 cm – 3 m on ABSORBE l'écart : le CORPS est corrigé tout de suite, et le VISUEL
+ *              rattrape en 150 ms quand l'écart est petit, à 6 m/s au plus quand il est
+ *              grand (donc jusqu'à 500 ms). Le joueur ne voit pas une correction, il voit
+ *              son personnage suivre une trajectoire légèrement différente — ou, après
+ *              une coupure réseau, prendre un coup d'accélérateur.
+ *   > 3 m      on RECALE d'un coup, visuel compris. À cette distance il ne s'agit plus
+ *              d'un désaccord mais d'un événement : une chute, une réapparition, une
+ *              bousculade encaissée. Les lisser donnerait un personnage qui glisse à
+ *              travers le décor.
+ *
+ * ─── LE CORPS D'UN COUP, LE VISUEL EN DOUCEUR ────────────────────────────────
+ *
+ * La première version déplaçait le CORPS petit à petit. Deux défauts, et le second a
+ * coûté une journée. D'abord un corps déplacé chaque image en contact profond fait
+ * produire au solveur des impulsions sans limite — la spirale à z = −191 467. Ensuite,
+ * et surtout : pendant qu'il rattrape, les positions qu'on note pour les entrées
+ * suivantes ne sont ni celles d'avant ni celles d'après, et chaque accusé mesure alors
+ * un écart qui n'existe que par la correction précédente. Sous 500 ms d'entrées en vol,
+ * ça oscillait entre un et trois mètres sans jamais converger.
+ *
+ * Désormais le corps prend tout l'écart à l'instant de la correction — il se cogne aux
+ * mêmes murs que son homologue, tout de suite, et ce qu'on note ensuite est juste — et
+ * c'est `decalageVisuel`, sur le personnage, qui porte la différence entre le corps et
+ * ce qu'on affiche, en fondant vers zéro. La caméra suit l'affichage, pas le corps.
+ *
+ * Le seuil de recalage valait 2 m et l'absorption 150 ms fixes. Le seuil s'est révélé à
+ * portée d'une simple coupure : quand le tampon du serveur (`serveur/src/tampon.js`) a
+ * dû extrapoler 300 ms d'entrées, l'écart vaut 2,1 m à pleine vitesse — un désaccord de
+ * trajectoire, pas un événement, et le recaler à sec téléportait le joueur. À 3 m on ne
+ * recale plus que les vrais événements ; absorber 2 m en 150 ms serait de toute façon
+ * une téléportation avec un autre nom, d'où la vitesse plafonnée.
  *
  * Le prix à payer, et il faut le connaître : une bousculade par un autre joueur est
  * ARBITRÉE par le serveur et arrive donc avec un aller-retour de retard. On la sent comme
@@ -40,10 +66,20 @@
 const SEUIL_BRUIT = 0.05;
 
 /** Au-dessus, ce n'est plus un désaccord mais un événement. */
-const SEUIL_RECALAGE = 2.0;
+export const SEUIL_RECALAGE = 3.0;
 
-/** Sur combien de temps on absorbe un écart ordinaire. */
+/** Sur combien de temps on absorbe un écart ordinaire, au minimum. */
 const ABSORPTION = 0.150;
+
+/** Un écart plus grand s'absorbe à cette vitesse au plus — un coup d'accélérateur, pas un saut. */
+const VITESSE_ABSORPTION = 6;
+
+/** Et jamais plus longtemps que ça : au-delà, on traînerait une dette qu'on ne voit plus. */
+const ABSORPTION_MAX = 0.5;
+
+/** La durée d'absorption d'un écart donné, en secondes. */
+export const dureeAbsorption = (ecart) =>
+  Math.min(ABSORPTION_MAX, Math.max(ABSORPTION, ecart / VITESSE_ABSORPTION));
 
 /**
  * Au-delà, la position du client n'est plus une prédiction : c'est une explosion.
@@ -58,17 +94,29 @@ const ABSORPTION = 0.150;
  */
 const ABSURDE = 500;
 
+/** Un événement se voit : le visuel saute avec le corps. */
+function effacerDecalage(perso) {
+  const dv = perso.decalageVisuel;
+  if (dv) { dv.x = 0; dv.y = 0; dv.z = 0; }
+}
+
 export function creerReconciliation() {
   // L'écart restant à absorber, en mètres, dans le repère du monde.
   let ex = 0;
   let ey = 0;
   let ez = 0;
+  /** Le temps qu'il reste pour l'absorber : la vitesse en découle. */
+  let resteTemps = 0;
 
   let recalages = 0;
   let corrections = 0;
   let ecartMax = 0;
+  /** Le déplacement que la dernière correction a décidé — à répercuter sur l'historique. */
+  let derniere = { dx: 0, dy: 0, dz: 0 };
 
   return {
+    /** Ce que la dernière correction (absorbée ou sèche) déplace, en mètres. */
+    get derniereCorrection() { return derniere; },
     get statistiques() {
       return {
         recalages,
@@ -114,10 +162,14 @@ export function creerReconciliation() {
       const finie = Number.isFinite(ici.x) && Number.isFinite(ici.y) && Number.isFinite(ici.z);
       const loin = Math.hypot(ici.x - autorite.x, ici.y - autorite.y, ici.z - autorite.z);
       if (!finie || loin > ABSURDE) {
+        derniere = finie
+          ? { dx: autorite.x - ici.x, dy: autorite.y - ici.y, dz: autorite.z - ici.z }
+          : { dx: 0, dy: 0, dz: 0 };
         perso.body.setTranslation({ x: autorite.x, y: autorite.y, z: autorite.z }, true);
         perso.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
         perso.limiterVitesse?.();
-        ex = 0; ey = 0; ez = 0;
+        effacerDecalage(perso);
+        ex = 0; ey = 0; ez = 0; resteTemps = 0;
         recalages++;
         return 'recale';
       }
@@ -129,7 +181,8 @@ export function creerReconciliation() {
       const ecart = Math.hypot(dx, dy, dz);
       ecartMax = Math.max(ecartMax, ecart);
 
-      if (ecart < SEUIL_BRUIT) { ex = 0; ey = 0; ez = 0; return 'ignore'; }
+      derniere = { dx, dy, dz };
+      if (ecart < SEUIL_BRUIT) { ex = 0; ey = 0; ez = 0; derniere = { dx: 0, dy: 0, dz: 0 }; return 'ignore'; }
 
       if (ecart > SEUIL_RECALAGE) {
         /*
@@ -150,55 +203,62 @@ export function creerReconciliation() {
         perso.body.setTranslation({ x: ici.x + dx, y: ici.y + dy, z: ici.z + dz }, true);
         perso.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
         perso.limiterVitesse?.();
-        ex = 0; ey = 0; ez = 0;
+        effacerDecalage(perso);
+        ex = 0; ey = 0; ez = 0; resteTemps = 0;
         recalages++;
         return 'recale';
       }
 
-      ex = dx; ey = dy; ez = dz;
+      /*
+       * Le CORPS prend tout l'écart maintenant. La vitesse est conservée : ce n'est pas
+       * un événement, le personnage continue sa course, un peu plus loin ou un peu plus
+       * près. Et on borne la vitesse après avoir écrit la position, comme après chaque
+       * pas de physique : c'est le solveur qui produit les expulsions.
+       */
+      perso.body.setTranslation({ x: ici.x + dx, y: ici.y + dy, z: ici.z + dz }, true);
+      perso.limiterVitesse?.();
+
+      // Le VISUEL, lui, reste où il était : le décalage porte la différence, et fond.
+      const dv = perso.decalageVisuel;
+      if (dv) {
+        dv.x -= dx; dv.y -= dy; dv.z -= dz;
+        // Les corrections s'ajoutent au décalage plus vite qu'il ne fond quand la page
+        // rame (une image toutes les 110 ms sous Playwright) : au-delà du seuil de
+        // recalage, un visuel qui traîne à trois mètres de son corps n'est plus une
+        // douceur, c'est un fantôme. On le ramène sur le corps, d'un coup.
+        if (Math.hypot(dv.x, dv.y, dv.z) > SEUIL_RECALAGE) { dv.x = 0; dv.y = 0; dv.z = 0; }
+      }
+      ex = dv?.x ?? 0; ey = dv?.y ?? 0; ez = dv?.z ?? 0;
+      resteTemps = dureeAbsorption(Math.hypot(ex, ey, ez));
       corrections++;
       return 'absorbe';
     },
 
     /**
-     * Absorbe une fraction de l'écart. À appeler à chaque image, après la physique.
+     * Fait fondre le décalage visuel. À appeler à chaque image, après la physique.
      *
-     * On déplace le CORPS, pas seulement le visuel : le personnage local doit se cogner
-     * aux mêmes murs que son homologue sur le serveur, sinon la prédiction diverge de plus
-     * en plus au lieu de converger.
+     * Le corps ne bouge pas ici — il a déjà été corrigé. Seul ce qu'on affiche rattrape,
+     * d'une fraction par image, pour arriver au bout dans le temps qui reste.
      */
     appliquer(perso, dt) {
-      if (!ex && !ey && !ez) return;
+      const dv = perso.decalageVisuel;
+      if (!dv || (!dv.x && !dv.y && !dv.z)) { ex = 0; ey = 0; ez = 0; return; }
 
-      const part = Math.min(1, dt / ABSORPTION);
-      const p = perso.body.translation();
-      perso.body.setTranslation(
-        { x: p.x + ex * part, y: p.y + ey * part, z: p.z + ez * part },
-        true,
-      );
-
-      /*
-       * On BORNE la vitesse après avoir écrit la position.
-       *
-       * C'est le garde-fou que le jeu applique déjà après chaque pas de physique, et pour
-       * la même raison : déplacer un corps en contact profond fait produire au solveur une
-       * impulsion d'expulsion sans limite. Corriger à chaque image un personnage coincé
-       * contre une porte, c'est exactement cette situation — d'où l'emballement mesuré.
-       */
-      perso.limiterVitesse?.();
-
-      ex -= ex * part;
-      ey -= ey * part;
-      ez -= ez * part;
+      const part = resteTemps > dt ? dt / resteTemps : 1;
+      resteTemps = Math.max(0, resteTemps - dt);
+      dv.x -= dv.x * part;
+      dv.y -= dv.y * part;
+      dv.z -= dv.z * part;
 
       // En dessous du bruit, on solde : traîner un écart infinitésimal ferait tourner ce
       // calcul indéfiniment pour un déplacement que personne ne voit.
-      if (Math.hypot(ex, ey, ez) < 0.005) { ex = 0; ey = 0; ez = 0; }
+      if (Math.hypot(dv.x, dv.y, dv.z) < 0.005) { dv.x = 0; dv.y = 0; dv.z = 0; resteTemps = 0; }
+      ex = dv.x; ey = dv.y; ez = dv.z;
     },
 
     /** Nouvelle manche : on repart sans dette. */
     reinitialiser() {
-      ex = 0; ey = 0; ez = 0;
+      ex = 0; ey = 0; ez = 0; resteTemps = 0;
       recalages = 0; corrections = 0; ecartMax = 0;
     },
   };

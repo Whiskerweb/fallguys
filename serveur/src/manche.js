@@ -182,10 +182,13 @@ export function creerManche({ epreuve, graine, inscrits, qualifies, dureeMax = 2
      */
     avancerTick(
       monde,
-      enCourse.map((c) => ({
-        perso: c.perso,
-        entree: entreesReseau?.get(c.nom) ?? c.pilote.entree(tick, c.perso, monde),
-      })),
+      enCourse.map((c) => {
+        const reseau = entreesReseau?.get(c.nom);
+        // Un joueur réseau apporte ses images UNE PAR SOUS-PAS (`pas`, voir `tampon.js`) ;
+        // un bot rend une entrée par tick. `avancerTick` sait jouer les deux formes.
+        if (reseau?.pas) return { perso: c.perso, entrees: reseau.pas };
+        return { perso: c.perso, entree: reseau ?? c.pilote.entree(tick, c.perso, monde) };
+      }),
       t, DT, true,
     );
 
