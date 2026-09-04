@@ -8,7 +8,6 @@ import { loadExternalTextures } from './textures.js';
 import { MINIGAMES, minigame, graineDeManche, tirerParcours } from './scenes/index.js';
 import { construireSurvol, SURVOL_DUREE } from './survol.js';
 import { buildLobbyScreen, LOBBY, SHOWCASE_POS, SHOWCASE_LOOK, PODIUM_POS, PODIUM_LOOK } from './scenes/lobby.js';
-import { creerPlotsDeDepart } from './departvisuel.js';
 import { Character } from './character.js';
 import { cosmetics, MODELS } from './cosmetics.js';
 import { placer, graineCulbute } from './placement.js';
@@ -360,8 +359,6 @@ class Game {
   /** Detruit l'arene courante : monde physique, geometries, et retrait de la scene. */
   releaseArena() {
     if (!this.arena) return;
-    this.plots?.retirer();
-    this.plots = null;
     this.view.scene.remove(this.arena.group);
     this.arena.dispose?.();
     this.arena = null;
@@ -597,9 +594,6 @@ class Game {
     this.character = null;
     this.releaseArena();
     this.arena = jeu.build(RAPIER, assets, { seed: this.manche });
-    // Les seize plots de depart, un par siege. Ils se posent au sol au premier pas de
-    // physique (voir `update`) : un rayon ne touche rien avant.
-    this.plots = creerPlotsDeDepart(this.arena);
     // Une manche qui commence pendant que le plateau montre encore un vainqueur (REJOUER
     // sans repasser par le lobby) : on lui rend le joueur.
     this.lobby.quitterPodium?.();
@@ -1418,9 +1412,12 @@ class Game {
      * Les cartes acceptent une position OU une liste — Les Dalles, Les Portes et
      * L'Hexagone sont les trois qui en tiennent compte.
      */
+    // `sonde` et non `position` : la position, plus l'impact d'atterrissage — Les Dalles
+    // font ceder une fausse dalle sans sursis sous un joueur qui s'y recoit. Le serveur
+    // passe la meme chose (`tick.js`), sans quoi le client predirait une dalle qui tient.
     const focus = this.enligne
-      ? this.enligne.positions(this.character?.position ?? null)
-      : (this.character?.position ?? null);
+      ? this.enligne.positions(this.character?.sonde ?? null)
+      : (this.character?.sonde ?? null);
     /*
      * L'HORLOGE DU DECOR VIENT DU SERVEUR, pas de la page.
      *
@@ -1519,9 +1516,6 @@ class Game {
     }
 
     const pos = this.character.position.clone();
-    // Les plots de depart se posent des que le monde a fait un pas ; ensuite ne coute rien.
-    this.plots?.poser(RAPIER);
-
     // Tapis roulants : Rapier n'a pas de surface mobile native. On pousse le joueur
     // tant qu'il repose sur la zone — plus stable qu'un corps cinematique en translation
     // infinie, et le decalage de texture rend le mouvement lisible.

@@ -36,6 +36,15 @@ const MAX_CHUTE = 55;
 const MAX_ROT = 14;
 /** Frottement du collider en adherence normale. Sert aussi de base a la glisse. */
 const FRICTION = 0.25;
+/**
+ * Vitesse de chute (m/s) à partir de laquelle toucher le sol est un ATTERRISSAGE — celui
+ * qui coûte la réception (TUNING.jumpLanding) et que le décor peut lire (`sonde`). Un
+ * saut plein se reçoit à 13 m/s, une marche de 30 cm à 5 ; une lèvre de planche ou le
+ * défilement d'un rondin restent sous 3. Mesuré, pas choisi.
+ */
+const IMPACT_MIN = 4.0;
+/** Durée pendant laquelle `impact` reste lisible après l'atterrissage — deux ticks serveur. */
+const IMPACT_FENETRE = 0.15;
 
 export const State = { Grounded: 'grounded', Airborne: 'airborne', Diving: 'diving', Tumbling: 'tumbling', GettingUp: 'gettingUp' };
 
@@ -228,6 +237,13 @@ export class Character {
     this.bufferedJump = 0;
     /** Fatigue de saut, 0 (frais) a 1 (epuise). Voir TUNING.jumpFatigue. */
     this.fatigue = 0;
+    /** Vitesse verticale la plus basse du vol en cours : ce que l'atterrissage va peser. */
+    this.vChute = 0;
+    /** Impact du dernier atterrissage (m/s, positif), lisible IMPACT_FENETRE durant. */
+    this.impact = 0;
+    /** Secondes depuis le dernier vrai atterrissage. Voir TUNING.jumpLanding. */
+    this.depuisAtterrissage = Infinity;
+    this._sonde = new THREE.Vector3();
     this.stateTimer = 0;
     this.grounded = false;
     this.wasGrounded = false;
@@ -294,6 +310,27 @@ export class Character {
     // Un joueur remis en jeu repart FRAIS. Le contraire punirait la chute deux fois : par
     // le temps perdu, puis par un premier saut mou dont il ne comprendrait pas la cause.
     this.fatigue = 0;
+    this.vChute = 0;
+    this.impact = 0;
+    this.depuisAtterrissage = Infinity;
+  }
+
+  /**
+   * La position telle que le DÉCOR la lit : le corps, plus l'impact d'atterrissage.
+   *
+   * Les scènes reçoivent des positions, pas des personnages — c'est ce qui permet au
+   * serveur de leur passer seize joueurs et au client d'y ajouter ses figurants. Mais Les
+   * Dalles doivent savoir si un joueur vient de SE RECEVOIR sur une dalle ou s'il y a
+   * marché : une fausse dalle cède sous un atterrissage sans sursis. `impact` voyage donc
+   * avec la position, en propriété d'un `Vector3` à part (jamais `_tmp`, que `position`
+   * réutilise). Vaut zéro hors de la fenêtre d'atterrissage ; les figurants, dont on ne
+   * connaît que la position, n'en portent pas.
+   */
+  get sonde() {
+    const t = this.body.translation();
+    this._sonde.set(t.x, t.y, t.z);
+    this._sonde.impact = this.impact;
+    return this._sonde;
   }
 
   /**
@@ -470,11 +507,38 @@ export class Character {
     }
     if (!this.grounded && this.state === State.Grounded) this.state = State.Airborne;
 
+    // --- Atterrissage : ce que le vol a coûté ---
+    /*
+     * On retient la vitesse de chute la plus forte du vol, pas celle de l'image du contact :
+     * le rayon de sol déclare « au sol » à 18 cm de marge, parfois AVANT que le solveur
+     * ait absorbé la chute, parfois après — et après, la vitesse verticale vaut déjà zéro.
+     * Le maximum sur le vol est la seule lecture stable des deux côtés du fil.
+     */
+    if (!this.grounded) this.vChute = Math.min(this.vChute, v.y);
+    this.depuisAtterrissage += dt;
+    if (this.impact > 0 && this.depuisAtterrissage > IMPACT_FENETRE) this.impact = 0;
+    if (this.grounded && !this.wasGrounded) {
+      const chute = -this.vChute;
+      this.vChute = 0;
+      if (chute >= IMPACT_MIN) { this.impact = chute; this.depuisAtterrissage = 0; }
+    }
+    /*
+     * RÉCEPTION : un quart de seconde après un vrai atterrissage, pas de saut — voir
+     * TUNING.jumpLanding. Le tampon de saut est GELÉ pendant ce temps, pas décompté : un
+     * appui donné pendant la réception part à sa fin, au lieu d'être perdu parce que ses
+     * 0,12 s de tampon auront expiré avant. Le coyote time, lui, continue de s'éteindre :
+     * c'est ce qui interdit de sauter depuis une dalle qui vient de tomber sous nos pieds.
+     */
+    const enReception = this.depuisAtterrissage < T.jumpLanding;
+
     // --- Coyote time et buffer de saut ---
     this.coyote = this.grounded ? T.coyoteTime : Math.max(0, this.coyote - dt);
-    this.bufferedJump = input.jump ? T.jumpBuffer : Math.max(0, this.bufferedJump - dt);
-    // La fatigue ne se dissipe qu'AU SOL : voir TUNING.jumpRecovery.
-    if (this.grounded) this.fatigue = Math.max(0, this.fatigue - dt / T.jumpRecovery);
+    this.bufferedJump = input.jump ? T.jumpBuffer
+      : enReception ? this.bufferedJump : Math.max(0, this.bufferedJump - dt);
+    // La fatigue ne se dissipe qu'AU SOL, et pas pendant la reception : on encaisse un
+    // atterrissage, on ne s'y repose pas. Sinon le quart de seconde de reception rendait
+    // a chaque saut les deux tiers de ce qu'il coute, et la rafale ne fatiguait plus.
+    if (this.grounded && !enReception) this.fatigue = Math.max(0, this.fatigue - dt / T.jumpRecovery);
 
     let vx = v.x, vy = v.y, vz = v.z;
 
@@ -515,7 +579,7 @@ export class Character {
       }
 
       // Saut
-      if (this.bufferedJump > 0 && this.coyote > 0) {
+      if (this.bufferedJump > 0 && this.coyote > 0 && !enReception) {
         /*
          * La fatigue COURANTE decide de ce saut-ci ; le cout ne s'ajoute qu'apres. Le
          * premier saut est donc toujours plein, et c'est ce qui rend la mecanique lisible :

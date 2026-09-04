@@ -199,6 +199,8 @@ const ARETE_OUVERTURE = 2 * Math.asin(Math.max(0.05, Math.sin(PENTE_SURE) - PASS
 
 /** Rayon de l'îlot de départ. La plateforme et la déclaration `depart` en dérivent. */
 const ILOT_DEPART_R = 11;
+/** Longueur du seuil de jonction (`poserSeuil`) ; le pont garde un appui plat sous chacun. */
+const SEUIL_LONG = 3.0;
 
 export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
   const world = new RAPIER.World({ x: 0, y: -TUNING.gravity, z: 0 });
@@ -248,7 +250,17 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
    * qu'un tablier à demi enfoncé se lit comme un bug.
    */
   const DEPART_Z = 16;
-  let z = DEPART_Z - 6;
+  /*
+   * LE PARCOURS COMMENCE AU BORD DE L'ÎLOT, pas sous lui.
+   *
+   * Le premier pont partait de z = 10, à sept mètres à l'intérieur d'un îlot de rayon 11
+   * centré en z = 14 : sa moitié haute était enterrée, et le joueur qui quittait l'îlot
+   * tombait de 46 cm sur la moitié BASSE du tablier, puis remontait vers l'échine —
+   * l'escalier des planches à pleine vitesse, et la culbute (voir `pontDeCordes`). Le
+   * pont est désormais visible sur toute sa longueur, ses deux appuis au niveau de la
+   * crête, le seuil de jonction à cheval sur le bord de l'îlot.
+   */
+  let z = DEPART_Z - 2 - ILOT_DEPART_R;
   const plan = [];
   function poser(type, longueur, extra = {}) {
     const s = { type, z0: z, z1: z - longueur, ...extra };
@@ -309,12 +321,18 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
    * n'a donc jamais à redeviner le visuel pour placer sa boîte. C'est ce qui garantit que
    * la hitbox suit le dessin même quand la pièce évolue — si la forme change, le collider
    * change avec elle, dans le même fichier.
+   *
+   * Un collider peut porter sa propre inclinaison `rx` (autour de X, en radians) : c'est
+   * ainsi que les planches d'un pont suivent la tangente de leur tablier. Elle se compose
+   * avec la rotation de la pièce, dans cet ordre — la pièce d'abord, la planche dedans.
    */
   function poserColliders(piece, body, origine, quaternion = null) {
     const q = quaternion ?? new THREE.Quaternion();
     const v = new THREE.Vector3();
+    const X = new THREE.Vector3(1, 0, 0);
     for (const c of piece.userData.colliders ?? []) {
       v.set(c.x, c.y, c.z).applyQuaternion(q).add(origine);
+      const qc = c.rx ? q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(X, c.rx)) : q;
       let desc;
       if (c.type === 'cuboid') desc = RAPIER.ColliderDesc.cuboid(c.hx, c.hy, c.hz);
       else if (c.type === 'cylinder') desc = RAPIER.ColliderDesc.cylinder(c.halfHeight, c.radius);
@@ -325,7 +343,7 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
           .setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2).premultiply(q);
         desc.setRotation({ x: qx.x, y: qx.y, z: qx.z, w: qx.w });
       } else continue;
-      if (c.type !== 'cylinderX') desc.setRotation({ x: q.x, y: q.y, z: q.z, w: q.w });
+      if (c.type !== 'cylinderX') desc.setRotation({ x: qc.x, y: qc.y, z: qc.z, w: qc.w });
       world.createCollider(desc.setTranslation(v.x, v.y, v.z).setFriction(0.62), body);
     }
   }
@@ -370,7 +388,7 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
    * C'est le seuil, et lui seul, qui garantit qu'aucun vide ne s'ouvre au raccord.
    */
   function poserSeuil(zJonction) {
-    const LARGE = 5.4, LONG = 3.0, EP = 0.16;
+    const LARGE = 5.4, LONG = SEUIL_LONG, EP = 0.16;
     const y = CRETE + 0.08 - EP / 2;
     const planche = roundedBox(LARGE, EP, LONG, C.planche, {
       radius: 0.06, map: mapPlanche, outline: 0.006,
@@ -855,8 +873,10 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
   function construirePont(section) {
     const L = section.z0 - section.z1;
     const LARGE = 4.4;
+    // Flèche de 45 cm : 12 % de pente aux appuis sur le pont de 12 m, moins sur celui de
+    // 14. Ça se lit comme un pont suspendu, et ça se court sans y penser.
     const piece = pontDeCordes(L, LARGE, {
-      map: mapPlanche, couleur: C.planche, fleche: 0.55,
+      map: mapPlanche, couleur: C.planche, fleche: 0.45, appui: SEUIL_LONG / 2,
     });
     const zc = (section.z0 + section.z1) / 2;
     // Le tablier est centré sur son épaisseur : on descend le groupe d'une demi-planche

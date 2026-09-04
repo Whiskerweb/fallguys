@@ -104,6 +104,12 @@ dire(cotes.DIAGONALE < cotes.PORTEE * 0.8,
 dire(cotes.JEU > 0.1 && cotes.JEU < cotes.PERSO_LARGE * 0.25,
   'le jeu entre deux dalles se voit sans se franchir par accident',
   `${cotes.JEU} m`);
+// Un coureur en ligne droite atteint l'engagement à moins d'un tiers de la dalle : il
+// reste plus d'une largeur de corps de dalle devant lui quand elle rompt, et le jeu de
+// 16 cm ensuite — il tombe, il ne s'accroche pas au bord de la suivante.
+dire(cotes.ENGAGEMENT + cotes.PERSO_LARGE / 2 + 0.5 < cotes.DALLE,
+  'un coureur engage tombe avant d\'atteindre la dalle suivante',
+  `engagement ${cotes.ENGAGEMENT} m sur une dalle de ${cotes.DALLE} m`);
 
 // ── 1 : le chemin existe-t-il ? ───────────────────────────────────────────────────────
 /**
@@ -257,8 +263,16 @@ const regle = await page.evaluate(async () => {
    * part » : au moment du test, celles des essais précédents sont encore en train de
    * tomber, et une lecture globale attribuerait leur chronologie à celle-ci.
    */
-  async function poser(sec, r, col, x, z, duree) {
-    c.respawn({ x, y: SOL + 1.1, z });
+  async function poser(sec, r, col, x, z, duree, { bord = true, hauteur = 0.1, puis = null } = {}) {
+    /*
+     * SUR LE BORD, ET DE DIX CENTIMÈTRES SEULEMENT. Depuis le 4 septembre 2026 une fausse
+     * dalle rompt sans sursis sous un ATTERRISSAGE (chute d'au moins 4 m/s, soit 20 cm)
+     * et dès qu'on s'y ENGAGE de 75 cm. Pour mesurer le SURSIS, il faut donc n'exercer
+     * ni l'un ni l'autre : poser le joueur à 90 cm du centre, tout près du sol. Les deux
+     * autres règles ont leurs propres verdicts, plus bas.
+     */
+    c.respawn({ x, y: SOL + 0.8 + hauteur, z: z + (bord ? 0.9 : 0) });
+    if (puis) { await attendre(120); c.respawn({ x, y: SOL + 0.9, z: z + puis }); }
     /*
      * ON RELEVE DES LA PREMIERE IMAGE.
      *
@@ -279,11 +293,13 @@ const regle = await page.evaluate(async () => {
       if (e?.sursisReel != null) mesure = e.sursisReel;
       await attendre(12);
     }
-    return { ouvert, sursis: mesure, tombe: c.body.translation().y < SOL - 3 };
+    const e = a.__etats().find((v) => v.s === sec && v.r === r && v.c === col);
+    return { ouvert, sursis: mesure, rupture: e?.rupture ?? null,
+      tombe: c.body.translation().y < SOL - 3 };
   }
 
   const { PAS } = a.__cotes();
-  const out = { pieges: [], sures: [] };
+  const out = { pieges: [], sures: [], engages: [], atterris: [], suresAtterries: [] };
   for (const s of a.__sections()) {
     const sur = new Set(s.chemin.map((d) => `${d.r},${d.c}`));
     // Une dalle piégée au milieu de la section, et la dalle sûre du même rang : même
@@ -297,9 +313,37 @@ const regle = await page.evaluate(async () => {
       ...(await poser(s.indice, rang, col, x, sure.z, 3)) });
     out.sures.push({ s: s.indice,
       ...(await poser(s.indice, rang, sure.c, sure.x, sure.z, 2)) });
+    // Une autre dalle piégée du même rang pour chaque règle : celles d'au-dessus sont
+    // déjà tombées, et une dalle ne rompt qu'une fois.
+    const autres = [];
+    for (let k = s.cols - 1; k >= 0 && autres.length < 2; k--) {
+      if (!sur.has(`${rang},${k}`) && k !== col) autres.push(k);
+    }
+    const xDe = (k) => (k - (s.cols - 1) / 2) * PAS;
+    // S'ENGAGER : posé sur le bord, puis porté un mètre plus loin sur la même dalle.
+    out.engages.push({ s: s.indice,
+      ...(await poser(s.indice, rang, autres[0], xDe(autres[0]), sure.z, 1.5, { puis: -0.1 })) });
+    // ATTERRIR : lâché d'un mètre et demi sur le bord.
+    out.atterris.push({ s: s.indice,
+      ...(await poser(s.indice, rang, autres[1], xDe(autres[1]), sure.z, 1.5, { hauteur: 1.5 })) });
+    // Et la dalle SÛRE, lâchée de la même hauteur, ne bronche pas.
+    out.suresAtterries.push({ s: s.indice,
+      ...(await poser(s.indice, rang, sure.c, sure.x, sure.z, 1.5, { bord: false, hauteur: 1.5 })) });
   }
   return out;
 });
+
+// Le temps relevé est UNE IMAGE du navigateur (0,14 s en rendu logiciel) : c'est la
+// rupture qui tranche, pas la durée — la durée dirait la machine.
+dire(regle.engages.every((p) => p.ouvert && p.rupture === 'engage'),
+  's\'engager sur une dalle piegee la rompt sans sursis',
+  regle.engages.map((p) => `s${p.s}:${p.rupture ?? '-'}/${p.sursis?.toFixed(2)}s`).join(' '));
+dire(regle.atterris.every((p) => p.ouvert && p.rupture === 'atterrissage'),
+  'se recevoir d\'un saut sur une dalle piegee la rompt sans sursis',
+  regle.atterris.map((p) => `s${p.s}:${p.rupture ?? '-'}/${p.sursis?.toFixed(2)}s`).join(' '));
+dire(regle.suresAtterries.every((p) => !p.ouvert),
+  'se recevoir sur une dalle du chemin ne la rompt pas',
+  regle.suresAtterries.map((p) => `s${p.s}:${p.ouvert ? 'CEDE' : 'tient'}`).join(' '));
 
 dire(regle.pieges.every((p) => p.ouvert), 'une dalle piegee cede sous le pied',
   regle.pieges.map((p) => `s${p.s}:${p.ouvert ? 'cede' : 'TIENT'}`).join(' '));
@@ -532,7 +576,10 @@ while (Date.now() - debutCourse < 200000) {
   if (Date.now() - dernierProgres > 40000) { course.mode = 'bloque'; break; }
 }
 
-dire(course.mode === 'finished' || course.mode === 'lobby',
+// « podium » est la fin d'une partie depuis que l'écran de fin est une coupure
+// (`Game.mode`) : le pilote a franchi la ligne, la boucle a changé d'état avant le
+// dernier repère. C'est une arrivée, pas une panne.
+dire(course.mode === 'finished' || course.mode === 'lobby' || course.mode === 'podium',
   'le parcours se franchit de bout en bout',
   `${course.i}/${course.points} reperes, z max ${course.plusLoin.toFixed(0)}, `
   + `${course.chutes} chute(s), ${course.duree.toFixed(0)} s, fin: ${course.mode}`);

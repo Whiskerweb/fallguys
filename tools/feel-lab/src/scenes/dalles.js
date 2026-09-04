@@ -33,6 +33,31 @@ import { tileFace, skyMeadow, cloudBank } from '../textures.js';
  * Une dalle qui a commencé à trembler est PERDUE, même si on se retire. Sans cela, le
  * pas de sonde deviendrait gratuit et le damier ne se dévoilerait jamais.
  *
+ * ── CE QUI ROMPT UNE DALLE SANS SURSIS (4 septembre 2026) ───────────────────────
+ * Le sursis avait un revers : il suffisait de COURIR TOUT DROIT. Une dalle se traverse
+ * en 0,32 s à 7,6 m/s, le sursis de la première section en durait 0,36 — la dalle
+ * lâchait dans le dos du coureur. Et en enchaînant les sauts, on n'y touchait qu'une
+ * image. Le directeur produit l'a vu : « il suffit de courir tout droit et de sauter pour
+ * passer sans chercher le chemin ». Deux règles, lisibles toutes deux :
+ *
+ *   · POSER LE PIED tremble, S'ENGAGER rompt. Le premier contact déclenche le sursis,
+ *     comme avant — c'est le pas de sonde, et il reste possible. Mais la dalle retient
+ *     le point d'entrée, et dès qu'un centre de corps s'en éloigne de `ENGAGEMENT`
+ *     (75 cm, un vrai pas), elle rompt à l'instant : on y est engagé, on n'en revient
+ *     pas. Un coureur fait ces 75 cm en un dixième de seconde et tombe avec plus d'un
+ *     mètre et demi de dalle encore devant lui. La mesure part du point d'ENTRÉE et non
+ *     du centre de la dalle, parce qu'un coureur ne passe pas forcément par le centre :
+ *     le premier essai, un carré central, laissait passer une ligne droite décalée de
+ *     90 cm — exactement la position de départ d'un joueur.
+ *   · une fausse dalle ne supporte pas un ATTERRISSAGE. Un joueur qui s'y reçoit d'un
+ *     saut (`impact`, porté par la position — `character.js:sonde`) la rompt à
+ *     l'instant, où qu'il se pose. Sauter à l'aveugle devient un pari à une chance sur
+ *     dix par rang ; sauter sur une dalle qu'on SAIT sûre reste permis, c'est du jeu.
+ *
+ * La seconde règle ne suffirait pas seule : un saut tamponné repart à l'image même de
+ * l'atterrissage, avant que la scène ait vu quoi que ce soit. C'est `TUNING.jumpLanding`
+ * — un quart de seconde de réception au sol — qui fait peser le sauteur sur la dalle.
+ *
  * ── AUCUN INDICE, JAMAIS ────────────────────────────────────────────────────────
  * L'invariant central, et il structure tout ce fichier : l'apparence d'une dalle dépend
  * de sa POSITION, jamais de son état. Même teinte, même face, même altitude, même
@@ -125,6 +150,19 @@ const EP = 0.9;               // épaisseur : assez pour lire un trou de profil
  * à rien : il serait tombé sans avoir eu le temps de se retirer.
  */
 const AFFAISSEMENT = 0.07;
+/**
+ * ENGAGEMENT, en mètres : la distance, depuis le point où une fausse dalle a été touchée,
+ * au-delà de laquelle elle rompt sans sursis. En deçà, c'est la zone de sonde : on y pose
+ * le pied, elle tremble, on a le sursis pour se retirer. Une pression de trois à six
+ * images couvre 20 à 70 cm — c'est ça, sonder ; un pas franc en fait 75.
+ */
+const ENGAGEMENT = 0.75;
+/**
+ * Vitesse de chute (m/s) à partir de laquelle un contact est un atterrissage qui rompt.
+ * `character.js` ne renseigne `impact` qu'au-delà de son propre seuil (IMPACT_MIN, 4 m/s) ;
+ * on le redit ici pour que la scène ne dépende pas d'un zéro implicite.
+ */
+const IMPACT_ROMPT = 4.0;
 const SOL = 0;                // altitude du dessus des dalles
 const KILL_Y = SOL - 16;
 
@@ -515,10 +553,19 @@ export function buildDalles(RAPIER, assets, { seed = 1 } = {}) {
       const r = Math.round((s.zAvant - PAS / 2 - p.z) / PAS);
       if (c < 0 || c >= s.cols || r < 0 || r >= s.rangs) return;
       const d = s.parCase.get(r * s.cols + c);
-      if (!d || d.sure || d.etat !== 'posee') return;
-      d.etat = 'tremble';
-      d.t = 0;
-      enMouvement.add(d);
+      if (!d || d.sure || (d.etat !== 'posee' && d.etat !== 'tremble')) return;
+      if (d.etat === 'posee') {
+        d.etat = 'tremble';
+        d.t = 0;
+        d.entree = { x: p.x, z: p.z };   // le point d'où l'on peut encore se retirer
+        enMouvement.add(d);
+      }
+      // Poser le pied tremble, s'engager rompt ; et un atterrissage rompt partout. Voir
+      // l'en-tête. On ne fait que le NOTER : c'est `avancer` qui lâche la dalle, au même
+      // endroit et dans le même ordre que pour un sursis écoulé — un seul chemin de chute.
+      if (d.rupture) return;
+      if ((p.impact ?? 0) >= IMPACT_ROMPT) d.rupture = 'atterrissage';
+      else if (Math.hypot(p.x - d.entree.x, p.z - d.entree.z) >= ENGAGEMENT) d.rupture = 'engage';
       return;
     }
   }
@@ -545,7 +592,7 @@ export function buildDalles(RAPIER, assets, { seed = 1 } = {}) {
           d.collider.setTranslation({
             x: d.x, y: SOL - EP / 2 - AFFAISSEMENT * Math.min(1, d.t / s.sursis), z: d.z });
         }
-        if (d.t >= s.sursis) {
+        if (d.t >= s.sursis || d.rupture) {
           d.etat = 'chute';
           // Le sursis RÉELLEMENT écoulé, en temps de jeu. C'est la scène qui le relève,
           // parce que personne d'autre ne le peut : un harnais qui l'observe de
@@ -602,6 +649,7 @@ export function buildDalles(RAPIER, assets, { seed = 1 } = {}) {
       for (const d of s.dalles) {
         if (d.etat === 'posee') continue;
         d.etat = 'posee'; d.t = 0; d.vy = 0; d.dy = 0; d.tilt = 0; d.sursisReel = undefined;
+        d.rupture = undefined; d.entree = undefined;
         if (d.collider) {
           // Une dalle qui tremblait encore garde une hitbox affaissée : on la relève.
           d.collider.setTranslation({ x: d.x, y: SOL - EP / 2, z: d.z });
@@ -666,7 +714,7 @@ export function buildDalles(RAPIER, assets, { seed = 1 } = {}) {
     depart: { largeur: SECTIONS[0].cols * PAS - 2, profondeur: 6 },
     /** Sondes de diagnostic. */
     __cotes: () => ({ DALLE, JEU, PAS, EP, SOL, KILL_Y, PORTEE, VOL, DIAGONALE, PERSO_LARGE,
-      AFFAISSEMENT }),
+      AFFAISSEMENT, ENGAGEMENT, IMPACT_ROMPT }),
     __sections: () => sections.map((s) => ({
       indice: s.indice, cols: s.cols, rangs: s.rangs, sursis: s.sursis,
       zAvant: s.zAvant, zArriere: s.zArriere, colSortie: s.colSortie,
@@ -675,7 +723,7 @@ export function buildDalles(RAPIER, assets, { seed = 1 } = {}) {
     __etats: () => sections.flatMap((s) => s.dalles
       .filter((d) => d.etat !== 'posee')
       .map((d) => ({ s: s.indice, r: d.rang, c: d.col, etat: d.etat,
-        sursisReel: d.sursisReel ?? null, sursis: s.sursis }))),
+        sursisReel: d.sursisReel ?? null, sursis: s.sursis, rupture: d.rupture ?? null }))),
     __ray: (ox, oy, oz, dx, dy, dz, max = 40) => {
       const ray = new RAPIER.Ray({ x: ox, y: oy, z: oz }, { x: dx, y: dy, z: dz });
       const hit = world.castRay(ray, max, true);

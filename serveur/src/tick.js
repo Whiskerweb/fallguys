@@ -55,7 +55,9 @@ export function avancerTick(monde, acteurs, elapsed, dt, enJeu, { apresSousPas =
    * acceptent désormais une liste ; les deux autres n'utilisent `focus` que pour des
    * confettis, et prennent la première position sans y voir de différence.
    */
-  const positions = acteurs.map((a) => a.perso.position);
+  // `sonde`, pas `position` : la même position, plus l'impact d'atterrissage que Les
+  // Dalles lisent (une fausse dalle cède sans sursis sous qui s'y reçoit).
+  const positions = acteurs.map((a) => a.perso.sonde);
   arene.update?.(elapsed, dt, positions, null, enJeu);
 
   for (let s = 0; s < SOUS_PAS; s++) {

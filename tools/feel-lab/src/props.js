@@ -828,10 +828,43 @@ export function pontDeCordes(longueur, largeur, opts = {}) {
   const nPlanches = Math.max(4, Math.round(longueur / 1.15));
   const pas = longueur / nPlanches;
   const flecheMax = opts.fleche ?? 0.55;    // affaissement au milieu, en mètres
+  /*
+   * APPUIS PLATS. Sur `appui` mètres à chaque bout, le tablier reste à hauteur d'appui ;
+   * la cloche ne commence qu'ensuite. C'est là que la scène pose son seuil de jonction —
+   * une planche 8 cm au-dessus de la crête. Sans appui plat, le seuil surplombait un
+   * tablier déjà affaissé de 17 cm sous lui : une marche de 25 cm à l'entrée de chaque
+   * échine, et la culbute pour qui arrivait en courant.
+   */
+  const appui = Math.min(opts.appui ?? 0, longueur * 0.4);
+  const portee = longueur - 2 * appui;      // la partie qui s'affaisse
   const EP = 0.22;
 
-  /** Affaissement en cloche : nul aux deux appuis, maximal au centre. */
-  const fleche = (t) => -flecheMax * Math.sin(Math.PI * t);
+  /** Abscisse dans la cloche, 0 à 1, bornée : nulle sur l'appui de départ, pleine sur l'autre. */
+  const cloche = (t) => Math.min(1, Math.max(0, (t * longueur - appui) / portee));
+  /** Affaissement en cloche : nul sur les appuis, maximal au centre. */
+  const fleche = (t) => -flecheMax * Math.sin(Math.PI * cloche(t));
+  /** Pente du tablier en t (dy/dz) : la dérivée de la flèche ; nulle sur les appuis. */
+  const pente = (t) => {
+    const u = cloche(t);
+    if (u <= 0 || u >= 1) return 0;
+    return (-flecheMax * Math.PI * Math.cos(Math.PI * u)) / portee;
+  };
+  /*
+   * CHAQUE PLANCHE SUIT LA TANGENTE DU TABLIER — visuel et collider, du même angle.
+   *
+   * Posées à plat à des hauteurs différentes, les planches faisaient un ESCALIER : des
+   * marches de 15 à 17 cm près des appuis, là où la pente est la plus forte. En descente
+   * on ne sentait rien ; en montée, une capsule lancée à 7,6 m/s heurtait l'arête de la
+   * marche suivante, et la secousse dépassait le seuil de culbute — le joueur tombait sur
+   * un pont, sans obstacle, en marchant. Le directeur produit l'a signalé sur le premier
+   * pont du Rondin (4 septembre 2026) ; `tools/test-harness/marche.mjs` l'a reproduit
+   * sans navigateur, deux culbutes à z = 0,66 et z = −0,13.
+   *
+   * Inclinée sur la tangente, chaque planche prolonge la précédente : le tablier est une
+   * rampe, et il ne reste entre deux planches que la flèche de la courbe sur un pas —
+   * un centimètre. Rotation autour de X : y' = y·cos θ − z·sin θ, donc l'extrémité +z
+   * monte de −sin θ ; on veut qu'elle monte de la pente, d'où θ = −atan(pente).
+   */
 
   // Les planches sont INSTANCIEES. Posees une a une, les onze planches d'un pont coutaient
   // vingt-deux appels de dessin avec leur contour, soit quarante-quatre pour les deux ponts
@@ -848,7 +881,9 @@ export function pontDeCordes(longueur, largeur, opts = {}) {
     const t = (i + 0.5) / nPlanches;
     const z = -longueur / 2 + pas * (i + 0.5);
     const y = fleche(t);
+    const rx = -Math.atan(pente(t));
     pose.position.set(0, y, z);
+    pose.rotation.set(rx, 0, 0);
     pose.updateMatrix();
     planches.setMatrixAt(i, pose.matrix);
     // Les colliders se RECOUVRENT de 2 cm. Bord à bord, deux cuboïdes partagent une face
@@ -856,7 +891,7 @@ export function pontDeCordes(longueur, largeur, opts = {}) {
     // le harnais de continuité a trouvé ce trou au milieu du pont. Un personnage de 0,45 m
     // de rayon n'y serait jamais tombé, mais un vide qui n'existe qu'à une abscisse précise
     // est le genre de défaut qui ressort plus tard, ailleurs, sans qu'on le reconnaisse.
-    colliders.push({ type: 'cuboid', hx: largeur / 2, hy: EP / 2, hz: pas / 2 + 0.02, x: 0, y, z });
+    colliders.push({ type: 'cuboid', hx: largeur / 2, hy: EP / 2, hz: pas / 2 + 0.02, x: 0, y, z, rx });
   }
   planches.instanceMatrix.needsUpdate = true;
   group.add(planches);

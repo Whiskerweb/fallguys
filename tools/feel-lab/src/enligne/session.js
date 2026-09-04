@@ -299,7 +299,12 @@ export function creerSession({ url, nom, jeton = null }) {
        * Une copie coûte trois nombres par joueur et par image. C'est le prix le moins
        * cher de ce fichier.
        */
-      const out = locale ? [{ x: locale.x, y: locale.y, z: locale.z }] : [];
+      // `impact` suit la position locale : Les Dalles font ceder une fausse dalle sous un
+      // atterrissage. Les figurants n'en portent pas — on ne connait que leur position —,
+      // donc une dalle qu'un adversaire vient de rompre tremble encore ici le temps du
+      // sursis ; le serveur, lui, l'a deja retiree. C'est un ecart de decor, jamais de
+      // verdict.
+      const out = locale ? [{ x: locale.x, y: locale.y, z: locale.z, impact: locale.impact ?? 0 }] : [];
       for (const p of figurants?.positions() ?? []) out.push({ x: p.x, y: p.y, z: p.z });
       return out;
     },

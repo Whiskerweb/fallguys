@@ -50,6 +50,28 @@ export const TUNING = {
    */
   jumpFatigueFloor: 0.70, // hauteur minimale, en fraction de jumpHeight
   jumpRecovery: 1.15,     // s au sol pour effacer une fatigue pleine
+  /*
+   * RÉCEPTION — après un vrai atterrissage, un quart de seconde au sol avant de resauter.
+   *
+   * La fatigue rend la rafale de sauts plus BASSE ; elle ne l'empêche pas. Or sur Les
+   * Dalles, un joueur qui enchaîne les sauts ne pèse jamais sur une dalle : il y touche
+   * une seule image — celle où son saut suivant part, tamponné — et la dalle piégée
+   * lâche dans son dos. Le damier entier se traversait en ligne droite, sans chercher le
+   * chemin. Le directeur produit l'a vu et l'a dit (4 septembre 2026).
+   *
+   * Aucun réglage de la dalle ne pouvait y répondre : une dalle qui cède à l'instant du
+   * contact cède APRÈS l'image où le saut est reparti. Il fallait que le saut lui-même
+   * ait un temps de réception, pendant lequel le corps pèse sur ce qu'il a touché. Un
+   * quart de seconde, c'est le temps pour la scène de voir l'atterrissage, de retirer le
+   * collider, et pour le coyote time (0,12 s) de s'éteindre avant que le saut ne soit
+   * de nouveau permis. Une réception plus courte laissait une fenêtre où le joueur
+   * sautait depuis une dalle déjà tombée.
+   *
+   * Ne compte QUE pour un vrai atterrissage — une chute d'au moins IMPACT_MIN, dans
+   * `character.js` — jamais pour les micro-sauts qu'une lèvre de planche ou un tronc qui
+   * tourne produisent sous les pieds. Sinon on ne pourrait plus sauter du Rondin.
+   */
+  jumpLanding: 0.25,      // s au sol après un atterrissage avant de pouvoir resauter
 
   // --- Plongeon ---
   diveForward: 11.5,      // m/s vers l'avant
@@ -80,7 +102,7 @@ export const TUNING_RANGES = {
   maxSpeed: [3, 16], groundAccel: [10, 140], airAccel: [0, 60], groundFriction: [5, 120],
   turnSpeed: [2, 30], gravity: [10, 60], jumpHeight: [0.8, 5], coyoteTime: [0, 0.4],
   jumpBuffer: [0, 0.4], fallMultiplier: [1, 3],
-  jumpFatigue: [0, 1], jumpFatigueFloor: [0.2, 1], jumpRecovery: [0.1, 5], diveForward: [3, 25], diveUp: [0, 12],
+  jumpFatigue: [0, 1], jumpFatigueFloor: [0.2, 1], jumpRecovery: [0.1, 5], jumpLanding: [0, 0.6], diveForward: [3, 25], diveUp: [0, 12],
   diveRecovery: [0.2, 3], tumbleJolt: [1.5, 14], tumbleRecovery: [0.2, 3],
   getUpDuration: [0.1, 1.2], squashOnLand: [0.3, 1], stretchOnJump: [1, 1.8],
   squashSpring: [40, 400], squashDamping: [4, 40], camLookAhead: [0, 5],

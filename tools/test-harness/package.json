@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Le banc du serveur de jeu : parties completes remplies de bots, sans navigateur et sans reseau.",
   "scripts": {
-    "test": "node verdicts.mjs && node files.mjs && node reseau.mjs && node client.mjs && node entrees.mjs && node tampon.mjs && node gigue.mjs && node annonce.mjs && node depart.mjs && node abandon.mjs",
+    "test": "node verdicts.mjs && node files.mjs && node reseau.mjs && node client.mjs && node entrees.mjs && node tampon.mjs && node gigue.mjs && node annonce.mjs && node depart.mjs && node abandon.mjs && node dalles.mjs",
     "abandon": "node abandon.mjs",
     "files": "node files.mjs",
     "partie": "node partie.mjs",

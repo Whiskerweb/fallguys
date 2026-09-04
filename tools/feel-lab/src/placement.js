@@ -54,7 +54,9 @@ export const MAX_JOUEURS = 16;
  * les seize. Avant, la grille se recalculait sur l'effectif et se resserrait autour du
  * centre : deux joueurs se retrouvaient épaule contre épaule sur le même point, et c'est
  * ce qu'a vu le directeur produit (« ils spawnent tous au même endroit »). Des places
- * FIXES ont deux vertus : on les voit — `departvisuel.js` dessine un plot par place —, et
+ * FIXES ont deux vertus : elles se lisent (chacun a SA place, la même d'une partie à
+ * l'autre — les plots qui les dessinaient au sol ont été retirés le 4 septembre 2026, le
+ * directeur produit les voulait invisibles), et
  * le siège 3 est au même endroit qu'on soit deux ou seize. `total` reste accepté pour ne
  * casser aucun appelant, mais ne sert plus qu'à borner l'index.
  *

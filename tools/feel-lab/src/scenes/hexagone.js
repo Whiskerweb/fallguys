@@ -117,7 +117,8 @@ const VOL = Math.sqrt(2 * TUNING.jumpHeight / TUNING.gravity)
 const PORTEE = TUNING.maxSpeed * VOL;
 
 /**
- * RAYON CIRCONSCRIT de 1,80 m — la cote qui décide de tout.
+ * RAYON CIRCONSCRIT — la cote qui décide de tout. 1,80 m jusqu'au 4 septembre 2026,
+ * 1,95 m depuis (voir sous ce bloc).
  *
  * Un hexagone flat-top de rayon R a une largeur entre plats de R·√3, et deux voisins se
  * touchent par une arête : le pas entre centres VAUT cette largeur, soit 3,12 m — trois
@@ -135,7 +136,15 @@ const PORTEE = TUNING.maxSpeed * VOL;
  * `diag/hexagone.mjs` mesure les deux portées à chaque exécution et dira si un jour on
  * revient en arrière.
  */
-const RAYON = 1.80;
+/*
+ * 1,95 m depuis le 4 septembre 2026 — demande du directeur produit, qui trouvait la tour
+ * « un peu serrée » en y jouant : des dalles un peu plus grandes, plus d'air entre les
+ * étages. Le pas passe de 3,12 à 3,38 m ; un trou d'un hexagone mesure 6,75 m, toujours
+ * hors du saut (5,27 m) et encore dans le plongeon ÉPUISÉ (7,29 m, marge 54 cm). À
+ * 2,00 m la marge tombait à 36 cm et `diag/hexagone.mjs` refusait : la garantie « même
+ * épuisé, on franchit un trou » vaut plus que cinq centimètres de rayon.
+ */
+const RAYON = 1.95;
 /*
  * Apothème = R·√3/2, et le pas entre deux centres voisins vaut DEUX apothèmes — quelle que
  * soit l'orientation, deux hexagones adjacents se touchent par une arête et leurs centres
@@ -146,7 +155,7 @@ const PAS = APOTHEME * 2;
 const EP = 0.75;
 
 /**
- * ÉCART ENTRE ÉTAGES de 14 m — quatre fois et demie l'écart d'origine.
+ * ÉCART ENTRE ÉTAGES — 14 m jusqu'au 4 septembre 2026, 17 m depuis.
  *
  * La toute première version tenait ses étages à 3,20 m, juste assez pour qu'on ne puisse
  * pas remonter (apex 2,10 m, 2,39 m en enchaînant un plongeon). C'était suffisant pour la
@@ -164,7 +173,8 @@ const EP = 0.75;
  * des paquets blancs devant le terrain de jeu. C'est pourquoi le sommet est posé à 30 m et
  * que la tour descend au lieu de monter.
  */
-const ETAGE_H = 14.00;
+/* 17 m depuis le 4 septembre 2026 (voir RAYON) : la tour descend, le ciel n'y perd rien. */
+const ETAGE_H = 17.00;
 
 /**
  * SURSIS de 1,00 s — la valeur de la référence, après un détour par 0,85.

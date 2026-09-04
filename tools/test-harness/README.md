@@ -9,12 +9,14 @@ processus Node. Une partie complète de seize joueurs coûte une quinzaine de se
 calcul.
 
 ```bash
-npm test               # tout le banc — 302 verdicts
+npm test               # tout le banc — 309 verdicts
 node verdicts.mjs      # 74 verdicts · ~58 s
 node partie.mjs        # une partie, manche par manche
 node partie.mjs 777 8  # graine 777, salon de 8
 node tampon.mjs        # 38 — le tampon d'entrées à sec : flux, perte, silence, coupure, rafale
 node gigue.mjs         #  8 — deux clients sans navigateur à 240 ms d'aller-retour, coupures de 300 ms
+node dalles.mjs        #  7 — Les Dalles : bord/engagement/atterrissage, et les deux exploits (courir, marteler le saut)
+node marche.mjs rondin 7   # un RAPPORT : un personnage court tout droit sans sauter, où tombe-t-il ?
 ```
 
 ## Ce que `verdicts.mjs` prouve

@@ -479,6 +479,41 @@ que l'élimination, et le vainqueur poussait un corps sans gravité que la corre
 rappelait à chaque image. `estSorti` couvre les deux ; `estElimine` reste pour le
 spectateur.
 
+**Un pont ne se traverse en courant que s'il est une RAMPE.** Les planches du pont de
+cordes (`props.js:pontDeCordes`) étaient posées à plat, chacune à sa hauteur : un escalier
+de marches de 15 à 17 cm près des appuis. En montée, à 7,6 m/s, l'arête d'une marche
+dépassait le seuil de culbute — le joueur tombait sur un pont, sans obstacle, en marchant.
+Signalé par le directeur produit, reproduit SANS NAVIGATEUR : un personnage que
+`avancerTick` fait courir tout droit (`serveur/src/monde.js` + `tick.js`, vingt lignes),
+en notant chaque changement d'état — c'est la sonde la plus rapide du dépôt pour une
+question de terrain. Chaque planche suit désormais la TANGENTE du tablier, visuel et
+collider du même angle (`rx` sur le collider, composé dans `poserColliders`). Et le seuil
+de jonction, 8 cm au-dessus de la crête, surplombait un tablier déjà affaissé de 17 cm :
+le pont garde un APPUI PLAT sous chaque seuil (`appui`). Le premier pont partait aussi de
+sept mètres à l'intérieur de l'îlot de départ ; le parcours commence à son bord.
+
+**Les Dalles : poser le pied tremble, s'ENGAGER rompt, se RECEVOIR rompt — et le saut a
+une réception (4 septembre 2026).** « Il suffit de courir tout droit et de sauter pour
+passer sans chercher le chemin » : une dalle se traverse en 0,32 s, le sursis en durait
+0,36 ; et un saut tamponné repart à l'image même de l'atterrissage, avant que la scène ait
+vu quoi que ce soit — aucun réglage de dalle ne pouvait y répondre. Trois règles : la
+dalle retient le point d'ENTRÉE et rompt sans sursis dès qu'un centre de corps s'en
+éloigne de 75 cm (`ENGAGEMENT`) ; elle rompt sous un ATTERRISSAGE (`impact` ≥ 4 m/s,
+porté par la position via `character.js:sonde`, que `tick.js` et `main.js` passent à la
+place de `position`) ; et `TUNING.jumpLanding` impose un quart de seconde au sol après un
+vrai atterrissage avant de resauter — tampon gelé, coyote éteint, récupération de fatigue
+suspendue. Le pas de sonde reste possible (une pression de trois à six images fait 20 à
+70 cm). **Le premier essai — un carré central — a laissé passer un coureur** : le banc
+court à x = −0,90, décalé du centre des dalles, et une ligne droite ne passe pas par le
+carré. Mesurer depuis le point d'entrée ne dépend d'aucune trajectoire. Le harnais
+`diag/dalles.mjs` pose son marcheur sur le BORD et à 10 cm du sol pour mesurer le sursis
+seul ; posé au centre de 30 cm de haut, il déclenchait les deux autres règles.
+
+**L'Hexagone est à R = 1,95 m et 17 m entre étages** (1,80 et 14 avant), demande du
+directeur produit qui trouvait la tour serrée. Un trou d'un hexagone fait 6,75 m : hors du
+saut, dans le plongeon même épuisé (7,29 m). À 2,00 m la marge tombait à 36 cm et
+`diag/hexagone.mjs` refusait — il remesure les deux portées à chaque exécution.
+
 ---
 
 ## Vérifier
@@ -487,7 +522,9 @@ spectateur.
 dotnet test                                   # 120 — modes, dix issues, roue par rang (PATH=$HOME/.dotnet)
 cd backend            && npm test             # 154 — grand livre, RLS, retraits, tirage, et la CHAÎNE (factice) : mises, annulation, reprise, brûlage
 cd backend            && npm run cycle:local  # le cycle COMPLET sur un validateur local : dépôt, mise, gain, brûlage, retrait (SOL + Token-2022 réels)
-cd tools/test-harness && npm test             # 302 — serveur, files, graine de roue, réseau, entrées, tampon, GIGUE, mises
+cd tools/test-harness && npm test             # 309 — serveur, files, graine de roue, réseau, entrées, tampon, GIGUE, mises, DALLES
+cd tools/test-harness && node dalles.mjs      #   7 — les trois règles des Dalles et les deux exploits fermés, sans navigateur
+cd tools/test-harness && node marche.mjs rondin 7 # un RAPPORT : un personnage court tout droit sans sauter, où tombe-t-il ?
 cd tools/test-harness && node gigue.mjs       #   8 — le netcode à 240 ms d'aller-retour et une coupure de 300 ms toutes les 2 s
 cd tools/feel-lab     && node diag/economie.mjs #  87 — les dix lignes, les roues, l'espérance, sans navigateur
 cd tools/feel-lab     && node diag/duel.mjs   #  53 — DEUX navigateurs, un duel payant
@@ -559,10 +596,10 @@ duel jouait seul contre un pantin jusqu'au chrono. `tools/test-harness/abandon.m
 **Seize places de départ FIXES, une par siège — `placement.js` ne se resserre plus sur
 l'effectif.** Le siège 0 est au centre du premier rang, le 1 à sa droite, le 2 à sa
 gauche : un duel occupe le milieu, seize remplissent la grille, et le siège 3 est au même
-endroit qu'on soit deux ou seize. Un plot par place est dessiné au sol
-(`departvisuel.js`), posé au rayon APRÈS le premier pas de physique — avant, aucun rayon
-ne touche. La grille qui suivait l'effectif mettait deux joueurs épaule contre épaule, ce
-que le directeur produit a lu comme « ils spawnent au même endroit ».
+endroit qu'on soit deux ou seize. La grille qui suivait l'effectif mettait deux joueurs
+épaule contre épaule, ce que le directeur produit a lu comme « ils spawnent au même
+endroit ». **Rien n'est dessiné au sol** : les plots d'un temps (`departvisuel.js`) ont été
+retirés le 4 septembre 2026 — le directeur produit voulait les places invisibles.
 
 **Un adversaire naît à l'ORIGINE DU MONDE et n'en bouge qu'une fois animé.** `figurants.js`
 crée chaque avatar à (0, 0, 0) et ne le déplace qu'à `update()`, que `main.js` n'appelait
