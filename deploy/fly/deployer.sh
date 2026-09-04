@@ -15,6 +15,12 @@ BACKEND=tumble-bg-backend
 JEU=tumble-bg-jeu
 ORG="${FLY_ORG:-personal}"
 
+# L'adresse PUBLIEE du jeu — celle que la page d'accueil (babyguy.dev) met sur ses six
+# boutons, et celle que le navigateur porte donc en Origin. `<app>.fly.dev` repond
+# toujours, mais plus personne ne le tape : le mettre ici rendrait ORIGINE_AUTORISEE
+# faux pour tout joueur venu du site.
+DOMAINE="${DOMAINE_JEU:-play.babyguy.dev}"
+
 creer() { fly apps list 2>/dev/null | grep -q "^$1\b" || fly apps create "$1" --org "$ORG"; }
 creer "$BACKEND"
 creer "$JEU"
@@ -24,7 +30,7 @@ fly secrets set -a "$BACKEND" --stage \
   SUPABASE_URL="$SUPABASE_URL" SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" DATABASE_URL="$DATABASE_URL" \
   SOLANA_RPC="$SOLANA_RPC" USDC_MINT="$USDC_MINT" BG_MINT="$BG_MINT" \
   CAISSE_CLE="$CAISSE_CLE" GRAINE_DEPOTS="$GRAINE_DEPOTS" FRAIS_CLE="$FRAIS_CLE" POOL_CLE="$POOL_CLE" \
-  SERVEUR_PUBLIQUE="$SERVEUR_PUBLIQUE" ORIGINE_AUTORISEE="https://$JEU.fly.dev" >/dev/null
+  SERVEUR_PUBLIQUE="$SERVEUR_PUBLIQUE" ORIGINE_AUTORISEE="https://$DOMAINE" >/dev/null
 echo "== secrets du serveur de jeu"
 fly secrets set -a "$JEU" --stage \
   BACKEND_URL="http://$BACKEND.internal:8787" SERVEUR_CLE="$SERVEUR_CLE" \
@@ -41,4 +47,12 @@ fly deploy -c deploy/fly/jeu.toml --dockerfile deploy/jeu.Dockerfile -a "$JEU" -
   --build-arg VITE_SUPABASE_URL="$SUPABASE_URL" --build-arg VITE_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
 echo
-echo "Le jeu : https://$JEU.fly.dev    ·    suivi : https://$JEU.fly.dev/api/suivi"
+echo "Le jeu : https://$DOMAINE    ·    suivi : https://$DOMAINE/api/suivi"
+echo "         (https://$JEU.fly.dev repond aussi — meme machine, autre nom)"
+echo
+echo "Le certificat du domaine est pose UNE fois, hors de ce script :"
+echo "  fly certs create $DOMAINE -a $JEU"
+echo "et le DNS pointe sur l'hostname PROPRE A L'APP, pas sur $JEU.fly.dev :"
+echo "  CNAME $DOMAINE -> <id>.$JEU.fly.dev     (fly certs setup $DOMAINE le donne)"
+echo "Un CNAME vers $JEU.fly.dev ne rend que l'IPv4 partagee, et le certificat"
+echo "reste \"Not verified\" sans que rien ne dise pourquoi." 

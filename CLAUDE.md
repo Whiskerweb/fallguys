@@ -734,11 +734,47 @@ octet de trop rend des positions plausibles mais fausses.
 ## En ligne
 
 **Le jeu est déployé sur Fly.io** (`deploy/`), depuis le 4 septembre 2026 : `tumble-bg-jeu`
-(public, `https://tumble-bg-jeu.fly.dev`, WebSockets, une machine jamais éteinte) et
-`tumble-bg-backend` (privé, joint par `http://tumble-bg-backend.internal:8787`). Les
-secrets partent du `.env` par `deploy/fly/deployer.sh`, sans s'afficher. Le jeu est
-compilé DANS l'image avec les deux variables Supabase publiques ; `npm ci --include=dev`
-y est obligatoire, `NODE_ENV=production` ferait sauter Vite.
+(public, WebSockets, une machine jamais éteinte) et `tumble-bg-backend` (privé, joint par
+`http://tumble-bg-backend.internal:8787`). Les secrets partent du `.env` par
+`deploy/fly/deployer.sh`, sans s'afficher. Le jeu est compilé DANS l'image avec les deux
+variables Supabase publiques ; `npm ci --include=dev` y est obligatoire,
+`NODE_ENV=production` ferait sauter Vite.
+
+**Deux domaines, deux hébergeurs, un seul nom de marque (4 septembre 2026).** Le jeu est
+sur **`https://play.babyguy.dev`** (Fly, `tumble-bg-jeu` ; `tumble-bg-jeu.fly.dev` répond
+toujours, même machine, mais ce n'est plus l'adresse qu'on publie). La page d'accueil est
+sur **`https://babyguy.dev`** (Vercel, projet `babyguy`, dépôt
+[Whiskerweb/babysite](https://github.com/Whiskerweb/babysite), statique, `www` en 308 vers
+l'apex). Le DNS de `babyguy.dev` est chez Vercel, donc les enregistrements du jeu se
+posent en `vercel dns add`. **Les deux dépôts restent séparés** : le site se met en ligne
+en trente secondes, le jeu demande dix minutes de build, et les mêler ferait payer l'un
+pour l'autre à chaque commit.
+
+**Un CNAME Fly pointe sur l'hostname PROPRE À L'APP, pas sur `<app>.fly.dev`.** `CNAME
+play → tumble-bg-jeu.fly.dev` ne rend que l'IPv4 PARTAGÉE : le trafic arrive, mais le
+certificat reste `Not verified` indéfiniment et rien ne dit pourquoi. La bonne cible est
+`<id>.tumble-bg-jeu.fly.dev`, que `fly certs setup <domaine>` donne, et qui porte l'A et
+l'AAAA dédiés. Un certificat créé AVANT que le DNS soit juste ne se rattrape pas non
+plus : `fly certs delete` puis `create` une fois les enregistrements en place.
+
+**`ORIGINE_AUTORISEE` est le domaine PUBLIÉ, pas le nom Fly.** C'est l'origine que porte
+le navigateur d'un joueur venu du site. Le script la dérive de `DOMAINE` (`DOMAINE_JEU`
+pour la changer), et ce n'est qu'une seule chaîne : elle ne peut pas autoriser les deux
+noms à la fois.
+
+**Le site dit `devnet` parce que le backend déployé est sur devnet.** `NETWORK` dans
+`src/data/site.ts` du dépôt du site et `SOLANA_RESEAU` dans `deploy/fly/backend.toml`
+**bougent ensemble**. Les six boutons or de la page envoient miser ; tant que l'USDC sort
+d'un robinet public et ne vaut rien, la page l'écrit — pastille de la section Play, FAQ,
+pied de page. Le jour où l'on passe en mainnet, changer l'un sans l'autre fait mentir la
+page dans un sens ou dans l'autre.
+
+**Le tableau des gains du SITE ne dit plus ce que le jeu paie.** `payouts` promet 25,00
+fixes au premier d'une arène à 5 USDC ; le jeu tire le gain du vainqueur sur une roue et
+paie de 12,50 à 39,50 (espérance 23,37). La colonne `×5` / `×2,5` est un multiplicateur,
+que le jeu lui-même s'interdit de montrer à un joueur. C'est signalé dans le README du
+site et **pas corrigé** : les dix lignes sont des données produit, et les vrais intervalles
+sortent de `node diag/economie.mjs`.
 
 **UN SEUL backend à la fois sur les wallets de trésorerie.** Le backend de Fly et un
 backend local lancé « pour voir » signent avec les mêmes clés sur la même base : c'est
