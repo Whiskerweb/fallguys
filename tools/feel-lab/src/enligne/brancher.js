@@ -75,6 +75,10 @@ export function brancherEnLigne(jeu, { url, nom, jeton = null, mise: miseInitial
    * les signatures des transactions ; le lobby relit son solde là-dessus. Le montant
    * affiché par la roue vient du même calcul — `economie.js` — et le backend l'a refait.
    */
+  // Un recalage sec est un evenement (chute, reapparition arbitree par le serveur) : le
+  // personnage saute, la camera doit sauter avec lui. Une correction absorbee, elle, ne
+  // deplace que le corps, et le visuel — que la camera suit — rattrape en douceur.
+  session.sur('correction', ({ effet }) => { if (effet === 'recale') jeu.snapCamera = true; });
   session.sur('engagement', (msg) => dire('engagement', msg));
   session.sur('reglement', (msg) => dire('reglement', msg));
 

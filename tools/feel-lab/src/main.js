@@ -1643,6 +1643,10 @@ class Game {
         if (this.mode === 'racing') this.falls++;
         this.character.respawn(this.arena.checkpointFor(pos.z));
         this.ySlow = undefined;
+        // Une reapparition est un SAUT : la camera saute avec, elle ne voyage pas. Lissee,
+        // elle mettait plusieurs secondes a rejoindre le point de passage en traversant
+        // la carte — c'est ce que le directeur produit a filme comme « teleporte partout ».
+        this.snapCamera = true;
       }
     }
     // Une fin de partie vient de COUPER la course (podium) : l'arene n'existe plus, et la

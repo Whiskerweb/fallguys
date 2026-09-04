@@ -654,6 +654,18 @@ l'aller-retour puis le reposait sous la plate-forme, d'où il retombait — c'é
 « bug de caméra quand je tombe dans le vide ». En survie, tomber est une élimination :
 elle reste au serveur.
 
+**Le décor du client tourne EN AVANCE de la latence mesurée, et la caméra SAUTE avec le
+personnage.** Deuxième vidéo du 4 septembre, sur Le Rondin : « ça me téléporte partout ».
+Tout y est piloté par l'horloge — troncs, barils à 8 m/s — et `tempsMonde` tenait
+l'heure de l'instantané, soit un aller simple de retard, alors que le serveur joue
+l'entrée un aller-retour plus le tampon plus tard : à 400 ms, un baril est à 3 m de là
+où le serveur le tient, il vous culbute là où vous l'aviez esquivé, écart de 3 m,
+recalage, quatre fois par seconde. `tempsMonde` ajoute désormais `latence` (les entrées
+en vol, tampon compris) : les contacts se prédisent là où le serveur les arbitrera. Et
+une réapparition ou un recalage sec posent `snapCamera` : lissée, la caméra mettait
+plusieurs secondes à rejoindre le point de passage en traversant la carte — c'est ce
+voyage qu'on voyait, pas le personnage.
+
 **Un message arrivé pendant la vérification de `bonjour` est mis en attente, pas
 jeté.** La vérification du jeton est un aller-retour HTTP ; sur un réseau qui relâche
 par rafales, `rejoindre` peut arriver dans la même milliseconde que `bonjour`, et il se

@@ -181,9 +181,24 @@ export function creerSession({ url, nom, jeton = null }) {
      * Vaut zéro tant qu'aucun instantané n'est arrivé : c'est exactement ce que le serveur
      * passe au premier tick de jeu.
      */
+    /*
+     * ET EN AVANCE DE LA LATENCE — le décor à l'heure où le serveur jouera ce pas.
+     *
+     * L'instantané dit l'heure du serveur avec un aller simple de retard ; et l'entrée
+     * qu'on joue maintenant, le serveur la jouera un aller-retour plus le tampon plus
+     * tard. Tenir le décor à l'heure de l'instantané, c'est le voir tel qu'il était un
+     * aller-retour AVANT que le serveur n'arbitre ce pas : à 400 ms, un baril à 8 m/s est
+     * à 3 m de là où le serveur le tient, et il vous culbute là où vous l'avez esquivé —
+     * écart de 3 m, recalage, quatre fois par seconde sur Le Rondin. `latence` mesure
+     * exactement ce délai (les entrées en vol, tampon compris) : on avance le décor
+     * d'autant, et les contacts se prédisent au bon endroit. Les autres joueurs, eux,
+     * restent affichés dans le passé ; c'est le compromis de toute prédiction.
+     */
     get tempsMonde() {
       if (!dernierInstantane) return 0;
-      return dernierInstantane.tick / HZ + Math.max(0, performance.now() / 1000 - instantaneRecuA);
+      return dernierInstantane.tick / HZ
+        + Math.max(0, performance.now() / 1000 - instantaneRecuA)
+        + (latence ?? 0) / 1000;
     },
     /** Vrai tant que le serveur n'a pas joué son premier tick de jeu : le décompte, vu de lui. */
     get enDecompte() { return !dernierInstantane || dernierInstantane.tick === 0; },
