@@ -520,6 +520,20 @@ carré. Mesurer depuis le point d'entrée ne dépend d'aucune trajectoire. Le ha
 `diag/dalles.mjs` pose son marcheur sur le BORD et à 10 cm du sol pour mesurer le sursis
 seul ; posé au centre de 30 cm de haut, il déclenchait les deux autres règles.
 
+**Une réapparition pose la caméra sur la NOUVELLE position, et le vide ne la bouge
+pas.** « Quand on tombe dans le vide, la caméra est mise en haut » (directeur produit,
+4 septembre 2026). Tracé au banc : la caméra se posait sur la position clonée AVANT la
+réapparition — 5 m au-dessus de `killY` —, l'altitude lissée `ySlow` s'y initialisait, et
+l'image suivante lisait une « montée » de 13 m : caméra à 20 m au-dessus du joueur,
+plusieurs secondes à redescendre. `pos.copy(position)` après `respawn`, et `snapCamera`
+repart d'un `ySlow` neuf. Et pendant la chute, `updateCamera` ne bouge plus dès que le
+personnage est en l'air 3,5 m sous son dernier sol (course seulement : en survie, tomber
+d'un étage est le jeu). Un saut culmine à 2,15 m, aucune marche ne descend de 3,5 m.
+
+**La roue rangée sous l'écran est aussi INVISIBLE.** Son curseur est posé au-dessus du
+disque : à 100 % de translation, sa tête dépassait en bas du lobby — « ce truc en bas
+de l'écran ». `visibility` bascule après la descente, sans délai à la montée.
+
 **L'Hexagone est à R = 1,95 m et 17 m entre étages** (1,80 et 14 avant), demande du
 directeur produit qui trouvait la tour serrée. Un trou d'un hexagone fait 6,75 m : hors du
 saut, dans le plongeon même épuisé (7,29 m). À 2,00 m la marge tombait à 36 cm et

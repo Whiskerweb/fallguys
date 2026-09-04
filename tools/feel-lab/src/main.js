@@ -1321,7 +1321,9 @@ class Game {
     panneau.classList.add('calee');
     if (r.gemme) panneau.dataset.grade = r.gemme;
     panneau.classList.toggle('rien', r.gain === 0 && !r.xp);
-    el('fin-sous').textContent = `${ordinal(r.rang)} of ${this._fin?.total ?? '—'} · ${r.grade}`
+    // Le rang, sans le nom du palier : « DIAMOND » à côté d'un montant en USDC disait
+    // deux fois la même chose dans deux vocabulaires (retiré avec les gemmes du ticket).
+    el('fin-sous').textContent = `${ordinal(r.rang)} of ${this._fin?.total ?? '—'}`
       + (r.gain === 0 && !r.xp ? ' · no payout' : '');
 
     /*
@@ -1641,6 +1643,17 @@ class Game {
         // elle mettait plusieurs secondes a rejoindre le point de passage en traversant
         // la carte — c'est ce que le directeur produit a filme comme « teleporte partout ».
         this.snapCamera = true;
+        /*
+         * ET ELLE SAUTE VERS LA NOUVELLE POSITION, pas vers le fond du trou. `pos` a ete
+         * clone AVANT la reapparition : la camera se posait a 5 m au-dessus de `killY`,
+         * l'altitude lissee `ySlow` s'y initialisait, et a l'image suivante la logique
+         * d'elevation dans les cotes lisait une « montee » de 13 m — la camera partait
+         * a 20 m au-dessus du personnage et mettait plusieurs secondes a redescendre.
+         * « Quand on tombe dans le vide, la camera est mise en haut » (directeur produit,
+         * 4 septembre 2026). Trace au banc : camY −6,6 puis 15,3 puis 20,2 apres une
+         * reapparition a y = 1,6.
+         */
+        pos.copy(this.character.position);
       }
     }
     // Une fin de partie vient de COUPER la course (podium) : l'arene n'existe plus, et la
@@ -1748,6 +1761,27 @@ class Game {
     // c'etait le « bug de camera » vu depuis les Canaries, le 4 septembre 2026.
     const dv = this.character?.decalageVisuel;
     if (dv && (dv.x || dv.y || dv.z)) pos = pos.clone().add(new THREE.Vector3(dv.x, dv.y, dv.z));
+    /*
+     * DANS LE VIDE, LA CAMERA NE BOUGE PLUS.
+     *
+     * Une chute hors du parcours durait une demi-seconde pendant laquelle la camera,
+     * lissee, descendait moins vite que le personnage : elle finissait tres au-dessus de
+     * lui, a le regarder tomber en plongee, puis sautait au point de passage. « Quand on
+     * tombe dans le vide, la camera est mise en haut » (directeur produit, 4 septembre
+     * 2026). Elle reste donc la ou elle etait — position et regard — des que le
+     * personnage est en l'air plus de CHUTE_LIBRE sous son dernier sol, et la
+     * reapparition la pose d'un coup (`snapCamera`). Un saut culmine a 2,15 m et aucune
+     * marche du jeu ne descend de 3,5 m : seule une vraie chute franchit ce seuil.
+     * Seulement sur une COURSE : en survie, tomber d'un etage est le jeu, et la camera
+     * doit suivre a l'etage du dessous.
+     */
+    const CHUTE_LIBRE = 3.5;
+    const perso = this.character;
+    if (!this.snapCamera && !this.arena?.survie && perso && !perso.grounded
+        && pos.y < perso.lastGroundY - CHUTE_LIBRE) {
+      this.view.followShadow(pos);
+      return;
+    }
     // Chaque epreuve a besoin d'un champ different : sur un parcours etroit on veut etre
     // pres du personnage, devant un mur de portes il faut le voir EN ENTIER assez tot pour
     // le lire. L'arene propose donc un ecart, ADDITIF : les reglages du joueur restent
@@ -1768,6 +1802,9 @@ class Game {
     // la moitie haute de l'ecran et masque ce qui arrive. On compare l'altitude a une
     // version lissee d'elle-meme — une pente reguliere ne se voit pas dans la vitesse
     // verticale, qui reste proche de zero quand le joueur epouse le sol.
+    // Une pose immediate repart d'une altitude lissee NEUVE : sinon la difference entre
+    // l'ancienne et la nouvelle se lit comme une cote a gravir, et la camera s'envole.
+    if (this.snapCamera) this.ySlow = pos.y;
     this.ySlow = this.ySlow === undefined ? pos.y : this.ySlow + (pos.y - this.ySlow) * Math.min(1, dt * 0.8);
     const montee = Math.max(0, pos.y - this.ySlow);
 

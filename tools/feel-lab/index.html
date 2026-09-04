@@ -1024,12 +1024,18 @@
   #roue-scene {
     position:absolute; left:50%; bottom:0; z-index:24;
     width:min(940px, 128vw); aspect-ratio:1;
-    /* Hors champ au repos ; à 58 % dessous quand elle monte, donc 42 % visible. */
-    transform:translate(-50%, 100%);
-    transition:transform .62s cubic-bezier(.15,.85,.3,1.08);
+    /* Hors champ au repos ; à 58 % dessous quand elle monte, donc 42 % visible.
+       ET INVISIBLE au repos : le curseur est posé à −2,6 % AU-DESSUS du disque, donc
+       une roue rangée à 100 % laissait dépasser sa tête — une capsule jaune à liseré
+       rouge, en bas du lobby, « ce truc en bas de l'écran » (directeur produit,
+       4 septembre 2026). La visibilité bascule APRÈS la descente (délai = durée du
+       glissement), et sans délai à la montée. */
+    transform:translate(-50%, 100%); visibility:hidden;
+    transition:transform .62s cubic-bezier(.15,.85,.3,1.08), visibility 0s .62s;
     pointer-events:none; touch-action:none;
   }
-  #roue-scene.visible { transform:translate(-50%, 58%); }
+  #roue-scene.visible { transform:translate(-50%, 58%); visibility:visible;
+    transition:transform .62s cubic-bezier(.15,.85,.3,1.08), visibility 0s; }
   /* Elle ne devient cliquable qu'une fois ARMÉE : lancer une roue avant de savoir où elle
      tombe est exactement le geste qu'il ne faut pas rendre possible. */
   #roue-scene.armee { pointer-events:auto; cursor:grab; }
@@ -1097,8 +1103,11 @@
   /* Le voile du grade reste au pied de la roue : monte jusqu'au panneau, il delavait le
      montant du gain — un texte blanc sous un voile blanc. */
   body.podium #roue-voile { background:radial-gradient(48% 42% at 70% 104%, var(--teinte, #fff) 0%, transparent 66%); }
-  /* `inset:0` : on ne deplace que le bord gauche, le bandeau se centre alors a 70 %. */
-  body.podium #verdict { left:40%; }
+  /* Le bandeau VICTORY traverse TOUT l'écran, personnage compris — une écharpe sur le
+     vainqueur. Décalé à 70 % avec le panneau, il ne couvrait que la moitié droite et
+     « c'était un peu bizarre » (directeur produit, 4 septembre 2026). Il ne vit que trois
+     secondes, avant le panneau et la roue, qui eux se poussent à droite. */
+  body.podium #verdict { left:0; }
 
   /* ═══ LE PANNEAU DE FIN ═════════════════════════════════════════════════════
      RIEN NE SE FERME TOUT SEUL. Le joueur vient de gagner ou de perdre de l'argent
