@@ -19,7 +19,7 @@ import {
   ARTICLES, JEU, apercuDuPost, lienDePost, marquerEnvoi,
   estDebloque, enAttente, attenteRestante, reclamer, verrouilles,
 } from './boutique.js';
-import { CONFIGURE, API, session, connecter, creerCompte, deconnecter, messageErreur, lierWallet } from './compte.js';
+import { CONFIGURE, API, session, connecter, creerCompte, deconnecter, messageErreur, lierWallet, adresseWallet, adresseCourte } from './compte.js';
 
 /**
  * Interface du lobby : la barre noire, le ticket d'entrée, la vitrine des personnages.
@@ -705,8 +705,9 @@ export function buildCompte(onChangement) {
     const s = await session();
     const connecte = Boolean(s);
     el('compte-titre').textContent = connecte ? 'Your account' : 'Sign in';
+    // Un compte ouvert par wallet n'a pas d'e-mail : on montre l'adresse qui le porte.
     el('compte-note').textContent = connecte
-      ? s.user.email
+      ? (s.user.email ?? (adresseWallet(s.user) ? `Wallet ${adresseCourte(adresseWallet(s.user))}` : 'Wallet account'))
       : 'Your balance and winnings are tied to this account.';
     for (const id of ['compte-mail', 'compte-mdp', 'compte-actions']) {
       el(id).classList.toggle('hidden', connecte);

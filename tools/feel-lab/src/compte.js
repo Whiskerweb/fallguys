@@ -3,7 +3,9 @@
  *
  * Deux identites, qu'il ne faut pas confondre :
  *
- *   - QUI EST LE JOUEUR — un compte Supabase, ouvert par e-mail et mot de passe. C'est lui
+ *   - QUI EST LE JOUEUR — un compte Supabase, ouvert par e-mail et mot de passe, OU par
+ *     la signature d'un wallet Solana (`connecterAvecWallet`, fournisseur Web3 active
+ *     dans le projet Supabase par le directeur produit le 4 septembre 2026). C'est lui
  *     qui porte le solde, la progression, l'historique. Discord et Google viendront plus
  *     tard : ils s'ajouteront a cote sans rien deplacer, puisque tout le reste du jeu ne
  *     connait que `session()` et `jeton()` ;
@@ -89,6 +91,61 @@ export async function creerCompte(email, motDePasse, nom = null) {
 }
 
 /**
+ * Ouvre une session — ou cree le compte — avec un WALLET SOLANA, par signature.
+ *
+ * C'est « Sign in with Solana » : le wallet signe un message qui nomme le domaine, l'URI
+ * et l'instant, Supabase le verifie et rend une session comme pour un e-mail. Aucune
+ * transaction, aucun frais, aucune cle ne quitte le wallet — une signature, c'est tout,
+ * et la phrase `statement` le dit au joueur dans la fenetre du wallet (Phantom EXIGE une
+ * phrase). Le meme geste sert a s'inscrire et a se connecter : Supabase cree le compte a
+ * la premiere signature d'une adresse, et le retrouve ensuite.
+ *
+ * Le compte n'a pas d'e-mail. Le nom de joueur vient du formulaire quand il est rempli
+ * (onglet CREATE), sinon de l'adresse raccourcie — un joueur a toujours un nom qu'un
+ * adversaire peut lire. Il est ecrit dans les metadonnees, la ou le backend et l'autre
+ * machine le lisent, seulement s'il n'y en a pas deja un : se reconnecter ne renomme
+ * pas.
+ *
+ * Se connecter par wallet ne LIE pas ce wallet aux retraits. Ce sont deux preuves pour
+ * deux choses — qui je suis, ou va l'argent — et la seconde passe par le backend
+ * (`lierWallet`), qui n'a aucune raison de croire une session pour ca.
+ */
+export async function connecterAvecWallet(nom = null) {
+  if (!supabase) throw new Error('comptes non configures');
+  const w = walletNavigateur();
+  if (!w) throw Object.assign(new Error('aucun wallet Solana dans ce navigateur'), { code: 'WALLET_ABSENT' });
+  const { data, error } = await supabase.auth.signInWithWeb3({
+    chain: 'solana',
+    wallet: w,
+    statement: 'Sign in to Baby Guys. No transaction, no fee: a signature only.',
+  });
+  if (error) throw error;
+  const s = data.session;
+  if (s?.user && !s.user.user_metadata?.name) {
+    const defaut = nom || adresseCourte(adresseWallet(s.user)) || 'Baby Guy';
+    const { error: e2 } = await supabase.auth.updateUser({ data: { name: defaut } });
+    if (!e2) s.user.user_metadata = { ...(s.user.user_metadata ?? {}), name: defaut };
+  }
+  return s;
+}
+
+/** L'adresse Solana d'un compte ouvert par wallet, ou `null` pour un compte e-mail. */
+export function adresseWallet(user) {
+  if (!user) return null;
+  const idn = (user.identities ?? []).find((i) => i.provider === 'web3' || i.identity_data?.address);
+  return user.user_metadata?.custom_claims?.address
+    ?? idn?.identity_data?.address
+    ?? user.user_metadata?.address
+    ?? null;
+}
+
+/** « 7xKp…9fQ2 » : ce qu'on montre d'une adresse quand on n'a pas la place de la lire. */
+export function adresseCourte(adresse) {
+  if (!adresse) return null;
+  return adresse.length > 12 ? `${adresse.slice(0, 4)}…${adresse.slice(-4)}` : adresse;
+}
+
+/**
  * Traduit les erreurs de Supabase, qui arrivent en anglais technique.
  *
  * « Invalid login credentials » couvre a la fois le mauvais mot de passe ET le compte
@@ -104,6 +161,9 @@ export function messageErreur(e) {
   if (/Password should be/i.test(m)) return 'Password must be at least 6 characters.';
   if (/is invalid/i.test(m)) return 'Supabase rejected this email address. Try another domain.';
   if (/rate limit|too many/i.test(m)) return 'Too many attempts. Wait a minute.';
+  if (e?.code === 'WALLET_ABSENT') return 'No Solana wallet found in this browser. Install Phantom or Solflare, then try again.';
+  if (/user rejected|rejected the request|User declined/i.test(m)) return 'Signature refused in the wallet. Nothing was sent.';
+  if (/web3.*(disabled|not enabled)|provider is not enabled/i.test(m)) return 'Wallet sign-in is not enabled on the server yet.';
   return m;
 }
 

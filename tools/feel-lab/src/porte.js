@@ -23,7 +23,7 @@
 
 import { sfx } from './audio.js';
 import { caisse } from './caisse.js';
-import { CONFIGURE, session, connecter, creerCompte, motDePasseOublie, messageErreur, surSession } from './compte.js';
+import { CONFIGURE, session, connecter, creerCompte, connecterAvecWallet, motDePasseOublie, messageErreur, surSession } from './compte.js';
 import { renommerJoueur, majBarre } from './lobbyui.js';
 
 const el = (id) => document.getElementById(id);
@@ -72,7 +72,7 @@ export function buildPorte() {
     b.addEventListener('click', () => { sfx.click(); choisir(b.dataset.onglet); });
   }
 
-  const boutons = ['porte-bouton', 'porte-oublie'];
+  const boutons = ['porte-bouton', 'porte-oublie', 'porte-wallet'];
   async function pendant(travail) {
     for (const b of boutons) el(b).disabled = true;
     porte.classList.add('occupee');
@@ -123,6 +123,27 @@ export function buildPorte() {
   }
 
   el('porte-bouton').addEventListener('click', () => { sfx.click(); valider(); });
+
+  /*
+   * LE WALLET, sur les deux onglets. Le meme bouton inscrit et connecte : c'est le wallet
+   * qui est le compte. Sur l'onglet CREATE, le nom saisi devient le nom de joueur ; sur
+   * SIGN IN, un premier venu recoit son adresse raccourcie — il pourra se renommer dans
+   * le lobby (`renommerJoueur`). Aucune transaction : la fenetre du wallet ne demande
+   * qu'une signature, et la phrase qu'elle affiche le dit.
+   */
+  el('porte-wallet').addEventListener('click', () => pendant(async () => {
+    sfx.click();
+    const nom = onglet === 'creer' ? el('porte-nom-champ').value.trim().slice(0, 24) : null;
+    dire('Open your wallet and sign the message…');
+    try {
+      const s = await connecterAvecWallet(nom || null);
+      dire('Signed in with your wallet.', true);
+      sfx.checkpoint?.();
+      await entre(s, nom || null);
+    } catch (e) {
+      dire(messageErreur(e));
+    }
+  }));
   el('porte-oublie').addEventListener('click', () => pendant(async () => {
     sfx.click();
     const email = el('porte-mail').value.trim();

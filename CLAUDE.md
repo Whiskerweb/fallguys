@@ -284,6 +284,21 @@ seraient bloqués devant. L'ancien panneau de compte reste pour ACCOUNT / SIGN O
 création de compte demande un nom de joueur, stocké dans les métadonnées Supabase et
 repris par le lobby.
 
+**On entre aussi PAR WALLET — « Sign in with Solana » — et c'est un COMPTE, pas une
+liaison (4 septembre 2026).** Le directeur produit a activé le fournisseur Web3 dans le
+projet Supabase ; `compte.js:connecterAvecWallet` fait signer au wallet un message qui
+nomme le domaine et l'instant, et Supabase rend une session comme pour un e-mail. Le
+même bouton de la porte inscrit et connecte : Supabase crée le compte à la première
+signature d'une adresse. Ce compte n'a pas d'e-mail — le backend n'en lit jamais, il
+lit l'utilisateur du jeton et son nom ; le nom vient du formulaire (onglet CREATE) ou de
+l'adresse raccourcie, écrit dans les métadonnées seulement s'il n'y en a pas déjà un.
+Phantom EXIGE une phrase (`statement`), sans retour à la ligne, et c'est elle que le
+joueur lit dans son wallet : « une signature, pas de transaction ». **Se connecter par
+wallet ne lie PAS ce wallet aux retraits** : qui je suis et où va l'argent restent deux
+preuves, la seconde passe par `lierWallet` et le backend. Aucun harnais ne signe avec
+un vrai wallet (il n'y en a pas en headless) ; ce qui se vérifie sans wallet, c'est le
+bouton, et le message clair quand le navigateur n'en a pas.
+
 **Ne jamais attendre `supabase.auth.getSession()` pendant un `onAuthStateChange`.**
 supabase-js tient un verrou en prévenant ses auditeurs, et l'appel ne répond jamais : la
 porte restait ouverte après une connexion réussie, nom et solde affichés derrière. La

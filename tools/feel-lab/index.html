@@ -1325,6 +1325,22 @@
   #porte-bouton:active:not(:disabled) { transform:translateY(4px);
     box-shadow:0 3px 0 var(--pink-dark), 0 8px 14px rgba(0,0,0,.3), inset 0 0 0 3px rgba(255,255,255,.2); }
   #porte-bouton:disabled { opacity:.55; cursor:default; }
+  /* « OR » entre les deux facons d'entrer : un trait, pas un bloc. */
+  #porte-ou { display:flex; align-items:center; gap:10px; margin:14px 0 10px; color:rgba(255,255,255,.35);
+    font-size:10px; font-weight:900; letter-spacing:2.4px; }
+  #porte-ou::before, #porte-ou::after { content:""; flex:1; height:2px; background:rgba(255,255,255,.08); border-radius:2px; }
+  /* Le wallet : violet, comme les modes — ce n'est ni de l'argent (or) ni le geste qui
+     engage (rose). Meme relief que les autres boutons du ticket. */
+  #porte-wallet { display:grid; grid-template-columns:auto auto; grid-template-rows:auto auto; column-gap:9px; align-items:center; justify-content:center;
+    width:100%; height:54px; padding:0; border:none; border-radius:15px; white-space:nowrap;
+    cursor:pointer; background:linear-gradient(180deg, #b79bff, #8b6cf0); color:#1b0f36; font-family:inherit; font-weight:900;
+    font-size:13px; letter-spacing:1.6px; box-shadow:0 5px 0 #5c42b0, inset 0 0 0 2.5px rgba(255,255,255,.35);
+    transition:transform .08s, box-shadow .08s, filter .12s; }
+  #porte-wallet i { grid-row:1 / 3; font-style:normal; font-size:20px; line-height:1; }
+  #porte-wallet small { grid-column:2; font-size:8.5px; letter-spacing:1.6px; opacity:.6; margin-top:1px; }
+  #porte-wallet:hover:not(:disabled) { transform:translateY(-2px); filter:brightness(1.06); box-shadow:0 7px 0 #5c42b0, inset 0 0 0 2.5px rgba(255,255,255,.4); }
+  #porte-wallet:active:not(:disabled) { transform:translateY(3px); box-shadow:0 2px 0 #5c42b0, inset 0 0 0 2.5px rgba(255,255,255,.35); }
+  #porte-wallet:disabled { opacity:.55; cursor:default; }
   #porte-oublie { display:block; margin:12px auto 0; border:none; background:none; color:rgba(255,255,255,.5); cursor:pointer; font-family:inherit;
     font-size:12px; font-weight:800; text-decoration:underline; }
   #porte-oublie:hover { color:#fff; }
@@ -1388,6 +1404,10 @@
         <button id="porte-voir" type="button">SHOW</button>
       </div>
       <button id="porte-bouton">SIGN IN</button>
+      <div id="porte-ou"><span>OR</span></div>
+      <!-- Le wallet : Sign in with Solana. Une signature, pas de transaction ; le meme
+           bouton inscrit et connecte (porte.js). -->
+      <button id="porte-wallet" type="button"><i>◎</i>CONTINUE WITH WALLET<small>PHANTOM · SOLFLARE</small></button>
       <button id="porte-oublie" type="button">Forgot password?</button>
       <div id="porte-msg"></div>
       <p id="porte-pied"><span class="devnet">SOLANA DEVNET · TEST USDC</span><span>18+</span><span>SKILL COMPETITION</span><span>STAKES COMMITTED AT LAUNCH</span></p>
