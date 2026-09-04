@@ -917,6 +917,14 @@ export function buildPortefeuille(onChangement) {
 
   const fermer = () => fond.classList.add('hidden');
   ouvrirPortefeuille = async () => { dire(''); fond.classList.remove('hidden'); await caisse.rafraichir(); await peindre(); };
+  el('wallet-sortir').addEventListener('click', async () => {
+    sfx.click();
+    await deconnecter();
+    fermer();
+    await caisse.rafraichir();
+    majBarre();
+    onChangement?.();
+  });
   el('wallet-fermer').addEventListener('click', () => { sfx.click(); fermer(); });
   fond.addEventListener('click', (e) => { if (e.target === fond) fermer(); });
 }

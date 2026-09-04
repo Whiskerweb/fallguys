@@ -75,7 +75,22 @@ export const caisse = {
    * déboguer — mais il ne montre pas non plus un chiffre qu'il n'a pas.
    */
   async rafraichir() {
-    if (!CONFIGURE || !(await session())) { enLigne = false; profil = null; prevenir(); return null; }
+    if (!CONFIGURE) { enLigne = false; profil = null; prevenir(); return null; }
+    if (!(await session())) {
+      enLigne = false; profil = null;
+      /*
+       * PAS DE SESSION = DÉCONNECTÉ, et on le DIT à tout le monde. Quand un
+       * rafraîchissement de jeton échoue, supabase-js rend `null` ici sans toujours
+       * prévenir ses auditeurs : la porte, qui tient son état de l'auditeur, restait
+       * fermée sur un lobby que le backend refusait, et l'ancien panneau montrait le
+       * formulaire sans SIGN OUT — « je ne vois aucun bouton pour me déconnecter »
+       * (directeur produit, 4 septembre 2026). Une fermeture locale explicite émet
+       * l'événement ; la porte se rouvre.
+       */
+      await deconnecter();
+      prevenir();
+      return null;
+    }
     try {
       profil = await appeler('/moi');
       soldeDistant = profil.solde;

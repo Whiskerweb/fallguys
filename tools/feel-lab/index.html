@@ -386,6 +386,7 @@
   #wallet-msg.ok { color:#8ff0bb; }
   #wallet-boite #wallet-fermer { position:absolute; top:12px; right:12px; width:34px; height:34px; padding:0;
     border-radius:11px; font-size:18px; font-weight:900; line-height:1; }
+  #wallet-boite #wallet-sortir { position:absolute; top:12px; right:54px; height:34px; padding:0 12px; font-size:10px; }
   @media (max-width:560px) { #wallet-grille { grid-template-columns:1fr; } #wallet-solde-val { font-size:34px; } }
   #btn-compte.hidden { display:none; }
 
@@ -1476,6 +1477,9 @@
   <div id="wallet-fond" class="hidden">
     <div id="wallet-boite">
       <button id="wallet-fermer" title="Close">×</button>
+      <!-- Se déconnecter depuis le portefeuille : c'est ici qu'on vient pour son compte,
+           et un bouton qu'on ne trouve pas n'existe pas. -->
+      <button id="wallet-sortir" title="Sign out of this account">SIGN OUT</button>
       <header id="wallet-tete">
         <img src="/icons/icon-usdc.png" alt="">
         <div>
