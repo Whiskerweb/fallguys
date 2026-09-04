@@ -197,6 +197,9 @@ const BARIL_ENTREE = 7;
 const PASSAGE_MIN = 1.2 * PERSO_LARGE;
 const ARETE_OUVERTURE = 2 * Math.asin(Math.max(0.05, Math.sin(PENTE_SURE) - PASSAGE_MIN / R));
 
+/** Rayon de l'îlot de départ. La plateforme et la déclaration `depart` en dérivent. */
+const ILOT_DEPART_R = 11;
+
 export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
   const world = new RAPIER.World({ x: 0, y: -TUNING.gravity, z: 0 });
   world.timestep = 1 / 60;
@@ -987,7 +990,7 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
   // Départ : une plage large, sans avantage de position. La spec l'impose — le couloir doit
   // être assez large et la distance au premier obstacle identique pour tous, faute de quoi
   // il faudrait tirer les places au sort, ce que la même spec interdit.
-  plateforme(DEPART_Z - 2, C.ilotHaut, 11, sentierBois({ repeat: [3, 3] }));
+  plateforme(DEPART_Z - 2, C.ilotHaut, ILOT_DEPART_R, sentierBois({ repeat: [3, 3] }));
 
   for (const section of plan) {
     if (section.type === 'echine') construireEchine(section);
@@ -1199,6 +1202,19 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
       return best;
     },
     largeur: 2 * DEMI_CRETE,
+    /*
+     * L'aire de départ, VOLONTAIREMENT plus étroite que l'îlot.
+     *
+     * L'îlot fait 22 m de large, mais la crête du tronc qui suit n'en fait que 9. Étaler
+     * seize joueurs sur toute la plage les ferait converger de six mètres chacun vers
+     * l'entonnoir — et le commentaire du départ s'engage sur « la distance au premier
+     * obstacle identique pour tous ». On déclare donc douze mètres : tout le monde entre
+     * dans l'entonnoir de la même façon, et l'écart reste au-dessus d'un diamètre.
+     *
+     * C'est le seul de ces quatre chiffres qui ne dérive pas de la géométrie : il dérive
+     * d'une décision de jeu, et c'est pour ça qu'il est écrit ici plutôt que calculé.
+     */
+    depart: { largeur: 12, profondeur: 6 },
     trajectoires,
     /** Sondes de diagnostic. */
     __echines: () => echines.map((tr) => ({

@@ -63,6 +63,11 @@ export function avancerTick(monde, acteurs, elapsed, dt, enJeu) {
      * Le client les efface de la même façon dans sa boucle d'accumulateur. Les laisser
      * actifs sur les deux sous-pas ferait déclencher deux sauts pour une pression, et le
      * personnage monterait plus haut sur le serveur que chez le joueur.
+     *
+     * On écrit bien dans `a.entree`, mais cet objet appartient au tick : l'instance en
+     * fabrique une copie neuve à chaque appel, et les pilotes en rendent une neuve aussi.
+     * Ça n'a pas toujours été le cas — on effaçait alors l'accumulateur du serveur, donc
+     * l'appui suivant du joueur.
      */
     for (const a of acteurs) { a.entree.jump = false; a.entree.dive = false; }
   }

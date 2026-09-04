@@ -33,10 +33,14 @@ function mulberry32(a) {
  * et en disputerait deux, ou serait remboursé pour une place que la manche n'a pas
  * ouverte. Une seule règle, trois implémentations verrouillées entre elles par les tests.
  *
- * En dessous de trois joueurs, `configPour` refuse — et il a raison : une partie à deux
- * ne peut pas avoir deux manches strictement décroissantes finissant sur un vainqueur.
- * On retombe alors sur UNE manche, ce qui est la bonne forme d'un duel : une finale, et
- * rien d'autre. C'est aussi pourquoi un duel ne se paie pas au barème des places.
+ * En dessous de trois joueurs, `configPour` refuse — et il a raison : il DÉRIVE une
+ * pyramide d'un effectif, par moitiés successives, et il lui faut deux manches. On retombe
+ * alors sur UNE manche, ce qui est la bonne forme d'un duel : une finale, et rien d'autre.
+ *
+ * Ce repli n'est plus un cas limite : c'est exactement `MODES.duel.survivants`. Les trois
+ * modes ouverts au public tombent d'ailleurs tous les trois sur leur propre pyramide —
+ * 2 → [1], 4 → [2,1], 16 → [8,4,1] — et `verdicts.mjs` § 10 le vérifie mode par mode.
+ * La partie JOUÉE et la partie PAYÉE ont donc la même forme sans qu'on ait eu à l'imposer.
  */
 export function survivants(effectif) {
   if (effectif < 3) return [1];
@@ -127,7 +131,22 @@ export function creerPartie({ graine, inscrits, manches = null, dureeMax = 180 }
     for (const c of r.classement.filter((c) => !passent.has(c.nom)).reverse()) {
       elimines.push(c.nom);
     }
-    enLice = enLice.filter((i) => passent.has(i.nom));
+    /*
+     * ET ON LES REMET DANS L'ORDRE DE LA MANCHE.
+     *
+     * `filter` ne fait que retirer : l'ordre restait celui de la GRILLE DE DÉPART. Or
+     * `clore()` construit le classement final par `[...enLice, ...elimines.reverse()]` —
+     * le rang 1 revenait donc à qui s'était inscrit le premier au salon, pas à qui avait
+     * gagné la dernière manche.
+     *
+     * Le cas se voyait dès qu'une manche rendait plusieurs qualifiés au même rang de
+     * mérite ; il ne se voit plus depuis que les places sont plafonnées (`manche.js`), mais
+     * un classement qui ne dépend pas de l'ordre d'inscription doit tenir par
+     * construction, pas par l'absence du cas qui le révèle.
+     */
+    const rangDeLaManche = new Map(r.classement.map((c, i) => [c.nom, i]));
+    enLice = enLice.filter((i) => passent.has(i.nom))
+      .sort((a, b) => (rangDeLaManche.get(a.nom) ?? 0) - (rangDeLaManche.get(b.nom) ?? 0));
     details.push({ manche: index + 1, ...r });
     return r;
   }
@@ -186,6 +205,12 @@ export function creerPartie({ graine, inscrits, manches = null, dureeMax = 180 }
       suivante();
       return finie ? { finManche: r, finPartie: resultat } : { finManche: r };
     },
+
+    /**
+     * Un joueur quitte la partie : éliminé de la manche en cours, donc absent des suivantes
+     * — `encaisser` ne le retrouvera pas parmi les qualifiés. Rend `true` s'il jouait encore.
+     */
+    abandonner(nom) { return Boolean(manche?.abandonner(nom)); },
 
     /** Termine la partie avant l'heure — plus personne au bout du fil, serveur qui s'arrête. */
     interrompre() {

@@ -85,6 +85,9 @@ function semer(graine) {
   };
 }
 
+/** Largeur du ruban au départ. `depart` en dérive : les deux ne peuvent pas diverger. */
+const DEPART_W = 16;
+
 export function buildCourse(RAPIER, assets, { seed = 1 } = {}) {
   const rnd = semer(seed);
   const world = new RAPIER.World({ x: 0, y: -TUNING.gravity, z: 0 });
@@ -154,7 +157,7 @@ export function buildCourse(RAPIER, assets, { seed = 1 } = {}) {
   // de trace le signale en console plutot que de produire une geometrie retournee.
 
   const MAIN = trackPath([
-    { x: 0,  z: 20,    y: 0, w: 16, zone: 'depart' },
+    { x: 0,  z: 20,    y: 0, w: DEPART_W, zone: 'depart' },
     { x: 0,  z: -6,    y: 0, w: 15, zone: 'entonnoir' },
     { x: 7,  z: -20,   y: 0, w: 13, zone: 'entonnoir' },
     { x: 7,  z: -29,   y: 0, w: 12, zone: 'montee' },     // pied de la montee
@@ -1001,6 +1004,17 @@ export function buildCourse(RAPIER, assets, { seed = 1 } = {}) {
 
   return {
     world, group, spawn, finishZ, killY: -26, checkpoints, conveyors, trajectoires,
+    /*
+     * L'AIRE DE DÉPART — et cette carte n'en déclarait AUCUNE.
+     *
+     * Faute de champ, le monde retombait sur 20 m par défaut (`serveur/src/monde.js`) pour
+     * un ruban qui en fait seize. Seize joueurs étalés sur vingt mètres débordaient donc
+     * des deux côtés de la piste, silencieusement.
+     *
+     * Dérivé de `DEPART_W`, la constante qui dessine réellement le premier nœud du tracé :
+     * élargir la piste élargit la déclaration, sans que personne ait à y penser.
+     */
+    depart: { largeur: DEPART_W - 2, profondeur: 6 },
     paths: { MAIN, GAUCHE, DROITE, FUSION, ILOT, FINALE },
     glisseAt, dispose,
     update: (elapsed, dt = 0.016, focus = null) => {

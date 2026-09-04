@@ -31,7 +31,14 @@ await page.waitForFunction(() => {
   const l = document.getElementById('loading');
   return l && getComputedStyle(l).display === 'none';
 }, { timeout: 300000 });
-await page.evaluate(() => localStorage.setItem('tumble-mise', '1'));
+/* La table la plus basse et le format long : trois manches, et le bareme de reference.
+   Les deux sont poses explicitement — une memoire heritee d'une session precedente
+   ferait jouer ce harnais a 10 USDC en duel, et son verdict economique ne voudrait plus
+   rien dire. */
+await page.evaluate(() => {
+  localStorage.setItem('tumble-mise', '2');
+  localStorage.setItem('tumble-mode', 'arena');
+});
 await page.waitForTimeout(600);
 await page.screenshot({ path: 'shots/partie-lobby.png' });
 
@@ -102,19 +109,56 @@ async function jouerUnePartie(numero) {
   return suite;
 }
 
+/*
+ * LA FIN DE PARTIE NE SE FERME PLUS TOUTE SEULE.
+ *
+ * La roue monte, le joueur la lance, et il choisit de rentrer. Le harnais fait donc les
+ * deux gestes — c'est exactement ce qu'un joueur fera à chaque partie, et un banc qui
+ * sauterait cette etape ne prouverait plus que le chemin existe.
+ *
+ * L'ARGENT, LUI, EST DEJA VERSE : `reglerPartie` a lieu au moment du verdict, avant la
+ * roue. Elle revele un resultat acquis, elle ne le decide pas — c'est toute la difference
+ * entre un tournoi et un tirage, et ce harnais le verifie sans le savoir : le solde monte
+ * de 16,00 que la roue ait tourne vite ou lentement.
+ */
+async function passerLaRoue() {
+  await page.waitForFunction(
+    () => document.getElementById('roue-scene')?.classList.contains('armee'),
+    { timeout: 120000 },
+  );
+  await page.keyboard.press('Space');
+  await page.waitForFunction(
+    () => document.getElementById('roue-scene')?.classList.contains('calee'),
+    { timeout: 60000 },
+  );
+  const r = await page.evaluate(() => ({
+    gain: document.getElementById('fin-gain').textContent.trim(),
+    grade: document.getElementById('fin-panneau').dataset.grade ?? '—',
+  }));
+  console.log(`  roue : ${r.grade} · ${r.gain}`);
+  await page.click('#fin-lobby');
+  await page.waitForFunction(() => window.__probeGame().mode === 'lobby', { timeout: 60000 });
+}
+
 console.log('--- partie 1 ---');
 const p1 = await jouerUnePartie(1);
-await page.waitForFunction(() => window.__probeGame().mode === 'lobby', { timeout: 60000 });
+await passerLaRoue();
 console.log('\n--- partie 2 ---');
 const p2 = await jouerUnePartie(2);
-await page.waitForFunction(() => window.__probeGame().mode === 'lobby', { timeout: 60000 });
+await passerLaRoue();
 
-/* Deux parties gagnees a 1 USDC : -1,00 de mise, +5,00 de gain, deux fois. Le solde doit
-   donc monter de 8,00 exactement — un centieme d'ecart signalerait un arrondi fautif.
+/* Deux parties gagnees a 2 USDC en arene : -2,00 de mise, +10,00 de gain, deux fois. Le
+   solde doit donc monter de 16,00 exactement — un centieme d'ecart signalerait un arrondi
+   fautif.
 
-   Le gain valait 4,50 tant que le rake etait a 15 % ; il vaut 5,00 depuis qu'il est a
-   10 %. La valeur est posee A LA MAIN et non relue dans `economie.js` : un test qui refait
-   le calcul du code teste ne teste rien.
+   Le gain valait 4,50 par USDC mise tant que le rake etait a 15 %, puis 5,00 a 10 %. La
+   table la plus basse est passee de 1 a 2 USDC avec l'ouverture des modes, d'ou 10,00. La
+   valeur est posee A LA MAIN et non relue dans `economie.js` : un test qui refait le
+   calcul du code teste ne teste rien.
+
+   LE SOLO NE FAIT PAS TOURNER LA ROUE, et c'est pourquoi ce chiffre est certain : la roue
+   tire la forme d'un bareme entre plusieurs joueurs, et il n'y en a qu'un ici. Le solo se
+   paie donc toujours a la variante STANDARD.
 
    Ce verdict lit le portefeuille LOCAL (`tumble-solde`), donc le mode hors ligne. C'est
    voulu : ce harnais n'a pas de backend, et c'est precisement ce qu'on veut prouver — le
@@ -122,8 +166,8 @@ await page.waitForFunction(() => window.__probeGame().mode === 'lobby', { timeou
 const soldeApres = await lireSolde();
 const delta = soldeApres - soldeAvant;
 console.log(`\nsolde : ${(soldeAvant / 1e6).toFixed(2)} -> ${(soldeApres / 1e6).toFixed(2)} USDC `
-  + `(${delta >= 0 ? '+' : ''}${(delta / 1e6).toFixed(2)}, attendu +8,00 : 2 x (-1,00 de mise + 5,00 de gain))`);
-if (delta !== 8_000_000) ko++;
+  + `(${delta >= 0 ? '+' : ''}${(delta / 1e6).toFixed(2)}, attendu +16,00 : 2 x (-2,00 de mise + 10,00 de gain))`);
+if (delta !== 16_000_000) ko++;
 
 const graines = [...p1, ...p2].map((m) => m.graine);
 const uniques = new Set(graines).size;

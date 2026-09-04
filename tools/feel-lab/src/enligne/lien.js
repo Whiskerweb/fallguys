@@ -27,11 +27,23 @@ const DELAI_MIN = 1000;
 const DELAI_MAX = 10000;
 
 /**
+ * Plafond de l'historique d'entrées : deux secondes à 60 Hz.
+ *
+ * Exporté parce qu'il ne sert pas qu'ici : quand l'historique ATTEINT ce plafond, c'est
+ * que le serveur n'accuse plus rien, et toute latence qu'on en déduirait serait fausse.
+ * `session.js` s'en sert pour dire « je ne sais pas » plutôt que d'inventer un nombre.
+ */
+export const PLAFOND_HISTORIQUE = 120;
+
+/**
  * @param {object} p
  * @param {string} p.url   `ws://127.0.0.1:8080`
  * @param {string} p.nom
+ * @param {() => Promise<string|null>} [p.jeton] le jeton de session Supabase, demandé au
+ *   moment de dire `bonjour` — jamais mémorisé ici, il expire et se renouvelle ailleurs.
+ *   Sans lui, le serveur nous prend pour un invité : files gratuites seulement.
  */
-export function creerLien({ url, nom }) {
+export function creerLien({ url, nom, jeton = null }) {
   let ws = null;
   let seq = 0;
   let delai = DELAI_MIN;
@@ -54,11 +66,20 @@ export function creerLien({ url, nom }) {
     ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
 
-    ws.onopen = () => {
+    ws.onopen = async () => {
       etat = 'ouvert';
       delai = DELAI_MIN;             // la connexion a tenu : on repart du délai court
       emettre('etat', etat);
-      envoyerJson({ type: 'bonjour', nom });
+      /*
+       * LE JETON PART AVEC `bonjour`. C'est ce qui fait de nous un COMPTE et non un nom :
+       * le serveur le vérifie auprès de Supabase avant de répondre `bienvenue`, et c'est ce
+       * compte-là que le backend débitera et paiera. Un jeton illisible ou absent ne casse
+       * rien — on est alors un invité, et le serveur le dit dans `bienvenue.compte`.
+       */
+      let j = null;
+      try { j = await jeton?.(); } catch { j = null; }
+      if (ws.readyState !== ws.OPEN) return;
+      envoyerJson({ type: 'bonjour', nom, ...(j ? { jeton: j } : {}) });
     };
 
     ws.onmessage = (e) => {
@@ -112,6 +133,16 @@ export function creerLien({ url, nom }) {
     /** Les entrées jouées mais pas encore accusées par le serveur. */
     get enAttente() { return historique.slice(); },
 
+    /**
+     * Oublie les entrées en attente.
+     *
+     * À appeler quand la partie se termine. Sans ça, l'historique de la manche écoulée
+     * survit au retour au lobby : il reste plein, plus rien ne l'accuse jamais, et la
+     * latence déduite se fige à sa valeur de saturation — 1983 ms, la même sur tous les
+     * écrans du monde. Vu en jouant, sur deux machines, à la milliseconde près.
+     */
+    oublier() { historique.length = 0; },
+
     /** `sur('manche', fn)`, `sur('instantane', fn)`, `sur('etat', fn)`… */
     sur(type, fn) {
       if (!ecouteurs.has(type)) ecouteurs.set(type, new Set());
@@ -121,9 +152,17 @@ export function creerLien({ url, nom }) {
 
     ouvrir() { ferme = false; brancher(); return this; },
 
-    rejoindre(mise = 0) { envoyerJson({ type: 'rejoindre', mise }); },
-    accepter() { envoyerJson({ type: 'accepter' }); },
+    /**
+     * Entre dans la file.
+     *
+     * `modele` est le personnage choisi. Il part AVEC l'inscription et non à part : c'est
+     * ce qui permet au serveur de l'annoncer dans la composition de la manche, donc à
+     * chaque client d'afficher les autres tels qu'ils se sont habillés.
+     */
+    rejoindre(mise = 0, modele = null, mode = 'arena') { envoyerJson({ type: 'rejoindre', mise, modele, mode }); },
     quitter() { envoyerJson({ type: 'quitter' }); },
+    /** Accepte une suggestion : change de file d'un seul message, sous la même identité. */
+    basculer(mise = 0, mode = 'arena') { envoyerJson({ type: 'basculer', mise, mode }); },
 
     /**
      * Envoie une entrée, et la garde en mémoire.
@@ -151,7 +190,7 @@ export function creerLien({ url, nom }) {
        * l'historique grandir indéfiniment ferait gonfler la mémoire du navigateur pendant
        * qu'il essaie déjà de survivre à une mauvaise connexion.
        */
-      if (historique.length > 120) historique.shift();
+      if (historique.length > PLAFOND_HISTORIQUE) historique.shift();
 
       if (ws?.readyState === WebSocket.OPEN) ws.send(encoderEntree(seq, recentes));
       return seq;

@@ -12,9 +12,13 @@
  * reecriture pour les besoins du test.
  */
 
+// Les cles derivees (wallets des joueurs, pots) exigent une graine : celle des tests ne
+// garde rien, et n'est jamais celle du .env. Posee AVANT que `config.js` ne soit lu.
+import './env.mjs';
 import { PGlite } from '@electric-sql/pglite';
 import { randomUUID } from 'node:crypto';
 import { enrober, appliquerSchema } from '../src/base.js';
+import { adresseDepot } from '../src/solana/adresses.js';
 
 /** Double du schema d'authentification de Supabase. */
 const AUTH = `
@@ -43,12 +47,13 @@ export async function banc() {
 }
 
 /** Cree un joueur : la ligne `auth.users` et son profil. */
-export async function joueur(db, pseudo = 'joueur') {
-  const id = randomUUID();
+export async function joueur(db, pseudo = 'joueur', id = randomUUID()) {
   await db.query('insert into auth.users (id, email) values ($1, $2)', [id, `${pseudo}@test`]);
+  // L'adresse de depot est DERIVEE, comme en production : c'est le wallet de jeu du
+  // joueur, celui que la reconciliation compare au livre.
   await db.query(
     `insert into public.profiles (id, pseudo, adresse_depot) values ($1, $2, $3)`,
-    [id, pseudo, `DEPOT_${id.slice(0, 8)}`],
+    [id, pseudo, adresseDepot(id)],
   );
   return id;
 }

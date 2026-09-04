@@ -11,6 +11,7 @@
     "test": "node test/tout.mjs",
     "partie": "node test/une-partie.mjs",
     "start": "node src/index.js",
+    "dev": "POLITIQUE=DEV node src/index.js",
     "duel": "POLITIQUE=DUEL_TEST node src/index.js",
     "prod": "POLITIQUE=PRODUCTION node src/index.js"
   },

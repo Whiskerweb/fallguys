@@ -9,6 +9,146 @@
 > 19 août, et le réécrire effacerait la trace des décisions. Ce qui a changé depuis est
 > listé ici, et c'est cette liste qui fait foi en cas de contradiction.
 >
+> **2 septembre 2026 — LA ROUE TIRE, APRÈS LA PARTIE. Décision du directeur produit.**
+>
+> Ceci renverse l'amendement du 1er septembre ci-dessous, et le § 5 avec lui. Le directeur
+> produit a été prévenu que le tirage d'un montant APRÈS l'engagement de la mise est le
+> motif exact d'une requalification en jeu d'argent, que Betclic opère sous licence, et
+> qu'une variante « tirée avant, scellée, révélée après » donnait la même sensation sans
+> ce risque. Il a choisi le tirage après. Cette décision est la sienne, elle est consignée
+> ici, et **aucun code de ce dépôt ne la tranche** — la validation juridique reste sur la
+> liste d'avant-mainnet de `backend/README.md`, en tête.
+>
+> Ce que la roue devient :
+>
+> - **Une roue PAR JOUEUR, selon son PALIER.** Diamant pour le 1er, or pour le podium,
+>   argent pour la bande remboursée, bronze pour ceux qui ont perdu leur mise.
+>   Arène : ◆ 1 · ★ 2-4 · ● 5-8 · ○ 9-16. Squad : ◆ 1 · ★ 2 · ○ 3-4. Duel : ◆ 1 · ○ 2.
+> - **Dix cases par roue, de tailles inégales.** La taille d'une case EST sa probabilité —
+>   règle inchangée. Les montants d'un même palier diffèrent d'un rang à l'autre, et se
+>   répètent parfois : c'est voulu, c'est ce qui rend la roue crédible.
+> - **Les bronzes gagnent de l'XP, et parfois leur mise.** Chaque roue de bronze porte une
+>   case « mise rendue » (4 à 14 % selon le rang en arène, 6 à 9 % en squad, une demi-mise
+>   au mieux en duel) et neuf cases d'XP, de 15 à 150.
+> - **La maison ne sort jamais d'argent, et prend 10 % EN MOYENNE.** Les dix cases de
+>   toutes les roues d'une partie sont les dix colonnes d'un même tableau : à chaque partie,
+>   UNE ligne est tirée. Une ligne distribue entre 70 % et 100 % du pot — jamais plus ; ce
+>   qu'elle ne distribue pas est le rake de cette partie, de 0 % (JACKPOT en duel, tout le
+>   pot au vainqueur) à 17,5 % (FLAT en duel). Pondérées par leurs poids, les dix lignes
+>   distribuent exactement 90 % du pot. Première version : 90 % sur CHAQUE ligne, rake fixe.
+>   Le directeur produit a vu trois fois « 3.60 » sur la roue d'un duel à 2 USDC et demandé
+>   des petites variations et une case à 4,00 : à rake fixe, dix montants distincts n'existent
+>   pas (sept valeurs possibles entre 2,40 et 3,60), et 4,00 est le pot entier. Décision du
+>   2 septembre 2026, seconde version : le rake varie avec la ligne, la moyenne ne bouge pas.
+> - **Le tirage vient du SERVEUR, à la fin.** Une graine de 32 bits tirée au hasard
+>   cryptographique au classement final, publiée dans `fin-partie` et écrite au grand
+>   livre. Client et backend recalculent la même ligne avec le même mélangeur (lowbias32).
+>   Rien n'est tiré dans le salon : le lobby montre désormais les DIX possibilités de
+>   chaque palier et leur espérance, pas une table certaine.
+> - **Le joueur ne voit pas son gain avant de lancer.** Le bandeau dit le rang ; le montant
+>   n'apparaît qu'à l'arrêt de la roue. Demande explicite.
+> - **Les salons réduits (arène partie à 13, 14 ou 15) restent au barème calculé, sans
+>   roue.** Le tableau à dix colonnes est écrit pour seize rangs ; le tordre pour treize
+>   déplacerait les 66 tables verrouillées. Le résultat s'y affiche directement.
+>
+> Les dix lignes de chaque mode, en VINGTIÈMES de mise (20 = la mise ; le pot vaut
+> 20 × joueurs ; la moyenne pondérée vaut 18 × joueurs, soit 90 %) :
+>
+> | Arène 16 | poids | 1er | 2e | 3e | 4e | 5e-8e | mise rendue à | somme | rake |
+> |---|---|---|---|---|---|---|---|---|---|
+> | plat | 6 % | 50 | 44 | 38 | 30 | 26 · 24 · 23 · 21 | 15e | 276 | 13,8 % |
+> | doux | 9 % | 62 | 45 | 35 | 27 | 25 · 23 · 22 · 21 | 13e | 280 | 12,5 % |
+> | partage | 12 % | 70 | 51 | 31 | 26 | 23 · 22 · 21 · 20 | 11e | 284 | 11,3 % |
+> | equilibre | 14 % | 82 | 47 | 29 | 25 | 22 · 21 · 20 · 20 | 10e | 286 | 10,6 % |
+> | standard | 22 % | 100 | 50 | 34 | 24 | 20 · 20 · 20 · 20 | — | 288 | 10 % |
+> | podium | 14 % | 102 | 39 | 26 | 23 | 20 · 20 · 20 · 20 | 9e | 290 | 9,4 % |
+> | pointu | 10 % | 116 | 33 | 24 | 21 | 20 · 20 · 20 · 20 | 12e | 294 | 8,1 % |
+> | couronne | 7 % | 125 | 28 | 23 | 20 | 20 · 20 · 20 · 20 | 14e | 296 | 7,5 % |
+> | royale | 4 % | 131 | 26 | 22 | 22 | 20 · 20 · 20 · 20 | 16e | 301 | 5,9 % |
+> | jackpot | 2 % | 158 | 22 | 20 | 20 | 20 · 20 · 20 · 20 | — | 300 | 6,3 % |
+>
+> Espérance en arène : 1er ×4,67 · 2e ×2,13 · 3e ×1,48 · 4e ×1,21 · 5e-8e ×1,01-1,07 ·
+> 9e-16e ×0,04-0,14. Le vainqueur voit dix montants distincts, de 2,5 à 7,9 fois sa
+> mise ; à 2 USDC, de 5,00 à 15,80 USDC, espérance 9,35. Les 2e, 3e et 4e ont aussi dix
+> montants distincts (neuf pour le 4e).
+>
+> | Squad 4 | poids | 1er | 2e | 3e | 4e | somme | | Duel | poids | 1er | 2e | somme |
+> |---|---|---|---|---|---|---|---|---|---|---|---|---|
+> | plat | 6 % | 30 | 24 | 0 | 13 | 67 | | plat | 6 % | 26 | 7 | 33 |
+> | doux | 9 % | 33 | 21 | 13 | 0 | 67 | | doux | 9 % | 28 | 8 | 36 |
+> | partage | 12 % | 37 | 33 | 0 | 0 | 70 | | partage | 12 % | 30 | 8 | 38 |
+> | equilibre | 14 % | 41 | 31 | 0 | 0 | 72 | | equilibre | 14 % | 35 | 0 | 35 |
+> | standard | 22 % | 50 | 22 | 0 | 0 | 72 | | standard | 22 % | 36 | 0 | 36 |
+> | podium | 14 % | 45 | 27 | 0 | 0 | 72 | | podium | 14 % | 37 | 0 | 37 |
+> | pointu | 10 % | 48 | 26 | 0 | 0 | 74 | | pointu | 10 % | 32 | 0 | 32 |
+> | couronne | 7 % | 52 | 25 | 0 | 0 | 77 | | couronne | 7 % | 38 | 0 | 38 |
+> | royale | 4 % | 56 | 23 | 0 | 0 | 79 | | royale | 4 % | 39 | 0 | 39 |
+> | jackpot | 2 % | 60 | 20 | 0 | 0 | 80 | | jackpot | 2 % | 40 | 0 | 40 |
+>
+> Squad : 1er ×2,21 (dix montants distincts, de ×1,5 à ×3,0), 2e ×1,30 (dix montants
+> distincts), 3e et 4e ×0,06 et ×0,04. Duel à 2 USDC : le vainqueur voit 2,60 · 2,80 ·
+> 3,00 · 3,20 · 3,50 · 3,60 · 3,70 · 3,80 · 3,90 · 4,00, espérance 3,39 (×1,70) ; le perdant
+> récupère 0,70 à 0,80 USDC sur les trois lignes basses (27 % du temps), de l'XP ailleurs.
+> La case 4,00 est le pot entier : la maison n'y garde rien, et se rattrape sur FLAT.
+>
+> Le tableau se lit aussi rang par rang : la roue du 9e en arène, c'est la colonne « 9e »
+> — neuf cases d'XP et une case « mise rendue » sur la ligne PODIUM, 14 % du disque.
+>
+> Ces chiffres sont des DONNÉES, verrouillées par les tests des trois implémentations ;
+> les changer est une décision produit, pas un correctif. La table qui fait foi est
+> `PrizeWheelTests.cs`, comparée à chaque exécution à `economie.js` et `gains.js`.
+>
+> **1er septembre 2026 — trois modes, trois mises, et la roue.** Le § 3 décrit UNE forme
+> de partie : seize joueurs, trois manches, une table. Il y en a désormais trois, aux
+> mises **2 / 5 / 10 USDC** (et non plus 1 / 2 / 5) :
+>
+> | Mode | Joueurs | Manches | Places payées | Vainqueur |
+> |---|---|---|---|---|
+> | `duel` — 1v1 | 2 | 1 | 1 | ×1,8 |
+> | `squad` — SQUAD 4 | 4 | 2 | 2 | ×1,9 à ×2,6 |
+> | `arena` — ARENA 16 | 16 | 3 | 8 | ×2,9 à ×7,4 |
+>
+> Le duel et le squad sont la réponse au **démarrage à froid**, que le § 2 nomme comme le
+> risque n°1 : remplir seize places demande seize personnes vivantes prêtes à miser le
+> même montant au même instant. Deux, on les trouve. Le coût est que neuf files remplacent
+> trois, et que l'arène devient plus dure à lancer qu'elle ne l'était.
+>
+> **La roue.** Avant chaque partie de squad ou d'arène, une roue tire la FORME du barème :
+> une variante parmi quatre ou cinq, de la plus plate (ÉGALITÉ, ×2,9 au vainqueur) à la
+> plus pointue (ROYALE, ×7,4). Le pot ne bouge pas — le rake reste exactement 10 %, la
+> maison ne porte aucun risque, et **« passe la manche 1, tu récupères ta mise » survit à
+> toutes les variantes**. Ce que la roue donne au vainqueur, elle le retire au reste du
+> haut de tableau ; d'où le plafond dur de ×7,4, qui est simplement ce qui reste quand les
+> huit remboursés ont leur mise. La variante STANDARD tombe une fois sur deux et **EST**,
+> au dixième près, la table de référence ci-dessus : la roue n'invente pas un barème, elle
+> ajoute de la variance autour de celui qui existait.
+>
+> **ELLE TOURNE AVANT LE DÉPART, DANS LE LOBBY, ET C'EST UNE DÉCISION DE § 5, PAS D'ERGONOMIE.**
+> Le § 5 fait reposer toute la qualification « compétition de skill » sur le fait qu'aucune
+> machine ne décide de l'issue. Une roue tournée APRÈS la partie déterminerait le montant
+> du prix par le hasard, une fois la mise engagée : c'est le motif exact qu'un régulateur
+> cherche pour requalifier en jeu d'argent. Tirée de la graine du salon à sa création, et
+> affichée pendant qu'il se remplit, ce n'est plus un tirage — c'est un **tournoi à barème
+> publié**, que le joueur lit avant de décider de jouer. Le duel n'a pas de roue du tout :
+> une seule place payée, rien à redistribuer, barème entièrement fixe.
+>
+> Le § 5 est donc **étendu, pas amendé** : sa règle « aucun générateur aléatoire dans le
+> monde du jeu » vaut toujours, et la roue n'est pas dans le monde du jeu. Ce qu'il faut y
+> ajouter est une seconde règle du même ordre : **aucun tirage après l'engagement de la
+> mise.**
+>
+> La table qui fait foi reste celle des tests — `PrizeWheelTests.cs` et `MatchModeTests.cs`
+> côté noyau, vérifiées à chaque exécution contre `tools/feel-lab/src/economie.js` et
+> `backend/src/gains.js`, catalogue de variantes ET tirage compris.
+>
+> **1er septembre 2026 — l'argent est branché sur le jeu en ligne.** Il ne l'était pas : le
+> lobby envoyait `mise: 0` en dur, et toutes les parties en ligne étaient gratuites quel
+> que soit le palier affiché. La mise part désormais au lancement de la manche 1, et le
+> gain est versé au classement rendu par le serveur. Cela **étend au multijoueur** la
+> limite déjà documentée en solo — le navigateur déclare son résultat — sans l'aggraver en
+> nature. Le correctif est le même et il est le même depuis le début : `MatchResult` signé
+> par le serveur de jeu, qui devra couvrir le mode et la variante en plus du classement.
+
 > **31 août 2026 — le moteur.** Le § 2 retient Unity 6, desktop d'abord. Ça n'a jamais été
 > commencé : `game/` est vide. Le jeu réel est `tools/feel-lab`, en Three.js + Rapier dans
 > le navigateur, avec cinq épreuves jouables. Le § 6 (assemblies `.asmdef`) décrit donc une

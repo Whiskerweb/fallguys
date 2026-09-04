@@ -268,6 +268,19 @@ function disque(n) {
 }
 
 /**
+ * Distance HEXAGONALE entre deux cases, en nombre de pas de case en case.
+ *
+ * Deux hexagones à distance 1 partagent une arête : on marche de l'un à l'autre. À partir
+ * de 2, il y a du vide entre eux. C'est le critère qui dit si deux socles de départ sont
+ * vraiment séparés — une distance euclidienne ne le dirait pas, deux cases pouvant être
+ * proches par le centre et pourtant se toucher.
+ */
+function distanceHex(q1, r1, q2, r2) {
+  const dq = q1 - q2, dr = r1 - r2;
+  return (Math.abs(dq) + Math.abs(dq + dr) + Math.abs(dr)) / 2;
+}
+
+/**
  * Axial → monde, grille FLAT-TOP.
  *
  * Les six voisins d'un hexagone se trouvent dans la direction de ses six NORMALES d'arête,
@@ -464,13 +477,90 @@ export function buildHexagone(RAPIER, assets, { seed = 1 } = {}) {
    * zéro — mais reste hors de `__etages()`, qui décrit la TOUR : un étage d'un seul
    * hexagone fausserait toute lecture de la carte.
    */
-  const sommetCases = disque(ETAGES[0].anneaux);
-  const depart = sommetCases[Math.floor(rand() * sommetCases.length)];
-  const departXZ = versMonde(depart[0], depart[1]);
+  /*
+   * ─── SEIZE SOCLES, UN PAR JOUEUR ─────────────────────────────────────────────
+   *
+   * Il n'y en avait qu'UN. Les seize joueurs y étaient donc empilés — ou plutôt, comme le
+   * serveur les écartait de onze mètres sur une tuile qui en fait trois, quatorze sur
+   * seize apparaissaient dans le vide et tombaient avant le premier tick. Aucun test ne le
+   * voyait : le seul verdict existant attendait trois secondes, or une chute depuis
+   * trente-quatre mètres met bien plus longtemps à franchir `killY`.
+   *
+   * La référence — Hex-A-Gone — pose une COURONNE de socles isolés autour du plateau,
+   * chacun avec son joueur, qui saute ensuite sur la tour. C'est ce qu'on reproduit.
+   *
+   * ─── POURQUOI TOUS AU-DESSUS DU PLATEAU ──────────────────────────────────────
+   *
+   * On aurait plus de place en débordant sur l'anneau 4, hors du plateau. Mais sous une
+   * telle case il n'y a PAS de tuile : son occupant tomberait de dix-huit mètres jusqu'à
+   * l'étage 1, quand son voisin n'en tombe que de quatre. Dans un jeu à mises, un départ
+   * qui coûte un étage de plus qu'un autre n'est pas un détail. Les seize socles restent
+   * donc au-dessus du plateau, et tout le monde a la même chute.
+   *
+   * ─── CE QUE ÇA COÛTE, ET C'EST ASSUMÉ ────────────────────────────────────────
+   *
+   * Le plateau compte trente-sept tuiles, et l'on ne peut en choisir que TREIZE dont
+   * aucune ne touche sa voisine — vérifié par recherche exhaustive. Seize socles
+   * parfaitement isolés n'y tiennent pas. On prend donc les plus écartés possibles, et
+   * quelques-uns se touchent. Arbitrage du directeur produit, mot pour mot : « regarde
+   * Fall Guys, personne ne se plaint, ils sont tous proches, ça change pas grand-chose. »
+   *
+   * L'alternative était d'élargir le plateau à soixante et une tuiles — ce qui aurait
+   * changé l'allure de la carte et obligé à remesurer sa durée de vie. Trop cher pour ce
+   * que ça règle.
+   */
+  /*
+   * LE SOUS-RÉSEAU, plutôt qu'un choix glouton.
+   *
+   * Ranger `(q + 2r) mod 3` en trois classes découpe la grille hexagonale en trois
+   * sous-réseaux dont DEUX CASES NE SE TOUCHENT JAMAIS — c'est une propriété de la grille,
+   * pas un résultat de recherche. La plus grosse classe du plateau en compte treize.
+   *
+   * On les prend toutes, puis on complète avec les cases qui touchent le moins de socles
+   * déjà posés. Mesuré : six paires en contact sur cent vingt, contre dix avec un choix
+   * glouton par distance. C'est proche de l'optimum — seize socles couvrent près de la
+   * moitié des trente-sept tuiles du plateau, un peu de contact est arithmétique.
+   *
+   * La classe ET la rotation viennent de la graine de manche : trois classes, six
+   * rotations, dix-huit dispositions. Deux tirages entiers, aucune fonction transcendante
+   * — `Math.sin` et consorts ne sont pas arrondis à l'identique par tous les moteurs
+   * JavaScript, et le client comme le serveur doivent trouver LA MÊME liste.
+   */
+  const classe = Math.floor(rand() * 3);
+  const rot = Math.floor(rand() * 6);
+
+  const cle = ([q, r]) => (((q + 2 * r) % 3) + 3) % 3;
+  const rayon2 = ([q, r]) => { const { x, z } = versMonde(q, r); return x * x + z * z; };
+  // Ordre TOTAL : rayon, puis q, puis r. Jamais la stabilité du tri du moteur, qui n'est
+  // pas un contrat sur lequel deux navigateurs peuvent s'accorder.
+  const parRayon = (a, b) => rayon2(a) - rayon2(b) || a[0] - b[0] || a[1] - b[1];
+
+  const plateau = disque(ETAGES[0].anneaux);
+  const SOCLES = plateau.filter((c) => cle(c) === classe).sort(parRayon).slice(0, 16);
+  for (const c of plateau.filter((c) => cle(c) !== classe)
+    .map((c) => ({ c, touche: SOCLES.filter((d) => distanceHex(c[0], c[1], d[0], d[1]) < 2).length }))
+    .sort((a, b) => a.touche - b.touche || parRayon(a.c, b.c))) {
+    if (SOCLES.length < 16) SOCLES.push(c.c);
+  }
+
+  // La rotation entière (q,r) → (−r, q+r) laisse le disque invariant et fait tourner la
+  // couronne. Elle préserve les distances, donc l'écartement qu'on vient d'optimiser.
+  for (let k = 0; k < rot; k++) {
+    for (let i = 0; i < SOCLES.length; i++) {
+      const [q, r] = SOCLES[i];
+      SOCLES[i] = [-r, q + r];
+    }
+  }
+
   batirEtage(etages.length, {
     anneaux: 0, couleur: C.socle, motif: 'pois',
-  }, { y: SOCLE_Y, cases: [[depart[0], depart[1]]] });
+  }, { y: SOCLE_Y, cases: SOCLES });
 
+  const places = SOCLES.map(([q, r]) => {
+    const { x, z } = versMonde(q, r);
+    return { x, y: SOCLE_Y + 1.2, z };
+  });
+  const departXZ = versMonde(SOCLES[0][0], SOCLES[0][1]);
   const spawn = new THREE.Vector3(departXZ.x, SOCLE_Y + 1.2, departXZ.z);
 
   /* ── La boue ──────────────────────────────────────────────────────────────────────────
@@ -874,6 +964,15 @@ export function buildHexagone(RAPIER, assets, { seed = 1 } = {}) {
     camBias: { height: 5.5, distance: 4.5, lookHeight: -1.6, fov: 6 },
     update, reset, dispose,
     largeur: (ETAGES[ETAGES.length - 1].anneaux * 2 + 1) * PAS,
+    /*
+     * L'AIRE DE DÉPART, et sur cette carte elle est une LISTE.
+     *
+     * `largeur` décrit la base de la tour — quarante-sept mètres. Le départ, lui, tient sur
+     * seize socles de trois mètres. S'en remettre à `largeur` posait quatorze joueurs sur
+     * seize dans le vide : c'est exactement pourquoi le placement refuse désormais de
+     * deviner et exige que chaque carte déclare son départ.
+     */
+    depart: { places },
     /** Sondes de diagnostic. */
     __cotes: () => ({
       RAYON, APOTHEME, PAS, EP, ETAGE_H, HAUT, SOCLE_Y, BOUE_Y, KILL_Y,
@@ -937,7 +1036,11 @@ export function buildHexagone(RAPIER, assets, { seed = 1 } = {}) {
       const h = s.parCle.get(`${q0},${r0}`);
       return !!h && h.etat === 'posee';
     },
-    __depart: () => ({ q: depart[0], r: depart[1], x: departXZ.x, z: departXZ.z }),
+    // Forme INCHANGÉE : `diag/hexagone.mjs` s'en sert pour éprouver le déterminisme du
+    // départ, et ce verdict doit continuer de tourner tel quel.
+    __depart: () => ({ q: SOCLES[0][0], r: SOCLES[0][1], x: departXZ.x, z: departXZ.z }),
+    /** Les seize socles, pour vérifier qu'ils sont distincts et aussi séparés que possible. */
+    __socles: () => SOCLES.map(([q, r]) => ({ q, r, ...versMonde(q, r) })),
     __ray: (ox, oy, oz, dx, dy, dz, max = 60) => {
       const ray = new RAPIER.Ray({ x: ox, y: oy, z: oz }, { x: dx, y: dy, z: dz });
       const hit = world.castRay(ray, max, true);

@@ -25,15 +25,10 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { PublicKey, Transaction } from '@solana/web3.js';
-import {
-  getAssociatedTokenAddress, getAccount, createAssociatedTokenAccountInstruction,
-  createTransferCheckedInstruction, TOKEN_PROGRAM_ID,
-} from '@solana/spl-token';
-import bs58 from 'bs58';
-import { poster, compte, solde, verrouillerJoueur } from '../livre.js';
+import { poster, compte, solde, verrouillerJoueur, mouvementExistant } from '../livre.js';
 import { config } from '../config.js';
-import { connexion, mint, caisse, DECIMALES_USDC } from './chaine.js';
+import { tresorerie } from './tresorerie.js';
+import { ChaineEchouee, ChaineIncertaine } from './chaine.js';
 import { ecrire } from '../argent.js';
 
 /**
@@ -116,109 +111,73 @@ export async function demander(db, { userId, montant }) {
 }
 
 /**
- * Envoie un retrait demande. Reprend proprement un retrait laisse en plan.
+ * Envoie un retrait demande, DEPUIS LE WALLET DU JOUEUR.
+ *
+ * Depuis le 2 septembre 2026, les USDC d'un joueur sont sur son propre wallet derive, pas
+ * sur la caisse : c'est donc sa cle — recalculee a la demande — qui signe la sortie, et la
+ * caisse ne fait que payer les frais. Sur un explorateur, le retrait se lit « du wallet
+ * de jeu du joueur vers le wallet qu'il a lie », ce qui est exactement ce qui se passe.
+ *
+ * Tout le reste — signature ecrite avant diffusion, reprise sans re-signature, echec
+ * definitif contre echec ambigu — est desormais tenu par `chaine.js`, pour tous les
+ * objets et pas seulement les retraits. Ce fichier ne garde que ce qui lui est propre :
+ * la machine a etats de `withdrawals`, et le remboursement.
  *
  * @returns {Promise<{id: string, statut: string, signature?: string}>}
  */
-export async function executer(db, id) {
+export async function executer(db, chaine, id) {
   const r = (await db.query('select * from public.withdrawals where id = $1', [id])).rows[0];
   if (!r) throw refus('RETRAIT_INCONNU', 'retrait introuvable');
   if (r.statut === 'confirme') return { id, statut: 'confirme', signature: r.signature };
   if (r.statut === 'echoue') return { id, statut: 'echoue' };
 
-  const co = connexion();
-
-  /*
-   * REPRISE. Une signature deja enregistree veut dire qu'une transaction est peut-etre
-   * partie. On interroge la chaine AVANT toute chose.
-   */
-  if (r.signature) {
-    const etat = (await co.getSignatureStatuses([r.signature])).value[0];
-    if (etat && !etat.err) {
-      await clore(db, id, 'confirme');
-      return { id, statut: 'confirme', signature: r.signature };
-    }
-    if (etat?.err) {
-      // Elle a ete rejetee par la chaine : l'argent n'est pas parti, on rend au joueur.
-      await rembourser(db, r, `transaction rejetee : ${JSON.stringify(etat.err)}`);
+  const joueur = tresorerie.joueur(r.user_id);
+  try {
+    const res = await chaine.executer({
+      operations: [{
+        type: 'virement', de: joueur, vers: r.destination, mint: 'usdc', montant: Number(r.amount_micros),
+        objet: 'retrait', ref: id, userId: r.user_id,
+      }],
+    });
+    await db.query(
+      `update public.withdrawals set statut = 'confirme', signature = $2, soumis_le = coalesce(soumis_le, now()), clos_le = now() where id = $1`,
+      [id, res.signature],
+    );
+    return { id, statut: 'confirme', signature: res.signature };
+  } catch (e) {
+    if (e instanceof ChaineEchouee) {
+      // Rien n'est parti, c'est certain : on rend au joueur.
+      await rembourserRetrait(db, id, `transaction refusee : ${e.message}`);
       return { id, statut: 'echoue' };
     }
-    /*
-     * Elle n'est pas sur la chaine. Cela ne suffit PAS a re-signer : tant que son
-     * blockhash est valide, elle peut encore etre acceptee, et une seconde transaction
-     * paierait alors deux fois. On ne recommence que si le blockhash a expire.
-     */
-    if (r.blockhash) {
-      const encoreValide = await co.isBlockhashValid(r.blockhash, { commitment: 'confirmed' });
-      if (encoreValide.value) {
-        return { id, statut: 'soumis', signature: r.signature, attente: 'blockhash encore valide' };
-      }
+    if (e instanceof ChaineIncertaine) {
+      /*
+       * Peut-etre partie. On ne rembourse PAS : le retrait reste « soumis », et c'est
+       * `rattraperChaine` qui tranchera en relisant la chaine. Rembourser sur un doute,
+       * c'est payer deux fois.
+       */
+      await db.query(
+        `update public.withdrawals set statut = 'soumis', signature = $2, soumis_le = coalesce(soumis_le, now()) where id = $1`,
+        [id, e.signature ?? null],
+      );
+      return { id, statut: 'soumis', signature: e.signature, erreur: e.message };
     }
-    // Blockhash expire et rien sur la chaine : elle ne partira jamais. On peut re-signer.
-  }
-
-  const tresor = caisse();
-  const m = mint();
-  const source = await getAssociatedTokenAddress(m, tresor.publicKey, true);
-  const proprietaire = new PublicKey(r.destination);
-  const cible = await getAssociatedTokenAddress(m, proprietaire, true);
-
-  const tx = new Transaction();
-  try {
-    await getAccount(co, cible);
-  } catch {
-    // Le wallet du joueur n'a jamais detenu d'USDC : il faut lui creer le compte, et la
-    // caisse en avance la rente. Cout reel du premier retrait vers un wallet neuf.
-    tx.add(createAssociatedTokenAccountInstruction(tresor.publicKey, cible, proprietaire, m));
-  }
-  tx.add(createTransferCheckedInstruction(
-    source, m, cible, tresor.publicKey, Number(r.amount_micros), DECIMALES_USDC, [], TOKEN_PROGRAM_ID,
-  ));
-
-  const { blockhash, lastValidBlockHeight } = await co.getLatestBlockhash('confirmed');
-  tx.recentBlockhash = blockhash;
-  tx.feePayer = tresor.publicKey;
-  tx.sign(tresor);
-
-  const signature = bs58.encode(tx.signature);
-
-  /*
-   * ON ECRIT LA SIGNATURE AVANT DE DIFFUSER. C'est l'ordre qui rend la reprise possible :
-   * apres cette ligne, un arret brutal laisse en base de quoi savoir quoi chercher sur la
-   * chaine. Avant elle, la transaction n'existe nulle part.
-   */
-  await db.query(
-    `update public.withdrawals
-        set statut = 'soumis', signature = $2, blockhash = $3, soumis_le = now()
-      where id = $1`,
-    [id, signature, blockhash],
-  );
-
-  try {
-    await co.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
-    await co.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
-    await clore(db, id, 'confirme');
-    return { id, statut: 'confirme', signature };
-  } catch (e) {
-    /*
-     * Un echec ici est AMBIGU : la transaction peut avoir ete acceptee malgre l'erreur
-     * (une coupure reseau apres l'envoi ressemble a un envoi rate). On ne rembourse donc
-     * PAS : on laisse le retrait en « soumis », et la reprise ci-dessus tranchera en
-     * interrogeant la chaine. Rembourser sur un doute, c'est payer deux fois.
-     */
-    return { id, statut: 'soumis', signature, erreur: e.message };
+    throw e;
   }
 }
 
-async function clore(db, id, statut) {
+export async function clore(db, id, statut) {
   await db.query(
-    `update public.withdrawals set statut = $2, clos_le = now() where id = $1`, [id, statut],
+    `update public.withdrawals set statut = $2, clos_le = now() where id = $1 and statut <> $2`, [id, statut],
   );
 }
 
 /** Annule un retrait et rend l'argent : le mouvement inverse, jamais une suppression. */
-async function rembourser(db, r, raison) {
+export async function rembourserRetrait(db, id, raison) {
+  const r = (await db.query('select * from public.withdrawals where id = $1', [id])).rows[0];
+  if (!r || r.statut === 'confirme') return;
   await db.transaction(async (tx) => {
+    if (await mouvementExistant(tx, 'retrait_echoue', r.id)) return;
     await poster(tx, {
       genre: 'retrait_echoue',
       ref: r.id,
@@ -229,8 +188,7 @@ async function rembourser(db, r, raison) {
       ],
     });
     await tx.query(
-      `update public.withdrawals set statut = 'echoue', raison_echec = $2, clos_le = now()
-        where id = $1`,
+      `update public.withdrawals set statut = 'echoue', raison_echec = $2, clos_le = now() where id = $1`,
       [r.id, raison],
     );
   });

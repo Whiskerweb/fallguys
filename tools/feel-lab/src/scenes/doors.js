@@ -823,5 +823,16 @@ export function buildDoors(RAPIER, assets, { seed = 1 } = {}) {
       };
     }),
     largeur: LARGEUR,
+    /*
+     * L'AIRE DE DÉPART, distincte de la largeur de jeu.
+     *
+     * `largeur` dit où l'on JOUE ; `depart` dit où l'on APPARAÎT. Sur cette carte les deux
+     * coïncident presque, mais sur trois des cinq elles divergent du tout au tout — d'où
+     * deux champs plutôt qu'un seul qu'on ferait mentir.
+     *
+     * Dérivé de `LARGEUR`, jamais recopié : si le couloir change, cette déclaration change
+     * avec lui. Un mètre retiré de chaque côté tient les joueurs à l'écart des murets.
+     */
+    depart: { largeur: LARGEUR - 2, profondeur: 4 },
   };
 }

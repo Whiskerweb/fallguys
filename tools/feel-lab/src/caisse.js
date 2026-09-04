@@ -1,58 +1,81 @@
 /**
- * LE PORTEFEUILLE DU JOUEUR — local, ou relie a de vrais USDC.
+ * LE PORTEFEUILLE DU JOUEUR — ce que le grand livre dit qu'il a.
  *
- * Deux modes derriere la meme interface :
+ * Depuis le 2 septembre 2026, IL N'Y A PLUS DE RECHARGE. Le prototype se donnait 25 USDC
+ * fictifs et un bouton TOP UP les remettait ; c'était un portefeuille sans rien derrière,
+ * et le directeur produit a demandé qu'il disparaisse du jeu. Le solde est désormais celui
+ * du backend — la somme des lignes du grand livre, adossée à un vrai wallet Solana par
+ * joueur — ou ZÉRO quand personne n'est connecté. Il entre par un dépôt, il sort par un
+ * retrait, et il bouge par les parties. Rien d'autre.
  *
- *   - HORS LIGNE (defaut) : le portefeuille du prototype, dans le `localStorage`, dote de
- *     25 USDC fictifs. C'est ce que le jeu a toujours fait, et ca reste le mode du palier
- *     gratuit, des quarante harnais de `diag/`, et de quiconque veut jouer sans compte.
+ * ─── L'ARGENT NE PASSE PLUS PAR ICI ─────────────────────────────────────────
  *
- *   - EN LIGNE : le solde vient du grand livre du backend. Le navigateur ne le CALCULE
- *     jamais et ne l'ecrit jamais — il l'affiche. Toute variation est decidee par le
- *     serveur, qui est le seul a tenir les comptes.
+ * Ce module ENGAGEAIT la mise et RÉGLAIT la partie en appelant le backend, en déclarant
+ * un rang. C'est fini : c'est le SERVEUR DE JEU qui fait engager les mises avant le départ
+ * et régler la partie à la fin, avec un résultat signé. Le navigateur ne parle plus de
+ * partie au backend. Il apprend son gain par le message `reglement` du serveur, et relit
+ * son solde. `engager()` et `regler()` survivent pour le BANC (voir plus bas) et rendent
+ * la main tout de suite en ligne.
  *
- * Le mode se choisit tout seul : si Supabase n'est pas configure ou si personne n'est
- * connecte, on est hors ligne. Il n'y a pas de bascule a actionner.
+ * ─── LE BANC ────────────────────────────────────────────────────────────────
  *
- * ---
+ * Les harnais de `diag/` pilotent le jeu contre un serveur SANS backend (politiques
+ * `DUEL_TEST`, `DEV`, `BANC`). Ce serveur le dit dans `bienvenue` : pas d'argent derrière,
+ * identité facultative. Alors, et seulement alors, un portefeuille de banc de 25 USDC
+ * imaginaires existe dans le navigateur — parce qu'un duel payant doit pouvoir se mesurer
+ * sans Solana. Ce n'est PAS un mode de jeu : un serveur de production ne l'active jamais,
+ * et il n'existe aucun bouton pour l'activer soi-même.
  *
- * LE VRAI PIEGE DE CE FICHIER, et il est structurel : en ligne, l'argent devient
- * ASYNCHRONE. `portefeuille.debiter()` ne pouvait pas echouer ; `engager()` peut etre
- * refuse, expirer, ou partir deux fois si le joueur double-clique. C'est pourquoi :
- *
- *   - `solde` reste un accesseur SYNCHRONE sur une valeur en cache. L'interface continue
- *     de lire un nombre, comme avant, sans devenir asynchrone de bout en bout ;
- *   - `engager()` est verrouille contre les appels concurrents ici, en plus de l'etre
- *     dans la base. Deux barrieres, parce que celle du navigateur donne un retour
- *     immediat au joueur et celle du serveur est la seule qui protege reellement.
+ * `solde` reste un accesseur SYNCHRONE sur une valeur en cache : l'interface lit un
+ * nombre, comme avant, sans devenir asynchrone de bout en bout.
  */
 
-import { MICROS, PALIERS, prevenir, lireEntier, table } from './economie.js';
+import { MICROS, PALIERS, MODES, prevenir, lireEntier, table, tableEffectif, tirerIssue } from './economie.js';
 import { CONFIGURE, appeler, session } from './compte.js';
 
-const CLE_SOLDE = 'tumble-solde';
+const CLE_SOLDE = 'tumble-solde-banc';
 
-/** Dotation de depart du prototype. Hors ligne uniquement : rien a jouer sans elle. */
+/** Dotation du BANC. Jamais celle d'un joueur. */
 export const SOLDE_DEPART = 25 * MICROS;
 
 let enLigne = false;
 let soldeDistant = 0;
 let profil = null;
-let engagementEnCours = false;
+let banc = false;
+/** Ce que le serveur de jeu a dit de nous à `bienvenue`. */
+let serveur = { compte: null, argent: false, identite: 'requise' };
 
 export const caisse = {
   get enLigne() { return enLigne; },
   get profil() { return profil; },
+  /** Vrai quand le serveur de jeu est un banc sans backend : portefeuille imaginaire. */
+  get banc() { return banc; },
+  /** Le compte que le serveur de jeu nous reconnaît (identifiant Supabase), ou `null`. */
+  get compte() { return serveur.compte; },
+  /** Y a-t-il de l'argent derrière ce serveur ? */
+  get argent() { return serveur.argent; },
+
+  /**
+   * Le serveur de jeu vient de dire `bienvenue`.
+   *
+   * C'est LUI qui décide si un portefeuille de banc existe : pas d'argent derrière, et
+   * identité facultative. Tout autre serveur laisse le solde à ce que le backend dit.
+   */
+  definirServeur({ compte = null, argent = false, identite = 'requise' } = {}) {
+    serveur = { compte, argent: Boolean(argent), identite };
+    banc = !argent && identite === 'facultative';
+    prevenir();
+  },
 
   /**
    * Relit le profil et le solde depuis le backend.
    *
-   * Un echec ne casse rien : on retombe hors ligne, sur le portefeuille local. Un jeu qui
-   * refuse de demarrer parce que son API ne repond pas est un jeu qu'on ne peut plus
-   * deboguer — et le joueur du palier gratuit n'a rien a faire de l'API.
+   * Un échec ne casse rien : le solde retombe à zéro, et l'interface le dit. Un jeu qui
+   * refuse de démarrer parce que son API ne répond pas est un jeu qu'on ne peut plus
+   * déboguer — mais il ne montre pas non plus un chiffre qu'il n'a pas.
    */
   async rafraichir() {
-    if (!CONFIGURE || !(await session())) { enLigne = false; prevenir(); return null; }
+    if (!CONFIGURE || !(await session())) { enLigne = false; profil = null; prevenir(); return null; }
     try {
       profil = await appeler('/moi');
       soldeDistant = profil.solde;
@@ -65,68 +88,37 @@ export const caisse = {
   },
 
   /**
-   * Engage la mise d'une partie. Rend `true` si la partie peut commencer.
-   *
-   * Hors ligne, c'est l'ancien debit immediat. En ligne, c'est le backend qui debite et
-   * qui rend le solde restant : le navigateur ne fait que le recopier.
+   * Engage une mise. BANC SEULEMENT : en ligne, c'est le serveur de jeu qui fait engager
+   * la mise avant le départ, et il n'y a rien à faire ici — on rend `true`.
    */
   async engager(matchId, mise) {
-    if (engagementEnCours) return false;   // double-clic sur JOUER : le premier gagne.
-    engagementEnCours = true;
-    try {
-      if (!enLigne) {
-        if (portefeuille.solde < mise) return false;
-        portefeuille.debiter(mise);
-        return true;
-      }
-      const r = await appeler('/partie/engager', { matchId, mise });
-      soldeDistant = r.solde;
-      prevenir();
-      return true;
-    } catch (e) {
-      console.warn('mise refusee :', e.code ?? e.message);
-      return false;
-    } finally {
-      engagementEnCours = false;
-    }
+    if (enLigne || !banc) return enLigne || !mise;
+    if (portefeuille.solde < mise) return false;
+    portefeuille.debiter(mise);
+    return true;
   },
 
   /**
-   * Regle la partie et rend le gain du rang atteint.
-   *
-   * Le gain est calcule ICI pour l'afficher tout de suite, et confirme par le backend en
-   * arriere-plan. Ce n'est pas un raccourci hasardeux : `backend/test/tout.mjs` compare
-   * les deux tables rang par rang a chaque execution, et le jour ou elles divergeraient,
-   * le test tombe avant que le joueur ne voie un chiffre faux.
-   *
-   * L'ecran de fin n'attend donc pas le reseau — mais l'argent, lui, ne bouge qu'au
-   * serveur.
+   * Le gain du rang atteint, pour l'AFFICHER. Le versement, lui, est fait par le backend
+   * sur ordre signé du serveur de jeu ; ce module n'y touche pas. Sur le banc, le
+   * portefeuille imaginaire est crédité.
    */
-  async regler(matchId, rang, mise) {
-    const gain = table(mise).parRang[rang - 1] ?? 0;
-
-    if (!enLigne) {
-      if (gain > 0) portefeuille.crediter(gain);
-      return gain;
-    }
-
-    try {
-      const r = await appeler('/partie/regler', { matchId, rang, mise });
-      soldeDistant = r.solde;
-      prevenir();
-    } catch (e) {
-      /*
-       * Un reglement qui n'aboutit pas n'est PAS perdu : la requete est idempotente et
-       * clee par la partie, donc la rejouer plus tard credite exactement une fois. On ne
-       * ment pas au joueur pour autant — le solde affiche restera celui d'avant jusqu'a
-       * ce que le reglement passe.
-       */
-      console.warn('reglement differe :', e.code ?? e.message);
-    }
+  async regler(matchId, rang, mise, mode = 'arena', graineRoue = 0, effectif = null) {
+    const joueurs = MODES[mode]?.joueurs ?? 16;
+    const complet = (effectif ?? joueurs) === joueurs;
+    const bareme = complet ? table(mise, mode, tirerIssue(mode, graineRoue).id) : tableEffectif(mise, effectif);
+    const gain = bareme.parRang[rang - 1] ?? 0;
+    if (banc && !enLigne && gain > 0) portefeuille.crediter(gain);
     return gain;
   },
 
-  /** Va voir si des USDC sont arrives sur l'adresse de depot du joueur. */
+  /** Le serveur de jeu a dit `reglement` : le solde a bougé au backend, on le relit. */
+  async surReglement() {
+    if (!enLigne) return null;
+    return this.rafraichir();
+  },
+
+  /** Va voir si des USDC sont arrivés sur le wallet du joueur. */
   async releverDepots() {
     if (!enLigne) return { nouveaux: [] };
     const r = await appeler('/depots/relever', {});
@@ -141,26 +133,32 @@ export const caisse = {
     prevenir();
     return r;
   },
+
+  historique: () => appeler('/historique'),
+  retraits: () => appeler('/retraits'),
 };
 
 export const portefeuille = {
   /**
-   * Le solde, en micros. SYNCHRONE, toujours — en ligne c'est la derniere valeur connue
-   * du serveur, hors ligne c'est le `localStorage`. L'interface n'a pas a savoir lequel.
+   * Le solde, en micros. SYNCHRONE, toujours : en ligne la dernière valeur connue du
+   * serveur, sur le banc le portefeuille imaginaire, sinon ZÉRO. Il n'y a pas de quatrième
+   * cas, et « zéro » n'est pas une panne : c'est un joueur qui n'a rien déposé.
    */
   get solde() {
-    return enLigne ? soldeDistant : lireEntier(CLE_SOLDE, SOLDE_DEPART);
+    if (enLigne) return soldeDistant;
+    if (banc) return lireEntier(CLE_SOLDE, SOLDE_DEPART);
+    return 0;
   },
 
   /*
-   * `debiter` et `crediter` n'existent QUE hors ligne.
+   * `debiter`, `crediter` et `recharger` n'existent QUE sur le banc.
    *
-   * En ligne, ecrire le solde depuis le navigateur n'aurait aucun effet reel — le grand
+   * En ligne, écrire le solde depuis le navigateur n'aurait aucun effet réel — le grand
    * livre est ailleurs — mais afficherait un chiffre qui n'existe pas. Un solde faux dans
-   * un jeu ou l'on mise est pire qu'un solde absent, donc on refuse bruyamment.
+   * un jeu où l'on mise est pire qu'un solde absent, donc on refuse bruyamment.
    */
   debiter(micros) {
-    if (enLigne) throw new Error('debiter : en ligne, seul le backend fait bouger un solde');
+    if (!banc || enLigne) throw new Error('debiter : seul le backend fait bouger un solde');
     const reste = Math.max(0, this.solde - micros);
     localStorage.setItem(CLE_SOLDE, String(reste));
     prevenir();
@@ -168,19 +166,14 @@ export const portefeuille = {
   },
 
   crediter(micros) {
-    if (enLigne) throw new Error('crediter : en ligne, seul le backend fait bouger un solde');
+    if (!banc || enLigne) throw new Error('crediter : seul le backend fait bouger un solde');
     localStorage.setItem(CLE_SOLDE, String(this.solde + micros));
     prevenir();
   },
 
-  /**
-   * Recharge du prototype. HORS LIGNE UNIQUEMENT.
-   *
-   * En ligne, il n'y a pas de bouton pour se donner de l'argent : c'est tout l'objet du
-   * depot. `lobbyui` remplace donc RECHARGER par DEPOSER des qu'une session existe.
-   */
+  /** Remet la dotation du BANC. Sans effet partout ailleurs — il n'y a plus de recharge. */
   recharger() {
-    if (enLigne) return;
+    if (!banc || enLigne) return;
     localStorage.setItem(CLE_SOLDE, String(SOLDE_DEPART));
     prevenir();
   },

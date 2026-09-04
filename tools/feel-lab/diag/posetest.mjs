@@ -1,10 +1,13 @@
 /** Capture chaque personnage au repos puis dans une pose extreme imposee.
  *  Un maillage correctement skinne doit visiblement se deformer entre les deux. */
 import { chromium } from 'playwright';
+import { dossierDeBanc } from '../src/boutique.js';
 const MODELS = process.argv.slice(2);
 const browser = await chromium.launch({ args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
 for (const id of MODELS) {
   const page = await browser.newPage({ viewport: { width: 700, height: 700 } });
+  // Un personnage de boutique doit etre possede pour etre equipe (`src/boutique.js`).
+  await page.addInitScript(({ cle, valeur }) => localStorage.setItem(cle, valeur), dossierDeBanc());
   await page.addInitScript((m) => localStorage.setItem('tumble-model', m), id);
   await page.goto('http://127.0.0.1:5273/?lowfx&nointro', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => { const l=document.getElementById('loading'); return l && getComputedStyle(l).display==='none'; }, { timeout: 180000 });

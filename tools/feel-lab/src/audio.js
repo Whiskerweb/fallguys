@@ -92,4 +92,34 @@ export const sfx = {
   },
   checkpoint() { tone({ type: 'sine', from: 700, to: 980, duration: 0.14, gain: 0.18 }); },
   click() { tone({ type: 'square', from: 520, to: 700, duration: 0.07, gain: 0.14 }); },
+
+  /*
+   * LA ROUE. Trois sons, et ils vivent ICI parce que `tone` et `noise` sont prives : les
+   * ecrire ailleurs demanderait de les exporter, donc d'ouvrir la fabrique de sons a tout
+   * le jeu pour trois appels.
+   */
+
+  /**
+   * Le cran d'un cliquet. Il part QUARANTE FOIS pendant un lancer : il doit etre bref et
+   * discret, sinon la roue ne fait pas un bruit de roue mais un bruit de mitraillette.
+   * Trente millisecondes et un gain de 0,07 — au-dela, l'oreille entend une note.
+   */
+  tick() { tone({ type: 'square', from: 1180, to: 940, duration: 0.03, gain: 0.07 }); },
+
+  /** Le lancer : un souffle qui monte, le temps que le disque prenne sa vitesse. */
+  lancer() {
+    noise({ duration: 0.45, gain: 0.13, cutoff: 3200 });
+    tone({ type: 'sawtooth', from: 180, to: 460, duration: 0.4, gain: 0.08 });
+  },
+
+  /**
+   * Le calage sur un palier qui paie gros. `finish()` sonne deja la victoire ; celui-ci
+   * monte d'une octave et ajoute une quinte, pour que le diamant ne sonne pas comme une
+   * mise rendue.
+   */
+  jackpot() {
+    [784, 1047, 1319, 1568, 2093].forEach((f, i) =>
+      tone({ type: 'triangle', from: f, to: f, duration: 0.3, gain: 0.2, delay: i * 0.07 }));
+    noise({ duration: 0.5, gain: 0.1, cutoff: 5200, delay: 0.02 });
+  },
 };

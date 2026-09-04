@@ -4,6 +4,8 @@
  * limitée, et (selon le spec) la réduction de rake attachée aux cosmétiques premium.
  * Le personnage du lobby et celui de la course lisent la même source.
  */
+import { estDebloque } from './boutique.js';
+
 export const SKINS = [
   // Le premier est le skin par defaut : il doit trancher sur un sol bleu.
   { name: 'Mandarine', hex: 0xff7a2f },
@@ -31,6 +33,15 @@ export const SKINS = [
  * le jeu.
  */
 export const MODELS = [
+  /*
+   * BabyTrump n'est plus donne : il est EN BOUTIQUE, et il s'y gagne en publiant un post
+   * sur X (`boutique.js`). Il reste en tete du catalogue parce qu'il est la tete de
+   * gondole de la campagne — la premiere vignette de la garde-robe porte donc un cadenas,
+   * et c'est exactement ce qu'on veut qu'on voie en ouvrant la garde-robe.
+   *
+   * La CONDITION n'est pas ecrite ici : `boutique.js` la detient, ce fichier ne decrit
+   * que le personnage. Deux endroits pour la meme regle, et l'un des deux finit faux.
+   */
   {
     id: 'char-babytrump', name: 'BabyTrump', rigged: true, rarity: 'epic', accent: 0xf5a623,
     desc: 'Small format, big temper. He runs, he walks and he waits with his own animations.',
@@ -71,20 +82,40 @@ const listeners = new Set();
 export const cosmetics = {
   hex: Number(localStorage.getItem(KEY)) || SKINS[0].hex,
   /*
-   * Le personnage memorise doit encore EXISTER.
+   * Le personnage memorise doit encore EXISTER — et etre A NOUS.
    *
    * Un joueur ayant choisi un personnage retire du catalogue gardait son identifiant en
    * memoire locale : le modele restait introuvable, et il se retrouvait avec le blob de
    * secours sous une fiche qui annoncait tout autre chose. On retombe donc sur le
-   * premier du catalogue des que la selection n'y figure plus.
+   * premier PORTABLE du catalogue des que la selection n'y figure plus.
+   *
+   * « Portable » et non « present » : depuis que BabyTrump est en boutique, le premier du
+   * catalogue est verrouille. `MODELS[0].id` en defaut aurait equipe tout le monde avec
+   * le seul personnage que personne ne possede encore — la garde-robe l'aurait affiche
+   * EQUIPPED et cadenasse en meme temps.
+   *
+   * Consequence assumee : une machine qui portait deja BabyTrump repasse au suivant. Il
+   * n'y a pas de droit acquis a rattraper — le jeu n'est pas sorti, et laisser leur skin
+   * aux porteurs actuels rendrait la campagne impossible a tester pour la seule personne
+   * qui la relit.
    */
-  model: MODELS.some((m) => m.id === localStorage.getItem(MODEL_KEY))
-    ? localStorage.getItem(MODEL_KEY) : MODELS[0].id,
+  model: (MODELS.some((m) => m.id === localStorage.getItem(MODEL_KEY)) && estDebloque(localStorage.getItem(MODEL_KEY)))
+    ? localStorage.getItem(MODEL_KEY)
+    : (MODELS.find((m) => estDebloque(m.id)) ?? MODELS[0]).id,
 
+  /**
+   * Equipe un personnage. REFUSE — et rend `false` — si la boutique le retient encore.
+   *
+   * Le garde est ici et pas seulement dans la vitrine : le jour ou un autre ecran voudra
+   * equiper quelqu'un (une recompense, un raccourci clavier, un harnais), il passera par
+   * cette porte-la. Une garantie qui ne tient qu'a l'interface tient a un clic ajoute.
+   */
   setModel(id) {
+    if (!estDebloque(id)) return false;
     this.model = id;
     localStorage.setItem(MODEL_KEY, id);
     for (const fn of listeners) fn(this.hex);
+    return true;
   },
   set(hex) {
     this.hex = hex;

@@ -36,6 +36,16 @@ const CAMERA_LOOK = new THREE.Vector3(1.1, 1.95, 0);
 export const SHOWCASE_POS = new THREE.Vector3(3.9, 2.6, 6.3);
 export const SHOWCASE_LOOK = new THREE.Vector3(2.5, 2.25, -0.4);
 
+/*
+ * LE PODIUM : le vainqueur sur son plateau, vu de FACE, dans le tiers gauche de l'image.
+ *
+ * La camera vise un point a droite du socle (x = 1,1) : le personnage se decale donc a
+ * gauche, et la moitie droite reste au panneau de fin et a la roue. Un cadrage centre
+ * l'aurait mis exactement derriere le montant du gain.
+ */
+export const PODIUM_POS = new THREE.Vector3(2.9, 2.35, 6.2);
+export const PODIUM_LOOK = new THREE.Vector3(2.9, 1.85, 0);
+
 export function buildLobbyScreen(assets) {
   const group = new THREE.Group();
   const animated = [];
@@ -303,6 +313,21 @@ export function buildLobbyScreen(assets) {
   // L'avant du personnage est +Z, la camera est en +Z : rotation nulle = il nous regarde.
   // LOBBY.avatarYaw rattrape une orientation native differente sur le modele genere.
   animated.push((t, dt) => {
+    /*
+     * PODIUM : le vainqueur regarde la camera et DANSE. Le rig du jeu est gele — deux
+     * lecteurs sur un meme squelette se battraient — et c'est nous qui faisons avancer
+     * son mixeur, sur lequel la danse a ete montee (voir `montrerVainqueur`). Sans danse
+     * chargee, il tient sa pose d'attente : un vainqueur immobile vaut mieux qu'une
+     * T-pose.
+     */
+    if (podium) {
+      stage.rotation.y = LOBBY.avatarYaw;
+      if (danse && avatarRig?.mixer) avatarRig.mixer.update(dt ?? 0.016);
+      else if (avatarRig) { avatarRig.vitrine = true; avatarRig.update(dt ?? 0.016, 0, 8, 'grounded', 0); }
+      if (avatar) avatar.scale.setScalar(avatar.userData.baseScale ?? 1);
+      stage.position.y = 1.26;
+      return;
+    }
     // Pose d'attente : le rig tourne a vitesse nulle, donc uniquement le repos.
     // `vitrine` le dit au lecteur de clips, qui sans clip de repos figerait la marche sur
     // un appui et poserait une statue au milieu de la vitrine.
@@ -378,20 +403,104 @@ export function buildLobbyScreen(assets) {
   // Plus de teinte : chaque personnage garde sa texture d'origine.
   const applySkin = () => {};
 
-  /** Reconstruit l'avatar : changer de modele doit se voir dans la vitrine. */
-  function rebuildAvatar() {
+  /**
+   * Reconstruit l'avatar : changer de modele doit se voir dans la vitrine.
+   *
+   * ET IL DOIT TOUJOURS RESTER UN AVATAR. La construction initiale a un repli procedural
+   * (la capsule a deux yeux, plus haut) ; cette reconstruction ne l'avait pas, et rendait
+   * la main sur `null` apres avoir DEJA detache l'ancien. La boucle d'animation, qui lit
+   * `avatar.userData.baseScale` a chaque image, jetait alors soixante fois par seconde —
+   * scene vide, aucune erreur visible a l'ecran, et le lobby fige.
+   *
+   * On ne peut y arriver que si le .glb du personnage demande manque : `?noassets`, ou un
+   * modele dont le chargement a echoue (`assets.load` avale chaque echec un par un). La
+   * garde-robe l'evitait en rendant ces vignettes incliquables ; la BOUTIQUE, elle,
+   * equipe ce qu'elle vient de debloquer sans consulter les assets — c'est ce chemin-la
+   * qui a decouvert le trou. On garde donc l'avatar precedent plutot que rien : la
+   * vitrine ne montre pas le nouveau personnage, ce qui se voit, au lieu de s'eteindre,
+   * ce qui ne se comprend pas.
+   */
+  function rebuildAvatar(modele = cosmetics.model) {
+    const ancien = avatar;
     avatar?.removeFromParent();
-    const r = (MODELS.find((m) => m.id === cosmetics.model)?.rigged !== false)
-      ? createRiggedCharacter(assets, LOBBY.avatarHeight, cosmetics.model) : null;
+    const r = (MODELS.find((m) => m.id === modele)?.rigged !== false)
+      ? createRiggedCharacter(assets, LOBBY.avatarHeight, modele) : null;
     avatar = r?.model
-      ?? assets.getFitted(cosmetics.model, { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.025 })
+      ?? assets.getFitted(modele, { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.025 })
       ?? assets.getFitted('player-blob', { y: LOBBY.avatarHeight }, { groundAlign: true, outline: 0.018 });
-    if (!avatar) return;
+    if (!avatar) {
+      avatar = ancien;
+      if (avatar) stage.add(avatar);
+      return;
+    }
     avatarRig = r?.rig ?? null;
     avatar.traverse((c) => { if (c.isMesh && !c.userData.isOutline) c.castShadow = true; });
     avatar.userData.baseScale = avatar.scale.x || 1;
     stage.add(avatar);
     applySkin(cosmetics.hex);
+  }
+
+  // ---------- le podium ----------
+
+  /** Vrai entre le dernier classement et le retour au lobby : le plateau montre le VAINQUEUR. */
+  let podium = false;
+  let podiumModele = null;
+  /** L'action de danse en cours sur le mixeur de l'avatar, ou null. */
+  let danse = null;
+  /** Les clips de danse deja charges, par nom de fichier. Un seul chargement par session. */
+  const danses = new Map();
+
+  /**
+   * La danse d'un personnage, chargee a la demande — jamais au demarrage.
+   *
+   * Les cinq danses vivent dans `public/models/danse-*.glb`, HORS du manifeste : six
+   * megaoctets qu'un joueur qui ne gagne pas ne telecharge jamais. Le clip s'applique tel
+   * quel parce que catalogue et danses partagent le meme squelette a 24 os ; le harnais
+   * cinema (`cine/plan-danse.mjs`) fait exactement la meme greffe.
+   */
+  function chargerDanse(modele) {
+    const nom = `danse-${String(modele).replace(/^char-/, '')}`;
+    if (!danses.has(nom)) {
+      danses.set(nom, assets.loader.loadAsync(`/models/${nom}.glb`)
+        .then((g) => g.animations?.[0] ?? null)
+        .catch(() => null));
+    }
+    return danses.get(nom);
+  }
+
+  /**
+   * LE VAINQUEUR MONTE SUR LE PLATEAU — avec SON personnage, pas celui du joueur local.
+   *
+   * C'est la coupure de fin de partie : plus d'arene, plus de course, un seul personnage
+   * face a la camera, qui danse. Chez le perdant aussi : on regarde celui qui a gagne,
+   * comme dans la reference. La danse arrive quand elle est chargee ; d'ici la il tient sa
+   * pose d'attente, et si le podium a ete quitte entre-temps, elle n'est pas montee.
+   */
+  async function montrerVainqueur(modele) {
+    podium = true;
+    podiumModele = modele;
+    danse?.stop();
+    danse = null;
+    rebuildAvatar(modele);
+    stage.rotation.y = LOBBY.avatarYaw;
+    if (!assets.has(modele)) return;              // `?noassets`, ou modele absent : pas de clip a greffer
+    const clip = await chargerDanse(modele);
+    if (!clip || !podium || podiumModele !== modele || !avatarRig?.mixer) return;
+    avatarRig.frozen = true;
+    danse = avatarRig.mixer.clipAction(clip);
+    danse.setLoop(THREE.LoopRepeat, Infinity);
+    danse.setEffectiveWeight(1);
+    danse.play();
+  }
+
+  /** Retour au lobby : le plateau rend son avatar au joueur local. */
+  function quitterPodium() {
+    if (!podium) return;
+    podium = false;
+    podiumModele = null;
+    danse?.stop();
+    danse = null;
+    rebuildAvatar();
   }
 
   /**
@@ -410,6 +519,10 @@ export function buildLobbyScreen(assets) {
     group,
     rebuildAvatar,
     avatarHandle: () => ({ model: avatar, rig: avatarRig }),
+    montrerVainqueur,
+    quitterPodium,
+    get podium() { return podium; },
+    get danse() { return Boolean(danse); },
     setShowcase,
     cameraPos: CAMERA_POS,
     cameraLook: CAMERA_LOOK,

@@ -58,6 +58,7 @@ let Character = null;
 let MINIGAMES = null;
 let TUNING = null;
 let ECONOMIE = null;
+let PLACEMENT = null;
 
 /**
  * Prépare le moteur. À appeler une fois au démarrage du processus.
@@ -78,6 +79,16 @@ export async function preparer() {
   ({ Character } = await import(url('character.js')));
   ({ MINIGAMES } = await import(url('scenes/index.js')));
   ({ TUNING } = await import(url('tuning.js')));
+
+  /*
+   * LE PLACEMENT DE DÉPART VIENT DU JEU, comme le reste.
+   *
+   * Le client doit calculer EXACTEMENT la même place que nous, sans quoi il démarre
+   * ailleurs et se fait téléporter au premier instantané. Une copie de ce calcul de chaque
+   * côté divergerait au premier réglage — c'est la même raison qui fait importer
+   * `moteur.js`, `economie.js` et le protocole.
+   */
+  PLACEMENT = await import(url('placement.js'));
 
   /*
    * L'ÉCONOMIE VIENT DU JEU, ELLE AUSSI.
@@ -152,30 +163,20 @@ export function construire(id, graine) {
  */
 export function creerPerso(monde, index, total) {
   const scene = new THREE.Scene();
-  const parRang = Math.min(total, 8);
-  const colonne = index % parRang;
-  const rangee = Math.floor(index / parRang);
-
-  const ecart = 1.4;
-  const largeurUtile = Math.min(monde.largeur * 0.8, parRang * ecart);
-  const pas = parRang > 1 ? largeurUtile / (parRang - 1) : 0;
-
-  const depart = new THREE.Vector3(
-    monde.spawn.x - largeurUtile / 2 + colonne * pas,
-    monde.spawn.y,
-    monde.spawn.z + rangee * ecart,
-  );
 
   /*
-   * La graine de culbute dérive de la graine de MANCHE et du numéro du joueur.
-   *
-   * Le client la calcule de la même façon : c'est ce qui fait que deux culbutes,
-   * l'une simulée sur le serveur et l'autre prédite dans le navigateur, tombent au même
-   * endroit. Sans cela, le personnage prédit et le personnage autoritatif divergeraient à
-   * la première chute, et le joueur verrait un saut inexpliqué.
+   * La place et la graine de culbute viennent toutes deux de `placement.js`, que le client
+   * importe aussi. Le calcul vivait ici ; il a déménagé pour que les deux côtés du fil ne
+   * puissent pas en avoir deux versions. Le commentaire qui justifie l'absence de tirage
+   * l'a suivi.
    */
-  const graineCulbute = (monde.graine ^ ((index + 1) * 0x9E3779B1)) >>> 0;
-  const perso = new Character(RAPIER, monde.arene.world, scene, depart, graineCulbute);
+  const p = PLACEMENT.placer(monde.arene, index, total);
+  const depart = new THREE.Vector3(p.x, p.y, p.z);
+
+  const perso = new Character(
+    RAPIER, monde.arene.world, scene, depart,
+    PLACEMENT.graineCulbute(monde.graine, index),
+  );
   perso.__scene = scene;   // gardée pour que `dispose()` puisse la vider
   return perso;
 }

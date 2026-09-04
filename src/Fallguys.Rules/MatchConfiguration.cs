@@ -43,18 +43,23 @@ public sealed record MatchConfiguration(
     /// instant, et au premier jour il n'y en a aucun. Un salon réduit doit donc être payé
     /// selon SON effectif, pas selon un barème à seize qui promettrait un pot inexistant.
     ///
-    /// Deux joueurs sont REFUSÉS, et ce n'est pas un oubli. Il faut au moins deux manches
-    /// (<see cref="Validate"/>), donc <c>RoundSurvivors[0] &lt; 2</c> donc <c>= 1</c>, donc
-    /// la manche suivante devrait laisser moins d'un joueur. C'est structurellement
-    /// impossible. Un duel n'est pas une compétition à places : s'il faut en autoriser un,
-    /// c'est une partie d'exhibition, hors table de gains — pas un barème de plus.
+    /// Deux joueurs restent REFUSÉS ICI, et ce n'est toujours pas un oubli — mais la raison
+    /// a changé. Ce n'est plus « un duel est impossible » : <see cref="MatchMode.Duel"/>
+    /// existe et paie ×1,8 au vainqueur. C'est que cette méthode-ci DÉRIVE une pyramide
+    /// d'un effectif, pour un salon de seize qui part à douze ; elle raisonne par moitiés
+    /// successives et il lui faut au moins deux manches. Un duel n'est pas un salon réduit,
+    /// c'est un mode déclaré, avec sa forme posée à la main.
+    ///
+    /// La distinction est portante : l'échelle de 3 à 24 joueurs produite ici est
+    /// verrouillée rang par rang contre les deux ports JavaScript. Y faire entrer le duel
+    /// déplacerait une table que trois implémentations comparent à chaque exécution.
     /// </summary>
     public static MatchConfiguration ForPlayers(int players, int rakeBasisPoints = 1000)
     {
         if (players < 3)
             throw new ArgumentException(
-                $"Une partie payante demande au moins 3 joueurs ; {players} demandé(s). " +
-                "Un duel se joue hors table de gains.");
+                $"Un salon réduit demande au moins 3 joueurs ; {players} demandé(s). " +
+                "Un duel n'est pas un salon réduit : voir MatchMode.Duel.");
 
         var rounds = Math.Max(2, RoundsForPlayers(players));
         var survivors = new int[rounds];
@@ -84,16 +89,29 @@ public sealed record MatchConfiguration(
     /// <summary>Rang au-delà duquel le joueur ne récupère plus sa mise : les survivants de la manche 1.</summary>
     public int RefundThreshold => RoundSurvivors[0];
 
-    /// <summary>Nombre de joueurs qui entrent dans la dernière manche.</summary>
-    public int FinalistCount => RoundSurvivors[RoundCount - 2];
+    /// <summary>
+    /// Nombre de joueurs qui entrent dans la dernière manche.
+    ///
+    /// Le cas à UNE manche (le duel) n'a pas de manche précédente : <c>RoundCount - 2</c>
+    /// vaudrait -1 et lèverait. Les finalistes y sont les survivants de l'unique manche,
+    /// c'est-à-dire le seul vainqueur.
+    /// </summary>
+    public int FinalistCount => RoundCount == 1 ? RoundSurvivors[0] : RoundSurvivors[RoundCount - 2];
 
     public void Validate()
     {
         if (PlayerCount < 2)
             throw new ArgumentException("PlayerCount doit valoir au moins 2.");
 
-        if (RoundCount < 2)
-            throw new ArgumentException("Une partie doit compter au moins 2 manches.");
+        // Deux manches au minimum, SAUF le duel — voir MatchMode.Duel. À deux joueurs la
+        // manche 1 laisse un survivant, et une manche 2 devrait en laisser moins d'un :
+        // il n'existe pas de duel à deux manches, seulement un duel à une manche.
+        if (RoundCount < 1)
+            throw new ArgumentException("Une partie doit compter au moins 1 manche.");
+
+        if (RoundCount < 2 && PlayerCount != 2)
+            throw new ArgumentException(
+                "Une partie doit compter au moins 2 manches ; seul un duel (2 joueurs) tient en une.");
 
         if (RoundSurvivors[0] >= PlayerCount)
             throw new ArgumentException("La manche 1 doit eliminer au moins un joueur.");

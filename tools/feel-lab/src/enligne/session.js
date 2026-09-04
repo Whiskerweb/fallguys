@@ -19,19 +19,26 @@
  * ils divergent.
  */
 
-import { creerLien } from './lien.js';
+import { creerLien, PLAFOND_HISTORIQUE } from './lien.js';
+import { HZ } from './protocole.js';
 import { creerReconciliation } from './reconciliation.js';
 import { creerFigurants } from './figurants.js';
 
-export function creerSession({ url, nom }) {
-  const lien = creerLien({ url, nom });
+export function creerSession({ url, nom, jeton = null }) {
+  const lien = creerLien({ url, nom, jeton });
   const recon = creerReconciliation();
 
   let figurants = null;
   let perso = null;
   let monIndex = -1;
+  /** Sorti de la manche en cours — éliminé OU qualifié. Remis à faux à chaque manche. */
+  let sorti = false;
+  /** Sorti PAR ÉLIMINATION : on regarde la suite, on n'y joue plus. */
+  let elimine = false;
   let manche = null;              // la dernière annonce reçue
   let dernierInstantane = null;
+  /** Quand le dernier instantané est arrivé, pour faire avancer l'horloge du monde entre deux. */
+  let instantaneRecuA = 0;
   let latence = 0;                // aller-retour estimé, en ms
   let dernierSeq = 0;             // le numéro de la dernière entrée envoyée
 
@@ -39,7 +46,12 @@ export function creerSession({ url, nom }) {
   const emettre = (type, d) => { for (const fn of ecouteurs.get(type) ?? []) fn(d); };
 
   // On relaie les messages du serveur tels quels : le jeu s'abonne à ce qui l'intéresse.
-  for (const type of ['bienvenue', 'salon', 'manche', 'fin-manche', 'fin-partie', 'refus', 'etat']) {
+  // `files` et `suggestion` sont le lobby vu du serveur : qui attend où, et où l'on
+  // ferait mieux d'aller. `engagement` et `reglement` sont l'ARGENT vu du serveur : les
+  // mises qui partent avant la manche 1, le gain payé après le classement. Un type absent
+  // de cette liste n'atteint JAMAIS le jeu — c'est ainsi que le solde restait figé après
+  // une partie payée : le règlement arrivait, personne ne l'écoutait.
+  for (const type of ['bienvenue', 'salon', 'manche', 'fin-manche', 'fin-partie', 'refus', 'etat', 'sorti', 'files', 'suggestion', 'engagement', 'reglement']) {
     lien.sur(type, (msg) => {
       if (type === 'manche') {
         manche = msg;
@@ -58,14 +70,32 @@ export function creerSession({ url, nom }) {
          */
         monIndex = msg.joueurs.find((j) => j.nom === nom)?.index ?? -1;
         perso = null;
+        sorti = false;        // manche neuve, on repart en course
+        elimine = false;
         recon.reinitialiser();
       }
+      /*
+       * SORTI DE LA MANCHE, ANNONCÉ EN COURS DE ROUTE.
+       *
+       * Avant, rien ne le disait : le seul événement était la fin de manche. Un joueur
+       * tombé sur Les Hexagones continuait donc de piloter un personnage que le serveur ne
+       * simulait plus, et se regardait chuter sans comprendre qu'il était déjà dehors.
+       */
+      /*
+       * ET UN QUALIFIÉ EST SORTI AUSSI. Le serveur fige le corps d'un joueur qui vient de
+       * franchir la ligne exactement comme celui d'un éliminé (`manche.js:finir`) ; le
+       * client doit cesser de le piloter de la même façon, sinon il pousse un corps sans
+       * gravité que la correction rappelle à chaque image. Ce verrou ne retenait que
+       * l'élimination : un vainqueur croyait piloter encore.
+       */
+      if (type === 'sorti' && msg.nom === nom) { sorti = true; elimine = msg.etat === 'elimine'; }
       emettre(type, msg);
     });
   }
 
   lien.sur('instantane', (instantane) => {
     dernierInstantane = instantane;
+    instantaneRecuA = performance.now() / 1000;
     if (figurants) figurants.encaisser(instantane);
 
     /*
@@ -93,13 +123,42 @@ export function creerSession({ url, nom }) {
     get monIndex() { return monIndex; },
     /** `true` quand on a été éliminé : on regarde la suite, on n'y joue plus. */
     get estSpectateur() { return monIndex < 0; },
+
+    /**
+     * L'HORLOGE DU DÉCOR — celle du serveur, pas celle de la page.
+     *
+     * Le décor s'anime en fonction du temps écoulé, et cette animation déplace de VRAIS
+     * colliders : sur Le Rondin, l'angle d'un tronc est une fonction pure de ce nombre, et
+     * il pilote le visuel comme la physique.
+     *
+     * Le client comptait ce temps depuis l'ouverture de la page — plusieurs minutes, en
+     * général — tandis que le serveur repart de zéro à chaque manche. Les troncs n'étaient
+     * donc pas au même angle des deux côtés : le joueur heurtait un obstacle absent de son
+     * écran, et se faisait corriger par un monde qu'il ne voyait pas. Pire, chaque page
+     * ayant son propre décalage, deux joueurs ne partageaient même pas le même décor.
+     *
+     * On repart donc du tick AUTORITAIRE, et on le prolonge du temps écoulé depuis son
+     * arrivée — sans quoi le décor avancerait par à-coups de vingt images par seconde
+     * entre deux instantanés.
+     *
+     * Vaut zéro tant qu'aucun instantané n'est arrivé : c'est exactement ce que le serveur
+     * passe au premier tick de jeu.
+     */
+    get tempsMonde() {
+      if (!dernierInstantane) return 0;
+      return dernierInstantane.tick / HZ + Math.max(0, performance.now() / 1000 - instantaneRecuA);
+    },
+    /** Éliminé pendant la manche en cours : le serveur ne pilote plus ce personnage. */
+    get estElimine() { return elimine; },
+    /** Sorti de la manche, éliminé ou qualifié : le serveur a figé ce personnage. */
+    get estSorti() { return sorti; },
     /** Les avatars des autres joueurs — pour les diagnostics, et rien d'autre. */
     get figurants() { return figurants; },
     get latence() { return latence; },
     get statistiques() {
       return {
         ...recon.statistiques,
-        latence: Math.round(latence),
+        latence: latence === null ? null : Math.round(latence),
         enAttente: lien.enAttente.length,
         figurants: figurants?.avatars.length ?? 0,
       };
@@ -112,8 +171,9 @@ export function creerSession({ url, nom }) {
     },
 
     connecter() { lien.ouvrir(); return this; },
-    rejoindre(mise = 0) { lien.rejoindre(mise); },
-    accepter() { lien.accepter(); },
+    rejoindre(mise = 0, modele = null, mode = 'arena') { lien.rejoindre(mise, modele, mode); },
+    basculer(mise = 0, mode = 'arena') { lien.basculer(mise, mode); },
+    quitter() { lien.quitter(); },
 
     /**
      * Le jeu vient de construire l'arène : on lui donne le personnage local et la scène.
@@ -121,7 +181,7 @@ export function creerSession({ url, nom }) {
      * C'est ici que les figurants naissent — pas avant, puisqu'il faut une scène où les
      * poser, et pas après, sinon les premiers instantanés arrivent sans personne à animer.
      */
-    attacher({ personnage, scene, assets }) {
+    attacher({ personnage, scene, assets, placeDe = null }) {
       perso = personnage;
 
       /*
@@ -134,6 +194,8 @@ export function creerSession({ url, nom }) {
        */
       figurants = scene ? creerFigurants({ scene, assets }) : null;
       if (figurants && manche) figurants.definir(manche.joueurs, nom);
+      // Chacun sur SA place, avant tout instantané : voir `figurants.poser`.
+      if (figurants && placeDe) figurants.poser(placeDe);
       return figurants;
     },
 
@@ -143,6 +205,16 @@ export function creerSession({ url, nom }) {
       figurants = null;
       perso = null;
       recon.reinitialiser();
+      /*
+       * ET ON OUBLIE LES ENTRÉES EN ATTENTE.
+       *
+       * Elles appartenaient à la manche qui vient de finir. Les garder laisse un
+       * historique plein que plus rien n'accusera jamais, et la latence qu'on en déduit se
+       * fige alors à sa valeur de saturation. Vu sur deux machines à la fois, affichant
+       * 1983 ms exactement — soit 119 images à 60 Hz, c'est-à-dire le plafond.
+       */
+      lien.oublier();
+      latence = 0;
     },
 
     /**
@@ -224,7 +296,19 @@ export function creerSession({ url, nom }) {
       // Moins un : l'historique garde l'entrée ACCUSÉE comme point de comparaison, et
       // celle-là n'est pas « en attente » — le serveur l'a justement déjà appliquée.
       const attente = Math.max(0, lien.enAttente.length - 1);
+
+      /*
+       * SATURÉ : on ne sait pas, et on le dit.
+       *
+       * L'historique bute sur son plafond exactement quand le serveur n'accuse plus rien.
+       * Le nombre d'entrées en attente ne mesure alors plus un retard, il mesure la taille
+       * du tampon — une constante. La rendre comme une latence affichait 1983 ms, la même
+       * sur toutes les machines, ce qui est le symptôme et non la mesure.
+       */
+      if (attente >= PLAFOND_HISTORIQUE - 1) { latence = null; return null; }
+
       const brut = (attente / hz) * 1000;
+      if (latence === null) latence = brut;   // on repart de la mesure, pas de zéro
       // Moyenne glissante : la valeur brute saute d'une image à l'autre et serait
       // illisible affichée telle quelle.
       latence += (brut - latence) * 0.1;

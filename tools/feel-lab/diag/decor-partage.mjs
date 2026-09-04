@@ -30,12 +30,15 @@ for (const nom of ['fonceur','temoin']) {
   const page = await browser.newPage({ viewport:{width:800,height:500} });
   page.setDefaultTimeout(300000);
   page.on('pageerror', e => { erreursPage.push(`${nom}: ${String(e).slice(0,120)}`); });
+  // Le nom se pose AVANT le chargement, comme le personnage : c'est `bonjour` qui le porte.
+  await page.addInitScript((n) => localStorage.setItem('tumble-pseudo', n), nom);
   await page.goto(`${BASE}/?lowfx&nointro&noassets`, { waitUntil:'domcontentloaded' });
   await page.waitForFunction(() => { const l=document.getElementById('loading'); return l && getComputedStyle(l).display==='none'; }, { timeout:300000 });
-  await page.click('#btn-enligne');
-  await page.waitForFunction(() => document.getElementById('enligne-url').value.includes(location.host), { timeout:20000 });
-  await page.fill('#enligne-nom', nom);
-  await page.click('#enligne-jouer');
+  // Plus de panneau ONLINE : la page se connecte toute seule au serveur qui l'a servie, et
+  // le nom est parti avec `bonjour` (posé avant le chargement). On attend la liaison, puis
+  // PLAY entre en file — c'est exactement le geste du joueur.
+  await page.waitForFunction(() => window.__probeGame()?.file?.etat === 'ouvert', { timeout: 20000 });
+  await page.click('#play');
   pages.push({ nom, page });
 }
 const [A, B] = pages;

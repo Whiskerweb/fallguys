@@ -71,6 +71,7 @@ export function creerManche({ epreuve, graine, inscrits, qualifies, dureeMax = 2
       temps: null,            // secondes écoulées à la qualification ou à l'élimination
       progres: 0,             // fraction du parcours, ou secondes tenues
       chutes: 0,
+      abandon: false,         // parti en cours de manche : éliminé, et jamais repêché
     };
   });
 
@@ -88,10 +89,37 @@ export function creerManche({ epreuve, graine, inscrits, qualifies, dureeMax = 2
 
   const inerte = () => ({ x: 0, z: 0, jump: false, dive: false });
 
+  /**
+   * Un coureur a fini sa manche — qualifié ou éliminé.
+   *
+   * ─── ET SON CORPS S'ARRÊTE ──────────────────────────────────────────────────
+   *
+   * Changer l'état ne suffisait pas. Un coureur qui a fini n'est plus passé à
+   * `avancerTick` — donc plus piloté, et surtout plus borné par `limiterVitesse()` — mais
+   * son corps rigide reste dans le monde physique, et `world.step()` continue de le faire
+   * tomber. Mesuré sur Les Hexagones : le joueur éliminé au tick 96 se trouvait à −58 m au
+   * tick 120, −206 m au tick 180, −802 m au tick 300.
+   *
+   * Comme les instantanés publient TOUS les coureurs, éliminés compris, le joueur recevait
+   * vingt fois par seconde sa propre position en chute libre, et la correction l'y suivait
+   * fidèlement : il se regardait tomber sans fin.
+   *
+   * On coupe donc la gravité et on annule les vitesses. Le corps reste dans le monde — le
+   * retirer invaliderait des références que la manche détient encore — mais il ne bouge
+   * plus. En course, ça vaut aussi pour un qualifié : il s'arrête sur la ligne au lieu de
+   * continuer sa course pendant que les autres finissent.
+   */
   function finir(c, etat, t) {
     c.etat = etat;
     c.temps = t;
     if (etat === 'qualifie') places++;
+
+    const corps = c.perso?.body;
+    if (corps) {
+      corps.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      corps.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      corps.setGravityScale(0, true);
+    }
   }
 
   /**
@@ -116,7 +144,29 @@ export function creerManche({ epreuve, graine, inscrits, qualifies, dureeMax = 2
     const t = tick / HZ;
     const enCourse = coureurs.filter((c) => c.etat === 'court');
 
-    if (!enCourse.length || places >= qualifies || tick >= maxTicks) {
+    /*
+     * ─── DEUX FAÇONS DE GAGNER, ET LA SECONDE MANQUAIT ───────────────────────
+     *
+     * `places >= qualifies` est la règle d'une COURSE : on gagne en franchissant quelque
+     * chose. En SURVIE il n'y a rien à franchir — on gagne parce que les autres sont
+     * tombés. Le sol est de la lave, les plateformes sont le salut, et le système est
+     * inversé.
+     *
+     * Sans la condition ci-dessous, un duel sur Les Hexagones se passait ainsi : l'un
+     * tombe et se fait éliminer ; `places` vaut toujours zéro, donc la manche CONTINUE ;
+     * le survivant joue seul jusqu'à tomber à son tour ; et les deux se retrouvent
+     * éliminés à l'écran, sans vainqueur apparent. Rapporté en jouant, deux fois.
+     *
+     * `places + enCourse.length <= qualifies` dit : « ceux qui restent tiennent tous dans
+     * les places à pourvoir ». Il n'y a alors plus rien à départager, et les faire jouer
+     * plus longtemps ne changerait aucun classement.
+     *
+     * Elle ne change RIEN aux courses : tomber n'y élimine pas, donc `enCourse` ne se vide
+     * qu'à mesure que les joueurs franchissent la ligne — et `places` grandit d'autant, si
+     * bien que `places >= qualifies` se déclenche toujours en premier.
+     */
+    if (!enCourse.length || places >= qualifies || places + enCourse.length <= qualifies
+        || tick >= maxTicks) {
       clore();
       return true;
     }
@@ -139,13 +189,35 @@ export function creerManche({ epreuve, graine, inscrits, qualifies, dureeMax = 2
       t, DT, true,
     );
 
+    /*
+     * ON QUALIFIE EN BLOC, PAS COUREUR PAR COUREUR — parce qu'il y a un nombre de PLACES.
+     *
+     * `places >= qualifies` arrête bien la manche au tick suivant, mais n'a jamais tronqué
+     * quoi que ce soit : c'est une condition d'arrêt, pas un plafond. Deux cas le
+     * franchissaient.
+     *
+     *   EN SURVIE, `t` est l'horloge de la MANCHE, la même pour tout le monde. Au tick où
+     *   elle atteint la durée, tous les survivants étaient qualifiés d'un coup — quatre
+     *   vainqueurs pour une place en finale d'arène. Le classement les départageait
+     *   ensuite par leur temps, identique, donc par rien.
+     *
+     *   EN COURSE, deux joueurs qui franchissent la ligne au MÊME tick donnaient deux
+     *   qualifiés pour une place. Trente-trois millisecondes de coïncidence, mais dans une
+     *   partie à mises c'est une couronne de trop.
+     *
+     * On collecte donc, puis on tranche avec une mesure de JEU — jamais l'ordre du tableau.
+     */
+    const cloche = Boolean(monde.survie) && t >= monde.duree;
+    const debout = [];      // survie : ceux qui tiennent encore quand l'horloge tombe
+    const arrivants = [];   // course : ceux qui ont franchi la ligne à CE tick
+
     for (const c of enCourse) {
       const p = c.perso.body.translation();
 
       if (monde.survie) {
         c.progres = t;
         if (p.y < monde.killY) { finir(c, 'elimine', t); continue; }
-        if (t >= monde.duree) { finir(c, 'qualifie', t); continue; }
+        if (cloche) { debout.push({ c, y: p.y }); continue; }
       } else {
         c.progres = Math.max(c.progres, Math.min(1, (departZ - p.z) / distanceTotale));
         if (p.y < monde.killY) {
@@ -155,7 +227,33 @@ export function creerManche({ epreuve, graine, inscrits, qualifies, dureeMax = 2
           c.perso.respawn(monde.arene.checkpointFor?.(p.z) ?? monde.spawn);
           continue;
         }
-        if (p.z <= monde.finishZ) { finir(c, 'qualifie', t); continue; }
+        if (p.z <= monde.finishZ) { arrivants.push({ c, z: p.z }); continue; }
+      }
+    }
+
+    /*
+     * L'HORLOGE DE SURVIE TOMBE : on départage à l'ALTITUDE.
+     *
+     * Sur une tour dont les dalles disparaissent sous les pieds, celui qui est le plus haut
+     * en a consommé le moins — c'est une mesure de jeu, disponible à l'instant même, et
+     * c'est du skill démontrable. Les autres sont éliminés, classés par la même altitude :
+     * ils ont tenu la durée, ils sont simplement descendus plus bas.
+     */
+    if (cloche) {
+      debout.sort((a, b) => b.y - a.y);
+      for (const { c } of debout) finir(c, places < qualifies ? 'qualifie' : 'elimine', t);
+    }
+
+    /*
+     * PLUSIEURS ARRIVÉES AU MÊME TICK : le plus ENGAGÉ au-delà de la ligne est passé le
+     * premier. Ceux qui restent gardent leur état — la manche se ferme au tick suivant et
+     * le classement les prendra à leur avancement, qui vaut déjà 1.
+     */
+    if (arrivants.length) {
+      arrivants.sort((a, b) => a.z - b.z);
+      for (const { c } of arrivants) {
+        if (places >= qualifies) break;
+        finir(c, 'qualifie', t);
       }
     }
 
@@ -169,13 +267,23 @@ export function creerManche({ epreuve, graine, inscrits, qualifies, dureeMax = 2
     phase = PHASE.FINIE;
 
     /*
-     * Ce qui reste sur la piste est éliminé, mais CLASSÉ, du plus avancé au moins avancé :
-     * un joueur qui a fait 90 % du parcours ne finit pas au même rang que celui qui n'a
-     * pas quitté la ligne de départ.
+     * Ce qui reste sur la piste est CLASSÉ, du plus avancé au moins avancé : un joueur qui
+     * a fait 90 % du parcours ne finit pas au même rang que celui qui n'a pas quitté la
+     * ligne de départ.
      */
     const durent = coureurs.filter((c) => c.etat === 'court');
     durent.sort((a, b) => b.progres - a.progres || a.chutes - b.chutes);
-    for (const c of durent) finir(c, 'elimine', tick / HZ);
+
+    /*
+     * ET S'ILS TIENNENT DANS LES PLACES, ILS SONT QUALIFIÉS — pas éliminés puis repêchés.
+     *
+     * La nuance n'est pas cosmétique. Un survivant marqué `elimine` reçoit l'annonce
+     * « ELIMINATED » en cours de manche, avant d'être discrètement repêché dans le
+     * classement final. Le dernier debout d'un duel sur Les Hexagones voyait donc s'afficher
+     * qu'il avait perdu, puis gagnait. On dit la vérité du premier coup.
+     */
+    const tiennent = places + durent.length <= qualifies;
+    for (const c of durent) finir(c, tiennent ? 'qualifie' : 'elimine', tick / HZ);
 
     /*
      * On REPÊCHE jusqu'à ce que les places soient pourvues.
@@ -185,7 +293,10 @@ export function creerManche({ epreuve, graine, inscrits, qualifies, dureeMax = 2
      * à qui on l'avait promis. En survie, tout le monde tombe avant la fin : c'est la règle
      * d'Hex-A-Gone, le DERNIER TOMBÉ gagne. Une manche a toujours un vainqueur.
      */
-    const repeches = coureurs.filter((c) => c.etat === 'elimine')
+    // Un joueur qui a ABANDONNÉ n'est jamais repêché, quel que soit son avancement : il
+    // n'est plus là pour jouer la manche suivante, et lui donner une place la volerait à
+    // quelqu'un qui est resté.
+    const repeches = coureurs.filter((c) => c.etat === 'elimine' && !c.abandon)
       .sort((a, b) => b.progres - a.progres || a.chutes - b.chutes);
     for (const c of repeches) {
       if (places >= qualifies) break;
@@ -206,8 +317,9 @@ export function creerManche({ epreuve, graine, inscrits, qualifies, dureeMax = 2
         if (a.temps === null || b.temps === null) return b.progres - a.progres;
         return monde.survie ? b.temps - a.temps : a.temps - b.temps;
       });
+    // Les abandons ferment la marche : partir vaut moins que tomber.
     const eliminesListe = coureurs.filter((c) => c.etat === 'elimine')
-      .sort((a, b) => b.progres - a.progres || a.chutes - b.chutes);
+      .sort((a, b) => Number(a.abandon) - Number(b.abandon) || b.progres - a.progres || a.chutes - b.chutes);
 
     const classement = [...qualifiesListe, ...eliminesListe].map((c, i) => ({
       nom: c.nom,
@@ -248,14 +360,30 @@ export function creerManche({ epreuve, graine, inscrits, qualifies, dureeMax = 2
       return coureurs.map((c) => {
         const p = c.perso.position;
         const v = c.perso.body.linvel();
+        /*
+         * L'ORIENTATION DU CORPS, et pas seulement sa position.
+         *
+         * En plongeon et en culbute, le personnage passe en ragdoll : son visuel prend la
+         * rotation complète du corps physique (`character.js`, branche `ragdoll`). C'est
+         * cette bascule qui REND le geste lisible — le squelette, lui, ne fait qu'écarter
+         * les membres, ce qui ne se voit pas à dix mètres.
+         *
+         * Sans elle sur le fil, un adversaire qui plonge se contentait de glisser vers
+         * l'avant, bien droit. « On ne voit pas quand il plonge », et c'était exact.
+         *
+         * Une seule lecture : wasm-bindgen refuse les emprunts imbriqués.
+         */
+        const r = c.perso.body.rotation();
         return {
           nom: c.nom,
           index: c.index,
           x: p.x, y: p.y, z: p.z,
           vx: v.x, vy: v.y, vz: v.z,
+          qx: r.x, qy: r.y, qz: r.z, qw: r.w,
           etat: c.etat,
           pose: c.perso.state,
           progres: c.progres,
+          abandon: c.abandon,
         };
       });
     },
@@ -276,6 +404,27 @@ export function creerManche({ epreuve, graine, inscrits, qualifies, dureeMax = 2
 
     /** Termine la manche avant l'heure — un salon vidé, un serveur qui s'arrête. */
     interrompre() { clore(); },
+
+    /**
+     * UN JOUEUR QUITTE LA PARTIE : il est ÉLIMINÉ, tout de suite.
+     *
+     * Décision produit du 2 septembre 2026. Son personnage passait jusqu'ici en pilotage
+     * automatique et restait classé sur son avancement — en 1v1, l'adversaire jouait donc
+     * seul contre un pantin jusqu'à la fin du chrono. Partir est un abandon : le joueur
+     * sort de la manche, les places restantes se décident entre ceux qui sont là, et dans
+     * un duel l'autre gagne aussitôt (la règle « ceux qui restent tiennent dans les
+     * places » de `avancerJeu` fait le reste).
+     *
+     * Marqué `abandon` : jamais repêché, classé derrière tous les éliminés. Rend `true` si
+     * le joueur était encore en course.
+     */
+    abandonner(nom) {
+      const c = coureurs.find((x) => x.nom === nom);
+      if (!c || c.etat !== 'court') return false;
+      c.abandon = true;
+      finir(c, 'elimine', tick / HZ);
+      return true;
+    },
 
     /** Rend la mémoire : monde physique wasm et maillages construits pour rien. */
     liberer() {

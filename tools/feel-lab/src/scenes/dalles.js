@@ -656,6 +656,14 @@ export function buildDalles(RAPIER, assets, { seed = 1 } = {}) {
       return best;
     },
     largeur: LARGE_MAX,
+    /*
+     * L'aire de départ, et elle n'est PAS `LARGE_MAX`.
+     *
+     * `LARGE_MAX` (33,3 m) décrit la plus large section du parcours, tout au fond. Le
+     * palier de départ, lui, fait la largeur de la PREMIÈRE section — neuf colonnes. S'en
+     * remettre à `LARGE_MAX` posait des joueurs cinq mètres à côté de la plateforme.
+     */
+    depart: { largeur: SECTIONS[0].cols * PAS - 2, profondeur: 6 },
     /** Sondes de diagnostic. */
     __cotes: () => ({ DALLE, JEU, PAS, EP, SOL, KILL_Y, PORTEE, VOL, DIAGONALE, PERSO_LARGE,
       AFFAISSEMENT }),

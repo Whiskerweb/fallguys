@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tumble · on-chain</title>
+<!--
+  LA PAGE DE SUIVI — tout ce que le jeu fait sur Solana, en direct, pour tout le monde.
+
+  Aucun cadre, aucune dependance, aucun build : un fichier servi tel quel par le backend
+  a /suivi. Les chiffres viennent de /stats ; le flux /stats/flux (SSE) dit quand relire.
+  Chaque montant qu'on affiche est relisible sur l'explorateur Solana par le lien d'a
+  cote : c'est le principe de la page, pas un ornement.
+
+  Les chemins sont RELATIFS (`stats`, pas `/stats`) : la page marche aussi derriere le
+  serveur de jeu, qui la sert a /api/suivi et relaie /api/stats.
+-->
+<style>
+  :root { color-scheme: dark; --bg:#0a0e1c; --carte:#121830; --ligne:#1f2848; --txt:#e8ecff; --dim:#8f9cc8; --cyan:#4de0ff; --or:#ffd479; --vert:#8bf5b0; --rouge:#ff7b7b; --bg-token:#ff8ad8; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color:var(--cyan); text-decoration:none; } a:hover { text-decoration:underline; }
+  header { display:flex; align-items:center; gap:14px; padding:18px 24px; border-bottom:1px solid var(--ligne); position:sticky; top:0; background:rgba(10,14,28,.92); backdrop-filter:blur(8px); z-index:2; }
+  header h1 { margin:0; font-size:18px; letter-spacing:.5px; }
+  header .reseau { font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--dim); padding:3px 8px; border:1px solid var(--ligne); border-radius:99px; }
+  #direct { margin-left:auto; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--dim); }
+  #direct i { width:9px; height:9px; border-radius:50%; background:#555; display:inline-block; }
+  #direct.on i { background:var(--vert); box-shadow:0 0 10px var(--vert); }
+  main { max-width:1180px; margin:0 auto; padding:22px 24px 60px; }
+  h2 { font-size:12px; letter-spacing:1.4px; text-transform:uppercase; color:var(--dim); margin:28px 0 10px; }
+  .tuiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:12px; }
+  .tuile { background:var(--carte); border:1px solid var(--ligne); border-radius:14px; padding:14px 16px; min-height:88px; }
+  .tuile .l { font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--dim); }
+  .tuile .v { font-size:24px; font-weight:700; margin-top:6px; font-variant-numeric:tabular-nums; }
+  .tuile .s { font-size:12px; color:var(--dim); margin-top:2px; }
+  .tuile.bg .v { color:var(--bg-token); } .tuile.usdc .v { color:var(--cyan); } .tuile.ok .v { color:var(--vert); } .tuile.ko .v { color:var(--rouge); }
+  .barre { height:8px; background:#1a2140; border-radius:99px; overflow:hidden; margin-top:8px; }
+  .barre i { display:block; height:100%; background:linear-gradient(90deg, var(--bg-token), #ffb3ea); width:0; transition:width .6s ease; }
+  table { width:100%; border-collapse:collapse; background:var(--carte); border:1px solid var(--ligne); border-radius:14px; overflow:hidden; font-variant-numeric:tabular-nums; }
+  th, td { padding:9px 12px; text-align:left; border-bottom:1px solid var(--ligne); white-space:nowrap; }
+  th { font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--dim); font-weight:600; }
+  tr:last-child td { border-bottom:none; }
+  td.num, th.num { text-align:right; }
+  .defil { overflow-x:auto; border-radius:14px; }
+  .tag { display:inline-block; padding:2px 7px; border-radius:6px; font-size:11px; letter-spacing:.6px; text-transform:uppercase; background:#1a2140; color:var(--dim); }
+  .tag.gain, .tag.rake { color:var(--or); } .tag.mise { color:var(--cyan); } .tag.rachat { color:var(--bg-token); } .tag.annulation, .tag.echoue { color:var(--rouge); } .tag.confirme { color:var(--vert); }
+  .mono { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; }
+  #flux { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  #flux li { background:var(--carte); border:1px solid var(--ligne); border-radius:10px; padding:8px 12px; font-size:13px; display:flex; gap:10px; align-items:center; animation:pop .4s ease; }
+  #flux li time { color:var(--dim); font-size:11px; min-width:62px; }
+  @keyframes pop { from { transform:translateY(-6px); opacity:0; } }
+  .adresses div { display:flex; gap:10px; align-items:center; padding:6px 0; border-bottom:1px solid var(--ligne); }
+  .adresses b { min-width:70px; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--dim); }
+  .note { color:var(--dim); font-size:12px; margin-top:8px; }
+  .vide { color:var(--dim); padding:14px; text-align:center; }
+  @media (max-width:640px) { main { padding:14px; } header { padding:14px; } .tuile .v { font-size:20px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tumble · on-chain</h1>
+  <span class="reseau" id="reseau">…</span>
+  <span class="reseau">USDC · BG</span>
+  <div id="direct"><i></i><span id="direct-txt">connecting…</span></div>
+</header>
+<main>
+  <h2>The game</h2>
+  <div class="tuiles">
+    <div class="tuile"><div class="l">Matches played</div><div class="v" id="parties">—</div><div class="s" id="parties-s"></div></div>
+    <div class="tuile usdc"><div class="l">Total staked</div><div class="v" id="volume">—</div><div class="s" id="volume-s"></div></div>
+    <div class="tuile usdc"><div class="l">Fees collected</div><div class="v" id="rake">—</div><div class="s">10% of every pot on average</div></div>
+    <div class="tuile"><div class="l">Players</div><div class="v" id="joueurs">—</div><div class="s" id="joueurs-s"></div></div>
+    <div class="tuile"><div class="l">Deposits · withdrawals</div><div class="v" id="flux-usdc">—</div><div class="s" id="flux-usdc-s"></div></div>
+    <div class="tuile" id="verif"><div class="l">Ledger ↔ chain</div><div class="v">—</div><div class="s"></div></div>
+  </div>
+
+  <h2>Baby Guy (BG) — bought with the fees, then burned</h2>
+  <div class="tuiles">
+    <div class="tuile bg"><div class="l">BG burned</div><div class="v" id="brules">—</div><div class="s" id="brules-s"></div><div class="barre"><i id="brules-barre"></i></div></div>
+    <div class="tuile bg"><div class="l">Supply remaining</div><div class="v" id="offre">—</div><div class="s">of 1,000,000,000 · mint authority revoked</div></div>
+    <div class="tuile usdc"><div class="l">USDC spent on buybacks</div><div class="v" id="usdc-brule">—</div><div class="s" id="usdc-brule-s"></div></div>
+    <div class="tuile"><div class="l">BG price</div><div class="v" id="prix">—</div><div class="s" id="prix-s"></div></div>
+    <div class="tuile usdc"><div class="l">Fees waiting to burn</div><div class="v" id="attente">—</div><div class="s" id="attente-s"></div></div>
+  </div>
+
+  <h2>Live</h2>
+  <ul id="flux"><li class="vide">Waiting for the next on-chain event…</li></ul>
+
+  <h2>Latest matches</h2>
+  <div class="defil"><table id="parties-table"><thead><tr><th>When</th><th>Match</th><th>Mode</th><th class="num">Stake</th><th class="num">Players</th><th>Outcome</th><th class="num">Pot</th><th class="num">Fee</th><th>Status</th><th>Pot wallet</th></tr></thead><tbody></tbody></table></div>
+
+  <h2>Buybacks &amp; burns</h2>
+  <div class="defil"><table id="burns-table"><thead><tr><th>When</th><th class="num">USDC spent</th><th class="num">BG burned</th><th class="num">Supply after</th><th>Transaction</th></tr></thead><tbody></tbody></table></div>
+
+  <h2>Latest transactions</h2>
+  <div class="defil"><table id="tx-table"><thead><tr><th>When</th><th>What</th><th class="num">Amount</th><th>Match</th><th>Status</th><th>Signature</th></tr></thead><tbody></tbody></table></div>
+
+  <h2>Treasury</h2>
+  <div class="adresses" id="adresses"></div>
+  <p class="note">Every player has their own on-chain wallet: stakes leave it, winnings come back to it, withdrawals go out of it. Each match has its own pot wallet, emptied and closed at settlement. The fee wallet buys BG from the liquidity pool and burns them in a single atomic transaction.</p>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const usdc = (m) => (m / 1e6).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const bg = (m, d = 2) => (m / 1e6).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const quand = (iso) => { const d = new Date(iso); const t = Date.now() - d; if (t < 60e3) return 'just now'; if (t < 3600e3) return `${Math.floor(t / 60e3)} min ago`; if (t < 86400e3) return `${Math.floor(t / 3600e3)} h ago`; return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); };
+  const court = (s, n = 6) => s ? `${s.slice(0, n)}…${s.slice(-n)}` : '—';
+  const MODES = { duel: '1v1', squad: 'SQUAD 4', arena: 'ARENA 16' };
+  const url = (p) => new URL(p, location.href).toString();
+
+  async function relire() {
+    const r = await fetch(url('stats'), { cache: 'no-store' });
+    if (!r.ok) return;
+    peindre(await r.json());
+  }
+
+  function peindre(s) {
+    $('reseau').textContent = s.reseau;
+    $('parties').textContent = s.parties.reglees.toLocaleString('en-US');
+    $('parties-s').textContent = `${s.parties.enCours} in progress · ${s.parties.annulees} cancelled · ` + s.parties.parMode.map((m) => `${m.n} ${MODES[m.mode] ?? m.mode}`).join(' · ');
+    $('volume').textContent = usdc(s.parties.volume) + ' USDC';
+    $('volume-s').textContent = `${s.parties.misesJouees.toLocaleString('en-US')} stakes · ` + s.parties.parMise.map((m) => `${m.n}× ${usdc(m.mise)}`).join(' · ');
+    $('rake').textContent = usdc(s.parties.rake) + ' USDC';
+    $('joueurs').textContent = s.joueurs.inscrits.toLocaleString('en-US');
+    $('joueurs-s').textContent = `${usdc(s.livre.joueurs)} USDC held by players`;
+    $('flux-usdc').textContent = `${usdc(s.depots.total)} · ${usdc(s.retraits.total)}`;
+    $('flux-usdc-s').textContent = `${s.depots.n} deposits · ${s.retraits.n} withdrawals${s.retraits.enAttente ? ` · ${s.retraits.enAttente} pending` : ''}`;
+
+    const v = s.verification;
+    const tv = $('verif');
+    tv.className = 'tuile ' + (v ? (v.ok ? 'ok' : 'ko') : '');
+    tv.querySelector('.v').textContent = v ? (v.ok ? 'MATCH' : `${v.ecarts.length} GAP${v.ecarts.length > 1 ? 'S' : ''}`) : '—';
+    tv.querySelector('.s').textContent = v ? `${v.verifies} accounts checked ${quand(v.verifieLe)} · ${s.chaine.enTransit} tx in flight` : 'not checked yet';
+
+    const b = s.brulage;
+    $('brules').textContent = bg(b.bgBrules) + ' BG';
+    $('brules-s').textContent = `${((b.bgBrules / b.offreInitiale) * 100).toFixed(4)}% of the supply · ${b.rachats} burn${b.rachats === 1 ? '' : 's'}`;
+    $('brules-barre').style.width = `${Math.max(0.5, Math.min(100, (b.bgBrules / b.offreInitiale) * 100))}%`;
+    const offre = s.marche?.offre ?? (b.offreInitiale - b.bgBrules);
+    $('offre').textContent = bg(offre, 0) + ' BG';
+    $('usdc-brule').textContent = usdc(b.usdcDepenses) + ' USDC';
+    $('usdc-brule-s').textContent = b.rachats ? `avg ${usdc(b.usdcDepenses / b.rachats)} USDC per buyback` : 'no buyback yet';
+    if (s.marche && !s.marche.erreur && s.marche.bgParUsdc) {
+      $('prix').textContent = `${bg(s.marche.bgParUsdc, 0)} BG`;
+      $('prix-s').textContent = `per 1 USDC · pool: ${usdc(s.marche.pool.usdc)} USDC / ${bg(s.marche.pool.bg, 0)} BG`;
+    } else { $('prix').textContent = '—'; $('prix-s').textContent = s.marche?.erreur ? 'chain unreachable' : 'pool not seeded yet'; }
+    $('attente').textContent = s.marche && !s.marche.erreur ? usdc(s.marche.frais.usdc) + ' USDC' : '—';
+    $('attente-s').textContent = s.marche ? `burns once ≥ ${usdc(s.marche.seuil)} USDC` : '';
+
+    const tp = $('parties-table').querySelector('tbody');
+    tp.innerHTML = s.dernieresParties.length ? s.dernieresParties.map((p) => `<tr>
+      <td>${quand(p.quand)}</td><td class="mono">${p.id}</td><td>${MODES[p.mode] ?? p.mode}</td>
+      <td class="num">${usdc(p.mise)}</td><td class="num">${p.effectif ?? '—'}</td><td>${p.issue ? `<span class="tag">${p.issue}</span>` : '—'}</td>
+      <td class="num">${usdc(p.pot)}</td><td class="num">${usdc(p.rake)}</td><td><span class="tag ${p.statut}">${p.statut}</span></td>
+      <td>${p.lienPot ? `<a class="mono" href="${p.lienPot}" target="_blank" rel="noopener">${court(p.adresse_pot)}</a>` : '—'}</td></tr>`).join('') : '<tr><td colspan="10" class="vide">No match yet</td></tr>';
+
+    const tb = $('burns-table').querySelector('tbody');
+    tb.innerHTML = b.derniers.length ? b.derniers.map((x) => `<tr>
+      <td>${quand(x.cree_le)}</td><td class="num">${usdc(Number(x.usdc))}</td><td class="num">${bg(Number(x.bg), 6)}</td>
+      <td class="num">${x.supply ? bg(Number(x.supply), 0) : '—'}</td>
+      <td><a class="mono" href="${x.lien}" target="_blank" rel="noopener">${court(x.signature, 8)}</a></td></tr>`).join('') : '<tr><td colspan="5" class="vide">No burn yet — fees accumulate first</td></tr>';
+
+    const tt = $('tx-table').querySelector('tbody');
+    tt.innerHTML = s.chaine.dernieres.length ? s.chaine.dernieres.map((t) => `<tr>
+      <td>${quand(t.clos_le ?? t.cree_le)}</td><td><span class="tag ${t.objet}">${t.objet.replace('_', ' ')}</span></td>
+      <td class="num">${t.mint === 'bg' ? bg(t.montant, 6) + ' BG' : (t.objet === 'cloture_pot' ? '—' : usdc(t.montant) + ' USDC')}</td>
+      <td class="mono">${t.partie ?? '—'}</td><td><span class="tag ${t.statut}">${t.statut}</span></td>
+      <td><a class="mono" href="${t.lien}" target="_blank" rel="noopener">${court(t.signature, 8)}</a></td></tr>`).join('') : '<tr><td colspan="6" class="vide">No transaction yet</td></tr>';
+
+    const a = s.adresses; const l = s.liens;
+    $('adresses').innerHTML = [
+      ['Fees', a.frais, l.frais], ['Pool', a.pool, l.pool], ['Payer', a.caisse, l.caisse],
+      ['BG mint', s.mints.bg, l.bg], ['USDC mint', s.mints.usdc, null],
+    ].map(([n, adr, lien]) => `<div><b>${n}</b>${adr ? (lien ? `<a class="mono" href="${lien}" target="_blank" rel="noopener">${adr}</a>` : `<span class="mono">${adr}</span>`) : '<span class="mono">—</span>'}</div>`).join('');
+  }
+
+  const LIBELLES = {
+    chaine: (e) => `Transaction confirmed: ${e.operations.map((o) => `${o.objet.replace('_', ' ')} ${o.mint === 'bg' ? bg(o.montant, 2) + ' BG' : usdc(o.montant) + ' USDC'}`).join(', ')}`,
+    partie: (e) => `Match ${e.partie} ${e.statut}${e.issue ? ` · ${e.issue}` : ''}${e.mode ? ` · ${MODES[e.mode] ?? e.mode} at ${usdc(e.mise)} USDC` : ''}`,
+    brulage: (e) => `🔥 ${bg(e.bg, 2)} BG burned for ${usdc(e.usdc)} USDC`,
+    depot: (e) => `${e.n} deposit${e.n > 1 ? 's' : ''} credited`,
+    retrait: (e) => `Withdrawal ${e.statut}`,
+    verification: (e) => `Ledger ↔ chain: ${e.ok ? 'match' : e.ecarts + ' gap(s)'} (${e.verifies} accounts)`,
+  };
+
+  function ecouter() {
+    const src = new EventSource(url('stats/flux'));
+    src.onopen = () => { $('direct').classList.add('on'); $('direct-txt').textContent = 'live'; };
+    src.onerror = () => { $('direct').classList.remove('on'); $('direct-txt').textContent = 'reconnecting…'; };
+    for (const type of Object.keys(LIBELLES)) {
+      src.addEventListener(type, (ev) => {
+        const e = JSON.parse(ev.data);
+        const ul = $('flux');
+        if (ul.firstElementChild?.classList.contains('vide')) ul.innerHTML = '';
+        const li = document.createElement('li');
+        li.innerHTML = `<time>${new Date(e.a).toLocaleTimeString('en-US')}</time><span>${LIBELLES[type](e)}</span>` + (e.signature ? ` <a class="mono" href="${(new URL('stats', location.href), e.lien ?? '#')}" target="_blank" rel="noopener"></a>` : '');
+        ul.prepend(li);
+        while (ul.children.length > 12) ul.lastElementChild.remove();
+        clearTimeout(ecouter.t);
+        ecouter.t = setTimeout(relire, 800);
+      });
+    }
+  }
+
+  relire().catch(() => {});
+  ecouter();
+  setInterval(relire, 30_000);
+</script>
+</body>
+</html>

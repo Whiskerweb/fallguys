@@ -5,11 +5,27 @@ namespace Fallguys.Rules.Tests;
 
 public class ForPlayersTests
 {
+    /// <summary>
+    /// Deux joueurs restent refusés ICI, et la raison a changé : ce n'est plus « un duel
+    /// est impossible » — <see cref="MatchMode.Duel"/> existe et paie ×1,8 — c'est que
+    /// cette méthode DÉRIVE une pyramide d'un effectif, par moitiés successives, pour un
+    /// salon de seize qui part à douze. Elle a besoin de deux manches ; un duel n'en a
+    /// qu'une, et sa forme est posée à la main, pas calculée.
+    ///
+    /// La séparation est portante : l'échelle de 3 à 24 produite ici est comparée rang par
+    /// rang aux deux ports JavaScript à chaque exécution. Y faire entrer le duel
+    /// déplacerait 66 tables verrouillées.
+    /// </summary>
     [Fact]
-    public void Un_duel_est_refuse_car_structurellement_impossible()
+    public void Un_salon_reduit_a_deux_reste_refuse_le_duel_est_un_mode_pas_un_salon()
     {
         Assert.Throws<ArgumentException>(() => MatchConfiguration.ForPlayers(2));
         Assert.Throws<ArgumentException>(() => MatchConfiguration.ForPlayers(1));
+
+        // Et pourtant un duel se joue, et se paie.
+        var duel = PayoutPolicy.Compute(
+            MatchMode.Duel.Config, StakeContext.Usdc(StakeTier.Micro, 2m));
+        Assert.Equal(Money.FromUnits(3.60m), duel.ForRank(1));
     }
 
     [Theory]

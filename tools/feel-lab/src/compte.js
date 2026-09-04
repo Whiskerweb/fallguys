@@ -25,7 +25,13 @@ import { createClient } from '@supabase/supabase-js';
 
 const URL_SUPABASE = import.meta.env?.VITE_SUPABASE_URL ?? '';
 const CLE_ANON = import.meta.env?.VITE_SUPABASE_ANON_KEY ?? '';
-export const API = import.meta.env?.VITE_API_URL ?? 'http://127.0.0.1:8787';
+/**
+ * OÙ EST LE BACKEND. Par défaut `/api` : la page vient du serveur de jeu, qui relaie
+ * `/api/…` au backend — une seule adresse pour le navigateur, aucun CORS, rien à
+ * configurer. `VITE_API_URL` ne sert qu'à viser un backend ailleurs (le serveur de
+ * développement de Vite, par exemple, ne relaie rien).
+ */
+export const API = import.meta.env?.VITE_API_URL || '/api';
 
 /** `true` quand le jeu est relie a un vrai compte. Sinon : prototype local. */
 export const CONFIGURE = Boolean(URL_SUPABASE && CLE_ANON);
@@ -70,9 +76,13 @@ export async function connecter(email, motDePasse) {
  * On le detecte sur l'ABSENCE DE SESSION dans la reponse, jamais sur un reglage devine :
  * c'est le serveur qui decide, et il peut changer d'avis sans que ce code le sache.
  */
-export async function creerCompte(email, motDePasse) {
+export async function creerCompte(email, motDePasse, nom = null) {
   if (!supabase) throw new Error('comptes non configures');
-  const { data, error } = await supabase.auth.signUp({ email, password: motDePasse });
+  // Le nom de joueur part dans les metadonnees du compte : le backend le lit comme pseudo,
+  // et une autre machine le retrouve a la connexion. Le nom local du lobby suit.
+  const { data, error } = await supabase.auth.signUp({
+    email, password: motDePasse, ...(nom ? { options: { data: { name: nom } } } : {}),
+  });
   if (error) throw error;
   if (!data.session) return { confirmationRequise: true, email };
   return { session: data.session };
@@ -95,6 +105,16 @@ export function messageErreur(e) {
   if (/is invalid/i.test(m)) return 'Supabase rejected this email address. Try another domain.';
   if (/rate limit|too many/i.test(m)) return 'Too many attempts. Wait a minute.';
   return m;
+}
+
+/**
+ * Mot de passe oublie : Supabase envoie un lien de reinitialisation. On ne dit pas si
+ * l'adresse existe — c'est Supabase qui garde ce secret, et c'est bien.
+ */
+export async function motDePasseOublie(email) {
+  if (!supabase) throw new Error('comptes non configures');
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin });
+  if (error) throw error;
 }
 
 export async function deconnecter() {

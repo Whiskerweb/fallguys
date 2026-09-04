@@ -36,6 +36,25 @@ export const TYPE = { ENTREE: 1, INSTANTANE: 2 };
 /** Combien de frames d'entrée voyagent dans chaque paquet. */
 export const REDONDANCE = 3;
 
+/**
+ * LA CADENCE DU SERVEUR — trente ticks par seconde.
+ *
+ * Elle vit ici parce que c'est ce fichier qui transporte les numéros de tick : sans elle,
+ * le client reçoit des ticks qu'il ne sait pas convertir en secondes.
+ *
+ * Et il en a besoin pour une raison précise. Le décor s'anime en fonction du temps écoulé
+ * — sur Le Rondin, `angleA(elapsed) = phase + omega * elapsed` fixe à la fois le visuel du
+ * tronc ET son collider. Le client comptait ce temps depuis l'OUVERTURE DE LA PAGE, le
+ * serveur depuis le début de la manche : les deux troncs n'étaient pas au même angle, et
+ * le joueur heurtait un obstacle qu'il ne voyait pas. Chaque page ayant son propre
+ * décalage, deux joueurs ne voyaient même pas le même monde.
+ *
+ * `manche.js` déclare la même valeur de son côté ; un verdict vérifie qu'elles ne
+ * divergent pas. C'est le même traitement que la table des gains, pour la même raison :
+ * deux constantes qui doivent être égales ne le restent que si un test le dit.
+ */
+export const HZ = 30;
+
 /** Les boutons, un bit chacun. */
 export const BOUTON = { SAUT: 1, PLONGEON: 2 };
 
@@ -43,6 +62,12 @@ const CM = 100;
 const BORNE = 32767;
 
 const versCm = (m) => Math.max(-BORNE, Math.min(BORNE, Math.round(m * CM)));
+
+/** Douze octets par joueur dans un instantané : voir le format ci-dessous. */
+export const OCTETS_JOUEUR = 12;
+
+/** Une composante de quaternion : −1..1 sur un octet signé. */
+const versUnite = (n) => Math.max(-127, Math.min(127, Math.round((n ?? 0) * 127)));
 
 /**
  * Encode un paquet d'entrées.
@@ -99,7 +124,27 @@ export function decoderEntree(buf) {
  * Encode un instantané.
  *
  * Format : type(1) tick(4) ACCUSÉ(4) nombre(1) puis, par joueur,
- * index(1) x(2) y(2) z(2) etat(1). Dix octets d'en-tête, huit par joueur — 138 pour seize.
+ * index(1) x(2) y(2) z(2) etat(1) qx(1) qy(1) qz(1) qw(1). Dix octets d'en-tête, douze par
+ * joueur — 202 pour seize, soit 4 ko/s à vingt instantanés par seconde.
+ *
+ * ─── POURQUOI L'ORIENTATION EST SUR LE FIL ──────────────────────────────────
+ *
+ * Le cap, lui, reste DÉDUIT du déplacement (voir `figurants.js`) : un personnage regarde
+ * là où il va, et l'envoyer coûterait des octets pour rien.
+ *
+ * Mais le plongeon et la culbute ne sont pas des caps. Ce sont des ragdolls : le corps
+ * bascule, et c'est cette bascule qui rend le geste lisible — le squelette n'écarte que
+ * les membres. Sans ces quatre octets, un adversaire qui plonge glisse vers l'avant tout
+ * droit, et le joueur ne voit rien. Rapporté en jouant : « on voit les sauts, on ne voit
+ * pas les plongeons. »
+ *
+ * On envoie le quaternion tel quel, un octet par composante — chacune tient dans −1..1, ce
+ * qui donne un ou deux degrés d'erreur, invisibles sur un corps qui culbute. Le déduire de
+ * la pose serait une SECONDE animation, qui divergerait de la vraie au premier réglage.
+ *
+ * Et on l'envoie pour TOUT LE MONDE, tout le temps, même debout : un enregistrement de
+ * taille fixe se décode sans ambiguïté, alors qu'un champ optionnel fait lire un octet de
+ * trop et rend des positions plausibles mais fausses.
  *
  * On envoie l'INDEX et non le nom : un octet au lieu d'une chaîne, et le client connaît
  * déjà la correspondance depuis l'annonce de la manche.
@@ -112,7 +157,7 @@ export function decoderEntree(buf) {
  * qui coûte 320 sérialisations par seconde pour seize joueurs. Rien du tout.
  */
 export function encoderInstantane(tick, joueurs, accuse = 0) {
-  const buf = new ArrayBuffer(10 + joueurs.length * 8);
+  const buf = new ArrayBuffer(10 + joueurs.length * OCTETS_JOUEUR);
   const vue = new DataView(buf);
   vue.setUint8(0, TYPE.INSTANTANE);
   vue.setUint32(1, tick >>> 0);
@@ -121,12 +166,16 @@ export function encoderInstantane(tick, joueurs, accuse = 0) {
 
   for (let i = 0; i < joueurs.length; i++) {
     const j = joueurs[i];
-    const o = 10 + i * 8;
+    const o = 10 + i * OCTETS_JOUEUR;
     vue.setUint8(o, j.index);
     vue.setInt16(o + 1, versCm(j.x));
     vue.setInt16(o + 3, versCm(j.y));
     vue.setInt16(o + 5, versCm(j.z));
     vue.setUint8(o + 7, codeEtat(j));
+    vue.setInt8(o + 8, versUnite(j.qx));
+    vue.setInt8(o + 9, versUnite(j.qy));
+    vue.setInt8(o + 10, versUnite(j.qz));
+    vue.setInt8(o + 11, versUnite(j.qw));
   }
   return buf;
 }
@@ -138,7 +187,7 @@ export function decoderInstantane(buf) {
   const n = vue.getUint8(9);
   const joueurs = [];
   for (let i = 0; i < n; i++) {
-    const o = 10 + i * 8;
+    const o = 10 + i * OCTETS_JOUEUR;
     const e = vue.getUint8(o + 7);
     joueurs.push({
       index: vue.getUint8(o),
@@ -147,6 +196,10 @@ export function decoderInstantane(buf) {
       z: vue.getInt16(o + 5) / CM,
       pose: POSES[e & 0x0f] ?? 'grounded',
       etat: COURSE[(e >> 4) & 0x0f] ?? 'court',
+      qx: vue.getInt8(o + 8) / 127,
+      qy: vue.getInt8(o + 9) / 127,
+      qz: vue.getInt8(o + 10) / 127,
+      qw: vue.getInt8(o + 11) / 127,
     });
   }
   return { tick, accuse, joueurs };

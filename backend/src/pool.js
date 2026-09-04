@@ -35,7 +35,7 @@ export function creerPool() {
     );
   }
 
-  return new pg.Pool({
+  const pool = new pg.Pool({
     connectionString: config.databaseUrl,
     ssl: {
       ca: readFileSync(CA, 'utf8'),
@@ -50,4 +50,21 @@ export function creerPool() {
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
   });
+
+  /*
+   * UNE CONNEXION INACTIVE QUI TOMBE NE DOIT PAS TUER LE SERVICE.
+   *
+   * `pg-pool` emet `error` sur le POOL quand un client au repos perd sa socket — un
+   * `read ETIMEDOUT` ou `EHOSTUNREACH` sur la liaison TLS vers Supabase, ce qui arrive des
+   * qu'un reseau hoquete. Sans ecouteur, Node traite cet evenement comme une exception non
+   * geree et arrete le processus : vu deux fois de suite le 2 septembre 2026, le backend
+   * de l'argent mort en pleine soiree de test pour un delai reseau. Le pool jette le client
+   * fautif de lui-meme ; la prochaine requete en ouvrira un neuf. On journalise, et c'est
+   * tout ce qu'il y a a faire.
+   */
+  pool.on('error', (e) => {
+    console.warn('pool postgres : connexion inactive perdue —', e.code ?? e.message);
+  });
+
+  return pool;
 }

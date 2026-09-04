@@ -1,35 +1,59 @@
 /**
- * L'API — la seule porte entre le navigateur et l'argent.
+ * L'API — la seule porte entre le navigateur et l'argent, et la porte du serveur de jeu.
  *
- * Node nu, sans cadre applicatif : une dizaine de routes ne justifient pas une dependance
- * de plus, et sur un service qui garde une cle de caisse, chaque dependance est une
- * surface a surveiller.
+ * Node nu, sans cadre applicatif : une quinzaine de routes ne justifient pas une
+ * dependance de plus, et sur un service qui garde une cle de caisse, chaque dependance est
+ * une surface a surveiller.
  *
- * Regle du fichier : AUCUNE route ne prend un identifiant de joueur en parametre. Le
- * joueur est toujours celui du jeton, jamais celui de la requete. C'est ce qui rend
- * inutile la moitie des controles qu'il faudrait sinon ecrire — et ne pas oublier.
+ * Deux familles de routes, et elles ne se ressemblent pas :
+ *
+ *   - LES ROUTES DU JOUEUR (`/moi`, `/retrait`…) : identifie par son jeton Supabase, il ne
+ *     peut agir que sur lui-meme. AUCUNE ne prend un identifiant de joueur en parametre.
+ *     Et depuis le 2 septembre 2026, AUCUNE NE PARLE DE PARTIE : le navigateur ne peut
+ *     plus engager une mise ni declarer un rang. Il consulte, il depose, il retire ;
+ *
+ *   - LES ROUTES INTERNES (`/interne/…`) : le serveur de jeu, qui a simule la partie et
+ *     sait qui a fini ou, signe chaque message avec sa cle Ed25519. Le backend verifie la
+ *     signature et la fraicheur avant d'ecrire une ligne. C'etait le trou n° 1 de la liste
+ *     d'avant-mainnet ; il est ferme ici.
+ *
+ *   - et les ROUTES PUBLIQUES (`/bareme`, `/stats`, `/suivi`) : sans jeton, deliberement.
+ *     Un bareme qu'on ne peut pas lire avant de miser n'est pas un bareme publie, et un
+ *     brulage qu'on ne peut pas verifier n'est pas un brulage.
  */
 
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { config, exiger } from '../config.js';
 import { solde, compte } from '../livre.js';
-import { engager, regler } from '../match/regler.js';
+import { engagerPartie, regler, annulerPartie } from '../match/regler.js';
 import { demander } from '../solana/retraits.js';
 import { adresseDepot } from '../solana/adresses.js';
-import { releverDepots, balayer } from '../solana/guetteur.js';
-import { table, PALIERS, CONFIG } from '../gains.js';
+import { releverDepots } from '../solana/guetteur.js';
+import { lienExplorateur, lienAdresse } from '../solana/chaine.js';
+import { verifierChaine } from '../solana/reconciliation.js';
+import { ouvrir } from '../signature.js';
+import { statistiques, invaliderStats, poserVerification } from '../stats.js';
+import { publier, souscrire } from '../evenements.js';
+import { table, tableEffectif, esperance, roueDe, grade, PALIERS, MODES, ORDRE_MODES, ISSUES, mode, tirerIssue } from '../gains.js';
 import { MICROS } from '../argent.js';
 
+const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'public');
+
+const entetes = (type = 'application/json; charset=utf-8') => ({
+  'content-type': type,
+  'access-control-allow-origin': config.origine ?? '*',
+  'access-control-allow-headers': 'authorization, content-type',
+  'access-control-allow-methods': 'GET, POST, OPTIONS',
+});
+
 const json = (res, code, corps) => {
-  res.writeHead(code, {
-    'content-type': 'application/json; charset=utf-8',
-    'access-control-allow-origin': config.origine ?? '*',
-    'access-control-allow-headers': 'authorization, content-type',
-    'access-control-allow-methods': 'GET, POST, OPTIONS',
-  });
+  res.writeHead(code, entetes());
   res.end(JSON.stringify(corps));
 };
 
@@ -38,10 +62,9 @@ async function corps(req) {
   let taille = 0;
   for await (const c of req) {
     taille += c.length;
-    // Une requete de ce service ne depasse jamais quelques centaines d'octets. Plafonner
-    // evite qu'un corps interminable occupe la memoire du seul processus qui signe les
-    // retraits.
-    if (taille > 16_384) throw refus(413, 'CORPS_TROP_GROS', 'requete trop volumineuse');
+    // Un resultat d'arene a seize joueurs tient en deux kilo-octets. Plafonner evite qu'un
+    // corps interminable occupe la memoire du seul processus qui signe les paiements.
+    if (taille > 32_768) throw refus(413, 'CORPS_TROP_GROS', 'requete trop volumineuse');
     morceaux.push(c);
   }
   if (!morceaux.length) return {};
@@ -54,7 +77,13 @@ async function corps(req) {
 
 const refus = (statut, code, message) => Object.assign(new Error(message), { statut, code });
 
-export function creerServeur(db) {
+/**
+ * @param {object} db
+ * @param {object} p
+ * @param {object} p.chaine la chaine (reelle ou factice). Sans elle, les routes internes
+ *   refusent : un pot ne se remplit pas en l'air.
+ */
+export function creerServeur(db, { chaine = null } = {}) {
   exiger('supabaseUrl', 'supabaseAnon');
   const supabase = createClient(config.supabaseUrl, config.supabaseAnon);
 
@@ -62,9 +91,7 @@ export function creerServeur(db) {
    * Identifie l'appelant par son jeton Supabase.
    *
    * Le jeton est verifie par Supabase, pas par nous : c'est lui qui detient la cle de
-   * signature. On ne decode donc jamais le JWT nous-memes — un decodage sans verification
-   * est la faille la plus repandue de ce genre de service, et elle se lit « n'importe qui
-   * peut se declarer n'importe qui ».
+   * signature. On ne decode jamais le JWT nous-memes.
    */
   async function joueurDe(req) {
     const entete = req.headers.authorization ?? '';
@@ -74,7 +101,6 @@ export function creerServeur(db) {
     const { data, error } = await supabase.auth.getUser(jeton);
     if (error || !data?.user) throw refus(401, 'JETON_INVALIDE', 'session expiree ou invalide');
 
-    // Le profil est cree a la premiere visite, avec son adresse de depot derivee.
     const id = data.user.id;
     await db.query(
       `insert into public.profiles (id, pseudo, adresse_depot)
@@ -84,22 +110,49 @@ export function creerServeur(db) {
     return id;
   }
 
+  /**
+   * Une route INTERNE : le message doit etre scelle par la cle du serveur de jeu.
+   *
+   * `quoi` est verifie aussi : un message « soldes » signe ne doit pas pouvoir etre
+   * presente a la route « regler ». Chaque route n'accepte que son propre verbe.
+   */
+  const interne = (quoi, fn) => async (req) => {
+    if (!config.serveurPublique) throw refus(503, 'SERVEUR_NON_CONFIGURE', 'SERVEUR_PUBLIQUE absente');
+    if (!chaine) throw refus(503, 'CHAINE_ABSENTE', 'aucune chaine configuree');
+    const message = await corps(req);
+    const o = ouvrir(message, config.serveurPublique);
+    if (!o.ok) throw refus(401, o.raison, 'message refuse');
+    if (o.corps.quoi !== quoi) throw refus(400, 'QUOI_INATTENDU', `attendu « ${quoi} », recu « ${o.corps.quoi} »`);
+    return fn(o.corps);
+  };
+
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const idPartie = /^[a-z0-9-]{4,64}$/i;
+
   const routes = {
 
     /** Tout ce que le lobby a besoin de savoir en une requete. */
     'GET /moi': async (req) => {
       const userId = await joueurDe(req);
       const p = (await db.query(
-        'select pseudo, wallet, adresse_depot from public.profiles where id = $1', [userId],
+        'select pseudo, wallet, adresse_depot, wallet_lie_le from public.profiles where id = $1', [userId],
       )).rows[0];
+      const enAttente = (await db.query(
+        `select coalesce(sum(amount_micros), 0)::text as t from public.withdrawals where user_id = $1 and statut in ('demande', 'soumis')`, [userId],
+      )).rows[0].t;
       return {
         userId,
         pseudo: p.pseudo,
         wallet: p.wallet,
+        walletLieLe: p.wallet_lie_le,
         adresseDepot: p.adresse_depot,
         solde: await solde(db, compte.joueur(userId)),
+        retraitsEnAttente: Number(enAttente),
         reseau: config.reseau,
+        mintUsdc: config.mintUsdc,
+        liens: { wallet: lienAdresse(p.adresse_depot), explorateur: lienExplorateur('').replace(/\/tx\/.*$/, '') },
         paliers: PALIERS,
+        modes: ORDRE_MODES,
         depotMinimum: config.depotMinimum,
         retraitMinimum: config.retraitMinimum,
         delaiPremierRetraitHeures: config.delaiPremierRetraitHeures,
@@ -120,14 +173,6 @@ export function creerServeur(db) {
       if (!adresse || !message || !signature) {
         throw refus(400, 'CHAMPS_MANQUANTS', 'adresse, message et signature sont requis');
       }
-
-      /*
-       * Le message doit porter l'identifiant du joueur ET une date recente.
-       *
-       * L'identifiant empeche de rejouer devant un autre compte une signature obtenue
-       * ailleurs ; la date empeche de rejouer indefiniment la meme. Une signature valide
-       * mais recyclee est le piege classique de ce genre de liaison.
-       */
       if (!String(message).includes(userId)) {
         throw refus(400, 'MESSAGE_ETRANGER', 'le message signe ne designe pas ce compte');
       }
@@ -136,120 +181,254 @@ export function creerServeur(db) {
       if (!(age >= 0 && age < 10 * 60 * 1000)) {
         throw refus(400, 'MESSAGE_PERIME', 'le message signe doit dater de moins de dix minutes');
       }
-
       let valide = false;
       try {
         valide = nacl.sign.detached.verify(
-          new TextEncoder().encode(message),
-          bs58.decode(signature),
-          bs58.decode(adresse),
+          new TextEncoder().encode(message), bs58.decode(signature), bs58.decode(adresse),
         );
-      } catch {
-        valide = false;
-      }
+      } catch { valide = false; }
       if (!valide) throw refus(400, 'SIGNATURE_INVALIDE', 'la signature ne correspond pas a l\'adresse');
 
-      /*
-       * Relier un wallet REMET LE COMPTEUR A ZERO : `wallet_lie_le` est reecrit, donc le
-       * delai du premier retrait repart. Un compte vole dont l'attaquant relie sa propre
-       * adresse doit attendre un jour avant de sortir quoi que ce soit.
-       */
+      // Relier un wallet REMET LE COMPTEUR A ZERO : le delai du premier retrait repart.
       await db.query(
-        `update public.profiles set wallet = $2, wallet_lie_le = now() where id = $1`,
-        [userId, adresse],
+        `update public.profiles set wallet = $2, wallet_lie_le = now() where id = $1`, [userId, adresse],
       );
       return { wallet: adresse, delaiPremierRetraitHeures: config.delaiPremierRetraitHeures };
     },
 
-    /** Releve les depots arrives, et balaie. Appele par le lobby quand le joueur regarde. */
+    /** Releve les depots arrives. Appele par le lobby quand le joueur regarde. */
     'POST /depots/relever': async (req) => {
       const userId = await joueurDe(req);
-      const p = (await db.query(
-        'select adresse_depot from public.profiles where id = $1', [userId],
-      )).rows[0];
+      const p = (await db.query('select adresse_depot from public.profiles where id = $1', [userId])).rows[0];
       const vus = await releverDepots(db, { userId, adresse: p.adresse_depot });
-      if (vus.some((v) => !v.deja)) {
-        // Un balayage rate n'empeche pas de repondre : le joueur est deja credite.
-        balayer(userId).catch((e) => console.error(`balayage ${userId} : ${e.message}`));
-      }
-      return { nouveaux: vus.filter((v) => !v.deja), solde: await solde(db, compte.joueur(userId)) };
-    },
-
-    /** Engage la mise : l'argent quitte le solde et entre dans le pot. */
-    'POST /partie/engager': async (req) => {
-      const userId = await joueurDe(req);
-      const { matchId, mise } = await corps(req);
-      if (!matchId) throw refus(400, 'MATCH_MANQUANT', 'matchId requis');
-      if (!PALIERS.includes(mise / MICROS)) {
-        throw refus(400, 'MISE_HORS_CATALOGUE', `tables ouvertes : ${PALIERS.join(', ')} USDC`);
-      }
-      // `matchId` est prefixe du joueur : un identifiant de partie choisi par le client ne
-      // doit pas pouvoir designer le pot d'un autre.
-      const r = await engager(db, { matchId: `${userId}:${matchId}`, userId, mise });
-      return { engagee: !r.deja, solde: r.solde };
-    },
-
-    /**
-     * Regle la partie et verse le gain du rang atteint.
-     *
-     *   LIMITE ASSUMEE DU LOT DEVNET : le rang est DECLARE par le navigateur. Rien ici ne
-     *   peut en etablir la veracite tant que le serveur de jeu autoritatif n'existe pas.
-     *   Sans consequence sur devnet ; redhibitoire en mainnet. Voir README.md.
-     */
-    'POST /partie/regler': async (req) => {
-      const userId = await joueurDe(req);
-      const { matchId, rang, mise } = await corps(req);
-      if (!matchId) throw refus(400, 'MATCH_MANQUANT', 'matchId requis');
-      const r = await regler(db, {
-        matchId: `${userId}:${matchId}`,
-        mise,
-        classement: [{ userId, rang }],
-      });
-      return {
-        regle: !r.deja,
-        gain: table(mise).parRang[rang - 1] ?? 0,
-        solde: await solde(db, compte.joueur(userId)),
-      };
+      const nouveaux = vus.filter((v) => !v.deja);
+      if (nouveaux.length) { publier('depot', { n: nouveaux.length }); invaliderStats(); }
+      return { nouveaux, solde: await solde(db, compte.joueur(userId)) };
     },
 
     /** Demande un retrait vers le wallet lie. La destination n'est jamais un parametre. */
     'POST /retrait': async (req) => {
       const userId = await joueurDe(req);
       const { montant } = await corps(req);
+      if (!Number.isInteger(montant) || montant <= 0) throw refus(400, 'MONTANT_INVALIDE', 'montant en micros attendu');
       const r = await demander(db, { userId, montant });
+      publier('retrait', { statut: 'demande' });
       return { id: r.id, montant: r.montant, destination: r.destination, solde: r.solde };
     },
 
+    /** Les retraits du joueur, avec leur signature quand elle existe. */
+    'GET /retraits': async (req) => {
+      const userId = await joueurDe(req);
+      const r = await db.query(
+        `select id, amount_micros::text as montant, destination, statut, signature, demande_le, clos_le, raison_echec
+           from public.withdrawals where user_id = $1 order by demande_le desc limit 50`, [userId],
+      );
+      return { retraits: r.rows.map((l) => ({ ...l, montant: Number(l.montant), lien: l.signature ? lienExplorateur(l.signature) : null })) };
+    },
+
+    /**
+     * L'historique du joueur : chaque ligne du livre, et la transaction Solana qui la
+     * prouve quand il y en a une. Un depot EST sa signature ; une mise, un gain, une
+     * mise rendue, un retrait ont leur ligne dans `chain_tx`.
+     */
     'GET /historique': async (req) => {
       const userId = await joueurDe(req);
       const r = await db.query(
-        `select e.cree_le, t.genre, e.amount_micros, t.metadata
+        `select e.cree_le, t.genre, e.amount_micros::text as montant, t.metadata, t.ref
            from public.ledger_entries e join public.ledger_tx t on t.id = e.tx_id
-          where e.compte = $1 order by e.id desc limit 50`,
+          where e.compte = $1 order by e.id desc limit 60`,
         [compte.joueur(userId)],
       );
-      return { lignes: r.rows };
+      const chaine_ = (await db.query(
+        `select objet, ref, signature, statut from public.chain_tx where user_id = $1 and signature is not null`, [userId],
+      )).rows;
+      const parCle = new Map(chaine_.map((c) => [`${c.objet}:${c.ref}`, c]));
+      const OBJET = { mise: 'mise', gain: 'gain', mise_rendue: 'annulation', retrait: 'retrait' };
+      const lignes = r.rows.map((l) => {
+        let signature = null;
+        if (l.genre === 'depot' && !l.ref?.startsWith('test:')) signature = l.ref;
+        else if (OBJET[l.genre]) {
+          const ref = l.genre === 'retrait' ? l.ref : `${l.metadata?.matchId}:${userId}`;
+          const c = parCle.get(`${OBJET[l.genre]}:${ref}`);
+          if (c?.statut === 'confirme') signature = c.signature;
+        }
+        return {
+          cree_le: l.cree_le, genre: l.genre, montant: Number(l.montant),
+          partie: l.metadata?.matchId ?? null, mode: l.metadata?.mode ?? null, issue: l.metadata?.issue ?? null,
+          signature, lien: signature ? lienExplorateur(signature) : null,
+        };
+      });
+      return { lignes };
     },
 
-    /** Sans authentification : la table des gains, pour que le lobby puisse l'afficher. */
-    'GET /bareme': async () => ({ config: CONFIG, paliers: PALIERS,
-      tables: Object.fromEntries(PALIERS.map((u) => [u, table(u * MICROS)])) }),
+    /** Sans authentification : TOUT le bareme, pour que le lobby puisse l'afficher. */
+    'GET /bareme': async () => ({
+      modes: ORDRE_MODES.map((id) => ({
+        ...MODES[id],
+        issues: ISSUES[id].map((v) => ({
+          id: v.id, nom: v.nom, poids: v.poids,
+          tables: Object.fromEntries(PALIERS.map((u) => [u, table(u * MICROS, id, v.id)])),
+        })),
+        esperance: Object.fromEntries(PALIERS.map((u) => [u, esperance(u * MICROS, id)])),
+        roues: Object.fromEntries(PALIERS.map((u) => [u,
+          Array.from({ length: MODES[id].joueurs }, (_, r) => roueDe(id, r + 1, u * MICROS))])),
+        grades: Array.from({ length: MODES[id].joueurs }, (_, r) => grade(id, r + 1)),
+      })),
+      paliers: PALIERS,
+    }),
+
+    /** Les statistiques publiques du jeu et du jeton. */
+    'GET /stats': async () => statistiques(db, chaine),
+
+    /** La derniere verification livre ↔ chaine ; `?maintenant=1` en relance une. */
+    'GET /verification': async (req) => {
+      const url = new URL(req.url, 'http://x');
+      if (url.searchParams.get('maintenant') === '1' && chaine) {
+        const v = await verifierChaine(db, chaine);
+        poserVerification(v);
+        invaliderStats();
+        return v;
+      }
+      return (await statistiques(db, chaine)).verification ?? { ok: null, message: 'pas encore verifie' };
+    },
+
+    'GET /sante': async () => ({
+      ok: true, reseau: config.reseau, chaine: chaine ? (chaine.reelle ? 'reelle' : 'factice') : 'absente',
+      serveurDeJeu: Boolean(config.serveurPublique), jeton: Boolean(config.mintBg),
+    }),
+
+    // ------------------------------------------------------------ le serveur de jeu
+
+    /** Le serveur de jeu verifie au demarrage que sa cle est bien celle qu'on attend. */
+    'POST /interne/ping': interne('ping', async () => ({ ok: true, reseau: config.reseau })),
+
+    /** Les soldes de plusieurs joueurs : pour refuser une file a qui ne peut pas la payer. */
+    'POST /interne/soldes': interne('soldes', async ({ userIds }) => {
+      if (!Array.isArray(userIds) || userIds.length > 64) throw refus(400, 'LISTE_INVALIDE', 'au plus 64 identifiants');
+      const soldes = {};
+      for (const id of userIds) {
+        if (!uuid.test(id)) throw refus(400, 'ID_INVALIDE', 'identifiant de joueur invalide');
+        soldes[id] = await solde(db, compte.joueur(id));
+      }
+      return { soldes };
+    }),
+
+    /**
+     * Engage les mises d'une partie qui va partir. Rend qui est engage, ou l'annulation.
+     *
+     * Le mode et la mise viennent du salon du serveur de jeu : c'est LUI qui sera regle,
+     * quoi que le client ait cru demander.
+     */
+    'POST /interne/partie/engager': interne('engager', async ({ partie, mode: modeId, mise, joueurs }) => {
+      if (!idPartie.test(String(partie ?? ''))) throw refus(400, 'PARTIE_INVALIDE', 'identifiant de partie invalide');
+      if (!PALIERS.includes(mise / MICROS)) throw refus(400, 'MISE_HORS_CATALOGUE', `tables ouvertes : ${PALIERS.join(', ')} USDC`);
+      try { mode(modeId); } catch (e) { throw refus(400, 'TABLE_INCONNUE', e.message); }
+      if (!Array.isArray(joueurs) || !joueurs.every((j) => uuid.test(j.userId ?? ''))) {
+        throw refus(400, 'JOUEURS_INVALIDES', 'chaque joueur porte un userId');
+      }
+      let r;
+      try {
+        r = await engagerPartie(db, chaine, { partie, mode: modeId, mise, joueurs });
+      } catch (e) {
+        if (e.code === 'PARTIE_CLOSE') throw refus(409, e.code, e.message);
+        throw e;
+      }
+      publier('partie', { partie, statut: r.annulee ? 'annulee' : 'engagee', mode: modeId, mise, effectif: joueurs.length });
+      invaliderStats();
+      return r;
+    }),
+
+    /**
+     * Regle la partie : le rang, LE MODE, LA GRAINE ET L'EFFECTIF viennent du serveur de
+     * jeu, signes. Rien ne vient plus du navigateur.
+     */
+    'POST /interne/partie/regler': interne('regler', async ({ partie, mode: modeId, mise, effectif, graineRoue, classement }) => {
+      if (!idPartie.test(String(partie ?? ''))) throw refus(400, 'PARTIE_INVALIDE', 'identifiant de partie invalide');
+      if (!PALIERS.includes(mise / MICROS)) throw refus(400, 'MISE_HORS_CATALOGUE', `tables ouvertes : ${PALIERS.join(', ')} USDC`);
+      let m;
+      try { m = mode(modeId); } catch (e) { throw refus(400, 'TABLE_INCONNUE', e.message); }
+      if (!Number.isInteger(graineRoue) || graineRoue < 0 || graineRoue > 0xFFFFFFFF) {
+        throw refus(400, 'GRAINE_IMPOSSIBLE', 'la graine de roue tient sur 32 bits');
+      }
+      const joueurs = effectif ?? classement?.length;
+      const plancher = m.joueurs === 2 ? 2 : 3;
+      if (!Number.isInteger(joueurs) || joueurs < plancher || joueurs > m.joueurs) {
+        throw refus(400, 'EFFECTIF_IMPOSSIBLE', `effectif attendu entre ${plancher} et ${m.joueurs} en ${m.id}`);
+      }
+      if (!Array.isArray(classement) || !classement.every((c) => uuid.test(c.userId ?? '') && Number.isInteger(c.rang))) {
+        throw refus(400, 'CLASSEMENT_INVALIDE', 'chaque ligne porte un userId et un rang');
+      }
+      let r;
+      try {
+        r = await regler(db, {
+          matchId: partie, mise, mode: modeId, graineRoue, effectif: joueurs,
+          classement: classement.map((c) => ({ userId: c.userId, rang: c.rang })),
+        }, chaine);
+      } catch (e) {
+        if (e.code === 'PARTIE_ANNULEE' || e.code === 'POT_INCOHERENT') throw refus(409, e.code, e.message);
+        throw e;
+      }
+      const complet = joueurs === m.joueurs;
+      const issue = complet ? tirerIssue(modeId, graineRoue).id : null;
+      const bareme = complet ? table(mise, modeId, issue) : tableEffectif(mise, joueurs);
+      const gains = {};
+      const xp = {};
+      for (const c of classement) {
+        gains[c.userId] = bareme.parRang[c.rang - 1] ?? 0;
+        xp[c.userId] = complet ? (bareme.xp?.[c.rang - 1] ?? 0) : 0;
+      }
+      publier('partie', { partie, statut: 'reglee', mode: modeId, mise, effectif: joueurs, issue, pot: bareme.pot, rake: bareme.rake });
+      invaliderStats();
+      return { partie, deja: r.deja, issue, pot: bareme.pot, rake: bareme.rake, gains, xp, signatures: r.signatures ?? [] };
+    }),
+
+    /** Une partie qui n'aura pas lieu : chaque mise revient. */
+    'POST /interne/partie/annuler': interne('annuler', async ({ partie, raison }) => {
+      if (!idPartie.test(String(partie ?? ''))) throw refus(400, 'PARTIE_INVALIDE', 'identifiant de partie invalide');
+      let r;
+      try { r = await annulerPartie(db, chaine, { partie, raison: String(raison ?? 'annulee par le serveur de jeu').slice(0, 200) }); }
+      catch (e) { if (e.code) throw refus(409, e.code, e.message); throw e; }
+      publier('partie', { partie, statut: 'annulee' });
+      invaliderStats();
+      return r;
+    }),
   };
 
   return createServer(async (req, res) => {
-    if (req.method === 'OPTIONS') return json(res, 204, {});
+    if (req.method === 'OPTIONS') { res.writeHead(204, entetes()); res.end(); return; }
     const cle = `${req.method} ${new URL(req.url, 'http://x').pathname}`;
+
+    // La page de suivi, servie telle quelle. Relue a chaque requete : c'est un fichier
+    // statique de quelques kilo-octets, et un rechargement doit montrer la version a jour.
+    if (cle === 'GET /suivi' || cle === 'GET /suivi/') {
+      // Lire AVANT d'ecrire l'en-tete : une lecture qui echoue apres `writeHead` ne peut
+      // plus repondre autre chose, et le processus tombe sur ERR_HTTP_HEADERS_SENT.
+      let page = null;
+      try { page = readFileSync(path.join(PUBLIC, 'suivi.html')); } catch { page = null; }
+      if (!page) return json(res, 404, { erreur: 'PAGE_ABSENTE' });
+      res.writeHead(200, entetes('text/html; charset=utf-8'));
+      res.end(page);
+      return;
+    }
+
+    // Le flux en direct : un evenement par ligne, et un signe de vie toutes les 25 s pour
+    // que les proxys ne ferment pas une connexion qu'ils croient morte.
+    if (cle === 'GET /stats/flux') {
+      res.writeHead(200, { ...entetes('text/event-stream'), 'cache-control': 'no-cache', connection: 'keep-alive' });
+      res.write(': bonjour\n\n');
+      const arreter = souscrire((e) => res.write(`event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`));
+      const vie = setInterval(() => res.write(': vie\n\n'), 25_000);
+      req.on('close', () => { arreter(); clearInterval(vie); });
+      return;
+    }
+
     const route = routes[cle];
     if (!route) return json(res, 404, { erreur: 'ROUTE_INCONNUE', message: cle });
 
     try {
       json(res, 200, await route(req));
     } catch (e) {
-      /*
-       * On rend le code d'erreur, jamais la pile ni le detail interne. Un message
-       * d'erreur bavard sur un service qui garde une cle de caisse renseigne surtout
-       * celui qui cherche a le sonder.
-       */
+      // On rend le code d'erreur, jamais la pile ni le detail interne.
       const statut = e.statut ?? (e.code ? 400 : 500);
       if (statut >= 500) console.error(`${cle} :`, e);
       json(res, statut, { erreur: e.code ?? 'ERREUR', message: e.code ? e.message : 'erreur interne' });

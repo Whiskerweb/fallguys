@@ -120,11 +120,12 @@ Une **politique nommée** répond à quatre questions : combien de joueurs on vi
 de combien on ne part pas, au bout de combien de temps on propose de partir quand même, et
 qui peut convoquer des bots.
 
-| Politique | cible | minimum | propose à | bots |
-|---|---|---|---|---|
-| `PRODUCTION` | 16 | **10** | 60 s | **jamais** |
-| `DUEL_TEST` | 2 | 2 | — | **jamais** |
-| `BANC` | 16 | 1 | — | si gratuit |
+| Politique | cible | minimum | départ réduit après | suggère à | bots |
+|---|---|---|---|---|---|
+| `PRODUCTION` (défaut) | 2 / 4 / 16 selon le mode | 2 / 4 / **13** | arène : **35 s sans arrivée** ; 1v1 et squad : jamais, ils partent pleins | 20 s | **jamais** |
+| `DEV` | 2 / 4 / 16 selon le mode | 2 / 2 / 2 — **3 dès qu'il y a une mise** | 8 s sans arrivée | 8 s | **jamais** |
+| `DUEL_TEST` | 2, tous modes | 2 | — | 5 s | **jamais** |
+| `BANC` | 16 | 1 | — | — | si gratuit |
 
 **Enlever les bots est le choix d'une politique, pas une opération chirurgicale.** Le jour
 où de vrais joueurs remplissent les salons, on cesse d'utiliser `BANC` et il n'y a rien à
@@ -136,16 +137,32 @@ inconditionnellement.
 ### Trois issues, et le salon en choisit une
 
 1. **Il se remplit** → on part tout de suite, personne n'attend pour rien.
-2. **Il se fige au-dessus du minimum** → passé le délai, on **propose** aux présents de
-   partir à effectif réduit, en leur annonçant le pot réel. Il faut l'accord de **tous** :
-   un joueur qui n'a pas dit oui n'a pas accepté un pot plus petit que celui qu'on lui
-   avait montré. Une arrivée en cours de route efface les accords — le pot a changé.
-3. **Il se fige sous le minimum** → on ne part pas, et **on ne propose rien**. On ne propose
-   jamais l'impossible : un joueur à qui l'on demande son accord pour une partie à trois
-   comprend que c'est permis, et il a raison de le comprendre.
+2. **Il est au-dessus du minimum et plus personne n'arrive** → passé `calme` secondes sans
+   nouvelle arrivée, on part à effectif réduit. Une arrivée remet ce compte à zéro. Personne
+   n'a rien à accepter : ce qui rend ce départ défendable, c'est que le ticket annonce le
+   pot **en fourchette** (13 à 16 mises pour l'arène) avant que quiconque ne clique. L'accord
+   de tous a été retiré le 2 septembre 2026 : il faisait attendre treize personnes qu'une
+   quatorzième daigne cliquer. Le 1v1 et le squad n'ont pas de départ réduit — leur minimum
+   est leur cible.
+3. **Il se fige sous le minimum** → on ne part pas, et **rien n'est annoncé**. On n'annonce
+   jamais l'impossible : un compte à rebours vers une partie à trois ferait croire qu'elle
+   est permise.
 
 L'horloge est injectable : éprouver soixante secondes d'attente ne doit pas coûter soixante
 secondes, sinon personne ne lance la suite de tests.
+
+### Ce que le serveur dit à tous, même hors file
+
+Depuis qu'il n'y a plus de partie hors ligne, le lobby **est** le matchmaking, et il ne se
+regarde pas à travers un panneau. À chaque battement, l'état des **neuf files** part à tous
+les connectés (`files`) : le ticket écrit « 3 waiting » sur l'arène avant qu'on y entre.
+
+Et passé `suggererApres`, un joueur dont le salon ne part pas se voit **suggérer** une autre
+file (`suggestion`) — seulement si sa partie y démarrerait ou y deviendrait proposable,
+jamais pour une mise plus haute que la sienne, jamais vers un salon moins rempli, et sans que
+deux joueurs puissent se suggérer l'un l'autre et se croiser. Le message `basculer` change
+de file d'un seul geste, sous la même identité. `tools/test-harness/files.mjs` éprouve tout
+cela sous horloge factice ; `tools/feel-lab/diag/bascule.mjs` le joue dans deux navigateurs.
 
 ### La partie s'adapte à l'effectif
 
@@ -182,6 +199,39 @@ rien qui masque un défaut de netcode derrière un adversaire complaisant.
 
 ---
 
+## L'argent — ce que le serveur dit au backend, et comment il le prouve
+
+Le serveur de jeu **ne connaît aucun solde et ne signe aucune transaction Solana**. Mais il
+est le seul à savoir qui a pris le départ et qui a fini où. Depuis le 2 septembre 2026, il
+le dit au backend en trois moments, et chaque message est **signé Ed25519** avec
+`SERVEUR_CLE` (`argent.js`, `signature.js`) :
+
+1. **À l'entrée en file payante** : « a-t-il de quoi ? » (`/interne/soldes`). Sans compte
+   vérifié — le jeton Supabase envoyé avec `bonjour`, contrôlé par `identite.js` — une
+   file payante est refusée (`NON_AUTHENTIFIE`). Un nom déclaré ne désigne personne.
+2. **Avant le départ** : « voici les joueurs de ce salon, engagez leurs mises »
+   (`/interne/partie/engager`). Le backend fait partir chaque mise du wallet du joueur vers
+   le wallet du pot, sur la chaîne, et répond qui est engagé. **Si une mise ne part pas, la
+   partie est annulée** : ceux que ça concerne reçoivent la raison, les autres repartent en
+   file dans un salon neuf, et le backend a déjà rendu les mises parties. Pendant ce temps
+   le client affiche « STAKING… » ; la manche 1 ne s'annonce qu'après.
+3. **À la fin** : le classement, le mode, la mise, l'effectif et la graine de roue
+   (`/interne/partie/regler`). Le backend en dérive la ligne du tableau, paie sur la
+   chaîne, et rend ce que chacun a touché ; le serveur le relaie à chaque joueur dans
+   `reglement`, et le client relit son solde là-dessus.
+
+`BACKEND_URL` et `SERVEUR_CLE` viennent du `.env` de la racine (`env.js` le charge). Au
+démarrage, `pont.ping()` vérifie que le backend reconnaît notre clé : découvrir au premier
+règlement que la signature est refusée, c'est seize joueurs qui ont payé et que personne
+ne paie. **PRODUCTION sans `BACKEND_URL` refuse de démarrer.** `DEV`, `DUEL_TEST` et `BANC`
+tournent sans backend : le client y joue avec un portefeuille de banc imaginaire, que le
+serveur annonce dans `bienvenue` (`argent: false, identite: 'facultative'`).
+
+Le serveur relaie aussi `/api/…` vers le backend : le navigateur ne connaît qu'une adresse,
+celle qui lui a servi la page. La page de suivi est donc à `/api/suivi`.
+
+---
+
 ## Lancer, et jouer
 
 **Un seul processus sert la page ET la partie.** Ce n'est pas un raccourci : la seconde
@@ -194,7 +244,8 @@ cd tools/feel-lab && npm run build   # une fois, et à chaque changement du jeu
 cd serveur && npm start              # affiche les adresses à ouvrir
 ```
 
-`POLITIQUE=PRODUCTION npm start` pour des salons de seize.
+Sans rien, c'est `PRODUCTION` — le jeu. `POLITIQUE=DEV npm start` (ou `npm run dev`) pour
+tester à deux machines dans les trois modes, et voir les suggestions travailler.
 
 ```bash
 cd tools/test-harness
@@ -222,8 +273,7 @@ canard-typage, et assez peu pour qu'un `instanceof` échoue un jour sans rien ex
 | 2 | transport (WebSocket), prédiction client, réconciliation |
 | 3 | salons réels, matchmaking, reconnexion |
 | 4 | collisions entre joueurs |
-| 5 | `MatchResult` **signé** → `backend/` cesse de croire le navigateur |
+| **5 — fait** | `MatchResult` **signé** → `backend/` cesse de croire le navigateur (2 septembre 2026) |
 | 6 | journal de replay archivé |
 
-Les phases 5 et 6 lèvent les conditions 1, 2 et 3 du verrou mainnet
-(`backend/README.md`).
+La phase 6 lève la condition 2 du verrou mainnet (`backend/README.md`).

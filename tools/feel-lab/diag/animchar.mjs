@@ -8,6 +8,7 @@
  *  3. le personnage ne PEDALE PAS en l'air — le defaut le plus visible qui soit.
  */
 import { chromium } from 'playwright';
+import { dossierDeBanc } from '../src/boutique.js';
 
 let browser;
 const fermer = () => { try { browser?.close(); } catch {} };
@@ -22,6 +23,10 @@ const erreurs = [];
 page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 200)));
 page.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text().slice(0, 200)); });
 
+// BabyTrump est en BOUTIQUE depuis le 2 septembre 2026 : sans ce dossier de possession,
+// le catalogue refuse de l'equiper et la machine repart avec le personnage suivant, sans
+// un mot. La forme du dossier vient de `src/boutique.js`, jamais recopiee ici.
+await page.addInitScript(({ cle, valeur }) => localStorage.setItem(cle, valeur), dossierDeBanc());
 await page.addInitScript((m) => localStorage.setItem('tumble-model', m), modele);
 await page.goto('http://127.0.0.1:5273/?lowfx&nointro', { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => {

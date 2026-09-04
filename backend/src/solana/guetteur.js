@@ -1,32 +1,28 @@
 /**
  * LE GUETTEUR — il regarde arriver les depots et les inscrit au grand livre.
  *
- * Boucle simple : pour chaque joueur, lire les transactions recues par son compte de
- * jetons, crediter celles qu'on n'a pas encore vues, puis balayer les fonds vers la
- * caisse.
+ * Boucle simple : pour chaque joueur, lire les transactions recues par son wallet,
+ * crediter celles qu'on n'a pas encore vues. C'est tout — depuis le 2 septembre 2026 ON
+ * NE BALAIE PLUS : les USDC restent sur le wallet du joueur, qui est son compte de jeu.
+ * Ses mises en partent, ses gains y reviennent, et n'importe qui peut relire son solde
+ * sur un explorateur. Une caisse commune ou tout se melange, c'est un solde qu'il faut
+ * croire ; un wallet par joueur, c'est un solde qu'on peut verifier.
  *
  * Deux proprietes non negociables :
  *
  *   1. IL REJOUE, et c'est normal. Un guetteur redemarre, relit des signatures deja
- *      traitees. Ce n'est pas un cas limite : c'est son fonctionnement ordinaire. La
- *      signature Solana est donc la cle primaire de `deposits` ET la cle d'idempotence du
- *      mouvement — deux barrieres tenues par la BASE, pas par la prudence de ce fichier.
+ *      traitees. La signature Solana est donc la cle primaire de `deposits` ET la cle
+ *      d'idempotence du mouvement — deux barrieres tenues par la BASE.
  *
- *   2. IL EST SEUL. Deux guetteurs qui balaient la meme adresse produisent deux
- *      transactions concurrentes sur le meme solde. L'une echoue, mais l'etat intermediaire
- *      est desagreable a demeler. D'ou un processus unique — voir README.md, hebergement.
- *
- * Le CREDIT est independant du BALAYAGE : on credite le joueur des qu'on voit son depot,
- * meme si le balayage vers la caisse echoue. L'inverse — attendre le balayage pour
- * crediter — ferait dependre l'affichage du solde d'une transaction qui ne concerne pas
- * le joueur, et le laisserait sans son argent parce que la caisse manque de SOL.
+ *   2. IL DISTINGUE UN DEPOT D'UN RETOUR. Le wallet du joueur recoit aussi ses GAINS et
+ *      ses mises RENDUES, envoyes par nous. Les crediter comme des depots doublerait son
+ *      solde : ces signatures-la sont dans `chain_tx`, et on les ecarte.
  */
 
 import { PublicKey } from '@solana/web3.js';
 import { poster, compte } from '../livre.js';
 import { config } from '../config.js';
-import { cleDepot } from './adresses.js';
-import { connexion, compteJetons, soldeJetons, envoyer, caisse } from './chaine.js';
+import { connexion, compteDe } from './chaine.js';
 
 /**
  * Lit les depots arrives sur l'adresse d'un joueur et les credite.
@@ -35,7 +31,7 @@ import { connexion, compteJetons, soldeJetons, envoyer, caisse } from './chaine.
  */
 export async function releverDepots(db, { userId, adresse }) {
   const co = connexion();
-  const ata = await compteJetons(adresse);
+  const ata = await compteDe(adresse, 'usdc');
 
   /*
    * On demande a la chaine les signatures RECENTES du compte, puis on ecarte celles
@@ -54,6 +50,10 @@ export async function releverDepots(db, { userId, adresse }) {
     (await db.query('select signature from public.deposits where user_id = $1', [userId]))
       .rows.map((r) => r.signature),
   );
+  // Nos propres envois vers ce wallet (gains, mises rendues) ne sont pas des depots.
+  for (const r of (await db.query(
+    `select signature from public.chain_tx where user_id = $1 and signature is not null`, [userId],
+  )).rows) vues.add(r.signature);
 
   const nouveaux = [];
   for (const { signature, err } of signatures.reverse()) {
@@ -125,32 +125,6 @@ async function crediter(db, { userId, signature, micros }) {
 }
 
 /**
- * Balaie une adresse de depot vers la caisse.
- *
- * PUREMENT ON-CHAIN : aucun mouvement de grand livre. Le joueur a deja ete credite au
- * moment ou son depot a ete vu ; deplacer les jetons de son adresse dediee vers la caisse
- * ne change rien a ce qu'il possede. Ecrire une ligne ici doublerait son solde.
- *
- * La caisse paie les frais : un compte de depot n'a pas de SOL et ne peut pas payer sa
- * propre sortie.
- */
-export async function balayer(userId) {
-  const cle = cleDepot(userId);
-  const ata = await compteJetons(cle.publicKey.toBase58());
-  const montant = await soldeJetons(ata);
-  if (montant <= 0) return null;
-
-  const tresor = caisse();
-  const signature = await envoyer({
-    payeur: tresor,
-    proprietaire: cle,
-    vers: tresor.publicKey.toBase58(),
-    micros: montant,
-  });
-  return { signature, micros: montant };
-}
-
-/**
  * Un tour de guet sur tous les joueurs ayant une adresse de depot.
  *
  * Un tour est O(nombre de joueurs) en appels RPC. C'est sans importance sur devnet et
@@ -166,16 +140,6 @@ export async function unTour(db) {
   for (const j of joueurs.rows) {
     const vus = await releverDepots(db, { userId: j.id, adresse: j.adresse_depot });
     for (const v of vus) if (!v.deja) bilan.push({ userId: j.id, ...v });
-    if (vus.some((v) => !v.deja)) {
-      try {
-        await balayer(j.id);
-      } catch (e) {
-        // Un balayage rate n'est PAS grave : le joueur est deja credite, les jetons
-        // restent sur son adresse dediee, et le prochain tour reessaiera. On le signale
-        // sans interrompre le tour — un joueur en echec ne doit pas bloquer les autres.
-        console.error(`balayage de ${j.id} : ${e.message}`);
-      }
-    }
   }
   return bilan;
 }

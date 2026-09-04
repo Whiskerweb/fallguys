@@ -31,6 +31,12 @@ export const compte = {
   rake: 'treasury:rake',
   /** La caisse : la contrepartie en livre de ce que le wallet maison detient sur la chaine. */
   caisse: 'treasury:hot',
+  /**
+   * Le pool BG/USDC : les USDC que le brulage y a deposes en achetant des BG. Sur devnet
+   * c'est notre propre reserve ; sur mainnet, l'argent part vers un marche et ce compte
+   * disparait au profit de `chain:out`.
+   */
+  pool: 'treasury:pool',
   /** Frontiere avec la chaine. Ce qui entre par un depot, ce qui sort par un retrait. */
   entree: 'chain:in',
   sortie: 'chain:out',
@@ -176,8 +182,8 @@ export async function verifierInvariant(db) {
    * Pots non soldes — mais SEULEMENT ceux des parties deja reglees.
    *
    * Un pot qui contient encore de l'argent alors que sa partie n'est pas terminee est
-   * parfaitement normal : c'est une partie EN COURS, mises engagees et gains pas encore
-   * verses. Signaler ceux-la ferait du verdict un bruit permanent, et un verdict qui
+   * parfaitement normal : c'est une partie EN COURS (statut « engagee »), mises engagees
+   * et gains pas encore verses. Signaler ceux-la ferait du verdict un bruit permanent, et un verdict qui
    * clignote tout le temps finit par ne plus etre lu.
    *
    * Ce qu'on cherche est autre chose : une partie reglee dont le pot ne revient pas a
@@ -189,6 +195,7 @@ export async function verifierInvariant(db) {
        from public.ledger_entries e
        join public.matches m on ('pot:' || m.id) = e.compte
       where e.compte like 'pot:%'
+        and m.statut <> 'engagee'
       group by e.compte having sum(e.amount_micros) <> 0`,
   );
   return {

@@ -65,3 +65,6 @@ tools/feel-lab/diag/vues/
 
 # Assets ecartes : gardes en local, trop lourds pour le depot (146 Mo)
 tools/meshy-pipeline/unused/
+
+# Wallets devnet generes par backend/outils/tresorerie.mjs : cles secretes, jamais versionnees
+backend/wallets/

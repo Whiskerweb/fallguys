@@ -125,8 +125,10 @@
   #logo { width:300px; display:block; }
   #logo img { width:100%; height:auto; display:block; filter:drop-shadow(0 8px 14px rgba(0,0,0,.35)); }
 
-  /* Un seul bouton : c'est la seule fonctionnalité qui existe vraiment. */
-  #btn-perso {
+  /* Deux boutons, et deux seulement : porter ce qu'on a, aller chercher ce qu'on n'a pas.
+     Ils partagent tout leur dessin — seule la teinte les sépare, la boutique prenant le
+     noir de X puisque c'est là qu'elle emmène. */
+  #btn-perso, #btn-boutique {
     margin-top:30px; width:112px; padding:9px 6px 8px; cursor:pointer; font-family:inherit;
     border:none; border-radius:20px; display:grid; justify-items:center; gap:2px;
     background:linear-gradient(180deg, #58dcf0, var(--cyan));
@@ -134,23 +136,50 @@
                inset 0 0 0 3px rgba(255,255,255,.22);
     transition:transform .09s, box-shadow .09s;
   }
-  #btn-perso:hover { transform:translateY(-3px); box-shadow:0 9px 0 var(--cyan-dark), 0 16px 24px rgba(0,0,0,.32), inset 0 0 0 3px rgba(255,255,255,.3); }
-  #btn-perso:active { transform:translateY(4px); box-shadow:0 2px 0 var(--cyan-dark), inset 0 0 0 3px rgba(255,255,255,.22); }
-  #btn-perso .ico { width:62px; height:62px; display:grid; place-items:center; font-size:34px; }
-  #btn-perso .ico img { width:100%; height:100%; object-fit:contain; display:block; }
-  #btn-perso span.txt {
+  #btn-perso:hover, #btn-boutique:hover { transform:translateY(-3px); box-shadow:0 9px 0 var(--cyan-dark), 0 16px 24px rgba(0,0,0,.32), inset 0 0 0 3px rgba(255,255,255,.3); }
+  #btn-perso:active, #btn-boutique:active { transform:translateY(4px); box-shadow:0 2px 0 var(--cyan-dark), inset 0 0 0 3px rgba(255,255,255,.22); }
+  #btn-perso .ico, #btn-boutique .ico { width:62px; height:62px; display:grid; place-items:center; font-size:34px; }
+  #btn-perso .ico img, #btn-boutique .ico img { width:100%; height:100%; object-fit:contain; display:block; }
+  #btn-perso span.txt, #btn-boutique span.txt {
     color:#fff; font-weight:900; font-size:12px; letter-spacing:1.2px;
     text-shadow:0 2px 0 rgba(0,0,0,.32);
   }
+  #btn-boutique {
+    margin-top:14px;
+    background:linear-gradient(180deg, #3a3a3d, #17171a);
+    box-shadow:0 6px 0 #000, 0 12px 20px rgba(0,0,0,.3), inset 0 0 0 3px rgba(255,255,255,.16);
+  }
+  #btn-boutique:hover { box-shadow:0 9px 0 #000, 0 16px 24px rgba(0,0,0,.32), inset 0 0 0 3px rgba(255,255,255,.26); }
+  #btn-boutique:active { box-shadow:0 2px 0 #000, inset 0 0 0 3px rgba(255,255,255,.2); }
+  /* La pastille rouge : elle dit qu'il reste quelque chose à prendre, et elle DISPARAÎT
+     une fois l'article obtenu. Un badge permanent ne se voit plus au bout de deux jours. */
+  #btn-boutique { position:relative; }
+  #btn-boutique .neuf {
+    position:absolute; top:-6px; right:-6px; min-width:22px; height:22px; padding:0 6px;
+    border-radius:11px; background:var(--pink); color:#fff; font-size:12px; font-weight:900;
+    display:grid; place-items:center; box-shadow:0 3px 0 var(--pink-dark);
+  }
+  #btn-boutique .neuf.hidden { display:none !important; }
 
   /* ---------- le ticket ----------
      Le joueur choisit sa table, voit le pot, et voit où il doit finir pour gagner quoi.
      Ces trois choses tiennent dans une seule carte : mises côte à côte, pot en gros,
      échelle des gains dessous. Aucun chiffre n'est écrit dans le HTML — ils sortent tous
      de `src/economie.js`, qui est le port du noyau de règles. */
-  #playzone { position:absolute; right:34px; bottom:28px; }
+  /* Le ticket est ancré en bas, mais BORNÉ PAR LE HAUT.
+     Il a gagné deux blocs (le mode et la roue) et il grandit vers le haut : sur un écran
+     court, il sortait par le sommet et le sélecteur de mode devenait invisible — le pire
+     endroit possible pour une coupure, puisque c'est le premier choix du joueur. La barre
+     de défilement est un filet de sécurité qui ne doit jamais servir : les paliers
+     ci-dessous resserrent l'affichage bien avant qu'elle apparaisse. */
+  #playzone {
+    position:absolute; right:34px; bottom:28px; top:84px;
+    display:flex; align-items:flex-end; pointer-events:none;
+  }
+  #playzone > * { pointer-events:auto; }
   #ticket {
     width:342px; padding:16px 18px 18px; border-radius:24px;
+    max-height:100%; overflow-y:auto; scrollbar-width:none;
     background:linear-gradient(168deg, rgba(34,18,64,.96), rgba(14,7,30,.97));
     box-shadow:0 16px 0 rgba(0,0,0,.3), 0 26px 46px rgba(0,0,0,.4),
                inset 0 0 0 3px rgba(255,255,255,.13);
@@ -160,6 +189,27 @@
     font-size:10px; font-weight:900; letter-spacing:2.4px;
     color:rgba(255,255,255,.42); margin-bottom:7px;
   }
+
+  /* Trois modes. Même grammaire que les paliers — on choisit deux choses au même endroit,
+     elles doivent se choisir de la même façon. Le mode actif passe en violet clair et non
+     en or : l'or est réservé à l'argent, et un mode ne coûte rien. */
+  #modes { display:flex; gap:6px; margin-bottom:12px; }
+  .mode {
+    flex:1; height:44px; border:none; border-radius:12px; cursor:pointer; font-family:inherit;
+    display:grid; place-items:center; gap:0; line-height:1.1;
+    background:rgba(255,255,255,.07); box-shadow:inset 0 0 0 2px rgba(255,255,255,.1);
+    color:rgba(255,255,255,.72); transition:transform .09s, box-shadow .09s, background .12s;
+  }
+  .mode b { font-size:13px; font-weight:900; letter-spacing:.4px; }
+  .mode i { font-style:normal; font-size:8.5px; font-weight:900; letter-spacing:1.2px; opacity:.55; }
+  .mode:hover:not(.on) { background:rgba(255,255,255,.14); transform:translateY(-2px); }
+  .mode.on {
+    background:linear-gradient(180deg, #b79bff, #8b6cf0);
+    box-shadow:0 4px 0 #5c42b0, inset 0 0 0 2.5px rgba(255,255,255,.4);
+    color:#1b0f36; transform:translateY(-2px);
+  }
+  .mode.on i { opacity:.72; }
+
 
   /* Trois tables. La pastille active passe en or : c'est l'argent qu'on engage. */
   #paliers { display:flex; gap:8px; }
@@ -226,7 +276,19 @@
   .ech.rendu .fact { color:rgba(143,240,187,.62); }
   .ech.rien { opacity:.42; }
   .ech.rien .gain { color:rgba(255,255,255,.45); }
-  .ech.or .gain { color:#ffdc72; }
+
+  /* LES GEMMES DE RANG — la hiérarchie, pas le montant.
+     Elles ne bougent pas d'une variante à l'autre, alors que les gains, eux, bougent :
+     c'est ce qui permet au joueur de lire d'un coup d'œil où il vise, même quand la roue
+     a rapproché deux lignes. Vocabulaire distinct de celui de la roue, qui compte en
+     étoiles — deux échelles de rareté portant les mêmes noms seraient illisibles. */
+  .ech .gem { width:7px; height:7px; flex:none; border-radius:2px; transform:rotate(45deg); }
+  .ech.g-diamant .gem { background:#8fe9ff; box-shadow:0 0 8px rgba(143,233,255,.8); }
+  .ech.g-or      .gem { background:#ffdc72; box-shadow:0 0 7px rgba(255,220,114,.6); }
+  .ech.g-argent  .gem { background:#d8dde8; }
+  .ech.g-bronze  .gem { background:#c98a52; }
+  .ech.g-diamant .gain { color:#bff2ff; }
+  .ech.g-or      .gain { color:#ffdc72; }
 
   #play {
     display:flex; align-items:center; justify-content:center; gap:14px;
@@ -282,38 +344,132 @@
     font-weight:400; line-height:1; }
   #compte-boite #compte-fermer:hover { color:#dfe6ff; }
   #btn-compte { font-size:11px; font-weight:700; letter-spacing:.6px; width:auto; padding:0 11px; }
+
+  /* ---------- le portefeuille ---------- */
+  #wallet-fond { position:fixed; inset:0; background:rgba(6,10,24,.72); backdrop-filter:blur(6px);
+    display:flex; align-items:center; justify-content:center; z-index:60; }
+  #wallet-fond.hidden { display:none; }
+  #wallet-boite { position:relative; width:min(94vw,520px); max-height:88vh; overflow-y:auto; padding:24px 26px 20px;
+    border-radius:18px; background:#151b36; box-shadow:0 20px 60px rgba(0,0,0,.5), inset 0 0 0 1px #2b3560;
+    font-family:inherit; color:#dfe6ff; text-align:left; }
+  #wallet-boite h3 { margin:0 0 4px; font-size:20px; letter-spacing:.5px; }
+  #wallet-boite h4 { margin:18px 0 8px; font-size:11px; letter-spacing:1.4px; color:#8f9cc8; }
+  #wallet-boite section { padding-top:6px; border-top:1px solid #232c50; }
+  .wallet-note { margin:6px 0 0; color:#8f9cc8; font-size:12px; line-height:1.4; }
+  #wallet-adresse { display:block; padding:10px; border-radius:9px; background:#0d1226; font-family:ui-monospace,Menlo,monospace;
+    font-size:12px; word-break:break-all; color:#4de0ff; }
+  .wallet-ligne { display:flex; gap:8px; margin-top:8px; }
+  .wallet-ligne input { flex:1; min-width:0; padding:10px 12px; border-radius:9px; border:1px solid #2b3560; background:#0d1226; color:#fff; font-family:inherit; font-size:14px; }
+  .wallet-ligne input:focus { outline:none; border-color:#4de0ff; }
+  #wallet-boite button { padding:10px 12px; border-radius:9px; border:1px solid #2b3560; background:#1b2345; color:#dfe6ff;
+    font-family:inherit; font-weight:800; font-size:11px; letter-spacing:.8px; cursor:pointer; }
+  #wallet-boite button.primaire { background:#4de0ff; color:#06213a; border-color:#4de0ff; }
+  #wallet-boite button.mini { padding:5px 9px; font-size:10px; margin-left:6px; }
+  #wallet-boite button:disabled { opacity:.5; cursor:default; }
+  #wallet-lie { font-size:12.5px; color:#dfe6ff; word-break:break-all; }
+  #wallet-lie a, #wallet-historique a, #wallet-stats { color:#4de0ff; }
+  .mono { font-family:ui-monospace,Menlo,monospace; font-size:12px; }
+  .wallet-ligne-h { display:grid; grid-template-columns:1fr auto auto; gap:12px; padding:6px 0; border-bottom:1px solid #1d2545; font-size:12.5px; align-items:center; }
+  .wallet-ligne-h b { font-variant-numeric:tabular-nums; }
+  .wallet-ligne-h.plus b { color:#8bf5b0; } .wallet-ligne-h.moins b { color:#ff8ba6; }
+  .wallet-ligne-h i { color:#8f9cc8; font-size:11px; }
+  #wallet-stats { display:inline-block; margin-top:16px; font-size:12px; font-weight:700; letter-spacing:.5px; }
+  #wallet-msg { min-height:17px; margin:10px 0 0; font-size:12.5px; color:#ffd479; }
+  #wallet-msg.ok { color:#8bf5b0; }
+  #wallet-boite #wallet-fermer { position:absolute; top:8px; right:10px; width:28px; height:28px; padding:0; border:none; background:none; color:#8f9cc8; font-size:20px; }
+  #wallet-boite #wallet-fermer:hover { color:#dfe6ff; }
   #btn-compte.hidden { display:none; }
 
-  /* ---------- panneau en ligne ---------- */
-  #btn-enligne { font-size:11px; font-weight:700; letter-spacing:.6px; width:auto; padding:0 11px;
-    color:#8bf5b0; }
-  #btn-enligne.actif { background:#1d5c3a; border-color:#2e8b57; color:#d6ffe8; }
-  #enligne-fond { position:fixed; inset:0; background:rgba(6,10,24,.72); backdrop-filter:blur(6px);
-    display:flex; align-items:center; justify-content:center; z-index:60; }
-  #enligne-fond.hidden { display:none; }
-  #enligne-boite { position:relative; width:min(92vw,400px); padding:26px 26px 22px;
-    border-radius:18px; background:#141a33; border:1px solid #2b3560;
-    box-shadow:0 18px 50px rgba(0,0,0,.55); font:14px/1.45 system-ui,sans-serif; color:#dfe6ff; }
-  #enligne-boite h3 { margin:0 0 6px; font-size:20px; letter-spacing:.5px; }
-  #enligne-note { margin:0 0 16px; color:#8f9cc8; font-size:12.5px; }
-  #enligne-boite input { width:100%; box-sizing:border-box; margin-bottom:10px; padding:11px 13px;
-    border-radius:10px; border:1px solid #2b3560; background:#0d1226; color:#eef2ff; font-size:14px; }
-  #enligne-boite input:focus { outline:none; border-color:#8bf5b0; }
-  #enligne-actions { display:flex; gap:9px; margin-top:6px; }
-  #enligne-boite button { flex:1; padding:11px; border-radius:10px; border:1px solid #2b3560;
-    background:#1d264a; color:#dfe6ff; font-weight:700; font-size:12.5px; letter-spacing:.6px; cursor:pointer; }
-  #enligne-boite button.primaire { background:#8bf5b0; color:#06301a; border-color:#8bf5b0; }
-  #enligne-boite button.hidden { display:none; }
-  #enligne-boite button:disabled { opacity:.5; cursor:default; }
-  #enligne-msg { min-height:17px; margin:2px 0 6px; font-size:12.5px; color:#ffd479; }
-  #enligne-msg.ok { color:#8bf5b0; }
-  #enligne-salon { margin:12px 0 0; padding:11px; border-radius:9px; background:#0d1226;
-    font-size:12.5px; color:#aab6e0; text-align:center; }
-  #enligne-salon.hidden { display:none; }
-  #enligne-accepter { width:100%; margin-top:10px; background:#4de0ff; color:#06213a; border-color:#4de0ff; }
-  #enligne-boite #enligne-fermer { position:absolute; top:8px; right:10px; width:28px; height:28px;
-    flex:none; padding:0; background:transparent; border:none; color:#7f8cb8; font-size:20px;
-    font-weight:400; line-height:1; }
+  /* ---------- la liaison, la file, les notifications ----------
+     Il n'y a plus de panneau « en ligne » : le lobby EST en ligne. Ce qui reste est une
+     pastille d'état dans la barre, un bloc de file dans le ticket, et des notifications. */
+  #lien { display:flex; align-items:center; gap:8px; height:36px; padding:0 13px 0 10px;
+    border-radius:999px; background:rgba(255,255,255,.06); box-shadow:inset 0 0 0 2px rgba(255,255,255,.09);
+    font-size:10.5px; font-weight:900; letter-spacing:1.1px; color:rgba(255,255,255,.55); white-space:nowrap; }
+  #lien i { width:9px; height:9px; border-radius:50%; background:#6b7390; flex:none; }
+  #lien.ouvert { color:#d6ffe8; background:rgba(29,92,58,.45); box-shadow:inset 0 0 0 2px rgba(46,139,87,.6); }
+  #lien.ouvert i { background:#8bf5b0; box-shadow:0 0 8px rgba(139,245,176,.9); }
+  #lien.connexion i, #lien.ferme i { background:#ffd479; animation:lien-pulse 1s ease-in-out infinite; }
+  #lien.absent { color:#ff9db4; }
+  #lien.absent i { background:#ff5c7a; }
+  @keyframes lien-pulse { 0%,100% { opacity:.35; } 50% { opacity:1; } }
+
+  /* Le nom se change sur place. */
+  #pname-champ { width:172px; height:22px; padding:0 8px; border:none; border-radius:7px;
+    background:rgba(255,255,255,.14); color:#fff; font:900 14px/1 inherit; font-family:inherit;
+    outline:2px solid var(--cyan); }
+  #profil .nom { cursor:text; }
+
+  /* Pastilles de présence sur les modes et les tables : « 3 waiting ». */
+  .mode, .palier { position:relative; }
+  .attente { position:absolute; top:-8px; right:-5px; padding:2px 6px; border-radius:999px;
+    background:#8bf5b0; color:#06301a; font-style:normal; font-size:8px; font-weight:900;
+    letter-spacing:.6px; box-shadow:0 2px 0 rgba(0,0,0,.35); white-space:nowrap; z-index:1; }
+  .attente.hidden { display:none; }
+
+  /* Sans serveur : une ligne d'explication et un champ, dans le ticket. */
+  #serveur-absent { margin-top:12px; padding:10px 11px; border-radius:12px;
+    background:rgba(255,92,122,.1); box-shadow:inset 0 0 0 1.5px rgba(255,120,150,.35); }
+  #serveur-absent .sa-txt { font-size:10.5px; line-height:1.4; color:#ffb3c4; font-weight:700; }
+  #serveur-absent code { font:700 10px ui-monospace,monospace; color:#fff; }
+  #serveur-absent .sa-ligne { display:flex; gap:6px; margin-top:8px; }
+  #serveur-url { flex:1; min-width:0; height:32px; padding:0 10px; border:none; border-radius:9px;
+    background:rgba(0,0,0,.35); color:#fff; font:700 12px ui-monospace,monospace; }
+  #serveur-connecter { height:32px; padding:0 12px; border:none; border-radius:9px; cursor:pointer;
+    background:var(--cyan); color:#fff; font-family:inherit; font-weight:900; font-size:10.5px; letter-spacing:1px;
+    box-shadow:0 3px 0 var(--cyan-dark); }
+
+  /* LA FILE : le bloc d'attente, dans le ticket. */
+  #file { margin-top:12px; padding:10px 11px 11px; border-radius:14px;
+    background:linear-gradient(180deg, rgba(139,245,176,.13), rgba(139,245,176,.05));
+    box-shadow:inset 0 0 0 2px rgba(139,245,176,.3); }
+  #file .fl-tete { display:flex; align-items:center; justify-content:space-between; }
+  #file-titre { font-size:10px; font-weight:900; letter-spacing:2px; color:#8bf5b0; }
+  #file-titre::before { content:''; display:inline-block; width:8px; height:8px; margin-right:7px;
+    border-radius:50%; background:#8bf5b0; animation:lien-pulse .9s ease-in-out infinite; vertical-align:0; }
+  #file-chrono { font-size:11px; font-weight:900; font-variant-numeric:tabular-nums; color:rgba(255,255,255,.55); }
+  #file-ligne { margin-top:5px; font-size:12.5px; font-weight:900; color:#fff; letter-spacing:.3px; }
+  #file-sieges { display:flex; flex-wrap:wrap; gap:4px; margin-top:7px; }
+  #file-sieges i { width:11px; height:11px; border-radius:50%; background:rgba(255,255,255,.12);
+    box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.18); }
+  #file-sieges i.requis { box-shadow:inset 0 0 0 1.5px rgba(139,245,176,.55); }
+  #file-sieges i.pris { background:#8bf5b0; box-shadow:0 0 7px rgba(139,245,176,.8); }
+  #file-msg { min-height:14px; margin-top:7px; font-size:10.5px; font-weight:800; color:#ffd479; line-height:1.35; }
+  #file-msg.ok { color:rgba(214,255,232,.8); }
+  /* Le décompte du départ réduit : une ligne, cyan, qui dit quand et pour combien. */
+  #file-depart { margin-top:8px; padding:7px 9px; border-radius:9px; background:rgba(77,224,255,.13);
+    box-shadow:inset 0 0 0 1.5px rgba(77,224,255,.4); color:#bff2ff; font-size:10.5px; font-weight:900;
+    letter-spacing:.3px; line-height:1.35; font-variant-numeric:tabular-nums; }
+  #file-depart.hidden { display:none; }
+
+  /* PLAY devient LEAVE QUEUE : même bouton, couleur neutre — sortir n'est pas un exploit. */
+  #play.quitte { background:linear-gradient(180deg, #5a5f8a, #3f4468); box-shadow:0 8px 0 #262a48, 0 14px 24px rgba(0,0,0,.3), inset 0 0 0 3px rgba(255,255,255,.14); font-size:24px; letter-spacing:2px; }
+  #play.quitte:hover:not(:disabled) { box-shadow:0 11px 0 #262a48, 0 18px 28px rgba(0,0,0,.32), inset 0 0 0 3px rgba(255,255,255,.2); }
+  #play.quitte .key { color:#fff; }
+
+  /* NOTIFICATIONS : en bas à gauche, dans l'espace libre sous CHARACTER — jamais sur le
+     ticket, dont le haut (le choix du mode) est précisément ce qu'une suggestion invite à
+     changer. Une à la fois. */
+  #notifs { position:fixed; left:44px; bottom:28px; z-index:55;
+    display:flex; flex-direction:column; gap:8px; pointer-events:none; width:min(60vw, 440px); }
+  .notif { pointer-events:auto; display:flex; align-items:center; gap:14px; padding:12px 14px 12px 16px;
+    border-radius:16px; background:linear-gradient(168deg, rgba(34,18,64,.97), rgba(14,7,30,.98));
+    box-shadow:0 10px 0 rgba(0,0,0,.3), 0 18px 36px rgba(0,0,0,.45), inset 0 0 0 2.5px rgba(139,245,176,.55);
+    color:#fff; opacity:0; transform:translateY(12px); transition:opacity .18s, transform .18s; }
+  .notif.show { opacity:1; transform:none; }
+  .notif.alerte { box-shadow:0 10px 0 rgba(0,0,0,.3), 0 18px 36px rgba(0,0,0,.45), inset 0 0 0 2.5px rgba(255,92,122,.65); }
+  .notif .nt-txt { flex:1; display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .notif .nt-txt b { font-size:13.5px; font-weight:900; letter-spacing:.2px; }
+  .notif .nt-txt span { font-size:11px; font-weight:700; color:rgba(255,255,255,.62); }
+  .notif .nt-btns { display:flex; gap:6px; flex:none; }
+  .notif button { height:36px; padding:0 13px; border:none; border-radius:11px; cursor:pointer; font-family:inherit;
+    font-weight:900; font-size:10.5px; letter-spacing:.8px; white-space:nowrap; }
+  .notif .nt-ok { background:#8bf5b0; color:#06301a; box-shadow:0 4px 0 #2e8b57; }
+  .notif .nt-ok:active { transform:translateY(2px); box-shadow:0 2px 0 #2e8b57; }
+  .notif .nt-non { background:rgba(255,255,255,.1); color:rgba(255,255,255,.75); box-shadow:inset 0 0 0 2px rgba(255,255,255,.14); }
+
+  #pause-note { margin-top:10px; font-size:11px; font-weight:700; color:rgba(255,255,255,.5); text-align:center; }
+
   #enligne-hud { position:fixed; top:64px; left:50%; transform:translateX(-50%); z-index:40;
     padding:5px 13px; border-radius:999px; background:rgba(10,16,34,.78);
     font:11px/1 ui-monospace,monospace; color:#8bf5b0; letter-spacing:.4px; }
@@ -321,13 +477,57 @@
 
   /* Écran court : on resserre l'échelle et le pot plutôt que de laisser le ticket
      passer sous la barre ou déborder du cadre. */
+  /* Le ticket a gagné deux blocs — le sélecteur de mode et la roue — soit une centaine de
+     pixels. Sur un écran court, l'arène (six lignes d'échelle) déborderait par le haut.
+     On resserre donc tout ce qui peut l'être SANS toucher aux chiffres : ce sont eux qu'on
+     est venu lire, et les rendre plus petits pour gagner de la place serait exactement le
+     mauvais arbitrage dans un jeu où l'on engage de l'argent. */
   @media (max-height: 800px) {
     #ticket { width:326px; padding:13px 15px 15px; }
+    .mode { height:38px; }
+    #modes { margin-bottom:9px; }
     .palier { height:46px; }
     #pot-val { font-size:34px; }
+    #ticket-pot { margin:10px 0 9px; }
+    #roue { margin-bottom:9px; }
+    #roue-mini { width:52px; height:52px; }
     .ech { height:24px; }
     #play { height:58px; font-size:30px; }
     #logo { width:252px; }
+  }
+
+  @media (max-height: 740px) {
+    /* Court : on retire les LÉGENDES, jamais les CHIFFRES. « 16 players · 3 rounds » sous
+       le pot dit déjà l'effectif que portait le sous-titre des modes, et le survol d'un
+       segment de roue dit déjà ce que sa note répète. Rien de ce qu'on enlève ici n'est
+       une information qu'on ne trouve pas ailleurs à l'écran. */
+    #ticket { padding:11px 14px 13px; }
+    .mode { height:32px; }
+    .mode i { display:none; }
+    #modes { margin-bottom:8px; }
+    .palier { height:42px; }
+    #pot-val { font-size:30px; }
+    #ticket-pot { margin:9px 0 8px; padding:8px 8px 7px; }
+    #roue-titre { display:none; }
+    #roue-mini { width:48px; height:48px; }
+    #roue-dit { font-size:9.5px; }
+    #roue-dit b { font-size:11.5px; }
+    #roue { margin-bottom:8px; }
+    #echelle { gap:2px; }
+    .ech { height:21px; }
+    #play { height:50px; font-size:27px; margin-top:10px; }
+  }
+
+  @media (max-height: 620px) {
+    /* Très court : les deux derniers intitulés partent. Le ticket reste lisible parce que
+       sa structure l'est — trois pastilles, un pot, une bande, une échelle, un bouton. */
+    .tk-label { display:none; }
+    #ticket-pot .tk-label { display:block; margin-bottom:0; }
+    .ech { height:19px; }
+    .ech .rang { font-size:11.5px; }
+    .ech .gain { font-size:13px; }
+    #play { height:46px; font-size:25px; }
+    #play-note { font-size:9px; }
   }
 
   #countdown {
@@ -357,14 +557,14 @@
     text-shadow:0 3px 0 rgba(0,0,0,.28);
   }
   #screen-skins .sub { color:rgba(255,255,255,.55); font-weight:800; font-size:13.5px; margin-bottom:20px; }
-  #btn-retour {
+  #btn-retour, #btn-retour-boutique {
     flex:none; height:42px; padding:0 20px; cursor:pointer; font-family:inherit;
     border:none; border-radius:13px; background:rgba(255,255,255,.09);
     box-shadow:inset 0 0 0 2px rgba(255,255,255,.14);
     color:#fff; font-weight:900; font-size:13px; letter-spacing:1.4px;
   }
-  #btn-retour:hover { background:rgba(255,255,255,.18); }
-  #btn-retour:active { transform:translateY(2px); }
+  #btn-retour:hover, #btn-retour-boutique:hover { background:rgba(255,255,255,.18); }
+  #btn-retour:active, #btn-retour-boutique:active { transform:translateY(2px); }
 
   /* Grille de vignettes carrées, quatre par ligne. Le cadre et le halo prennent la
      couleur de RARETÉ : les cinq tuiles se distinguaient à peine sur fond gris uniforme,
@@ -422,6 +622,92 @@
     color:rgba(255,255,255,.85); font-size:12px; font-weight:800;
   }
   #skin-info.hidden { display:none; }
+
+  /* ---------- la boutique ----------
+     Même panneau que la vitrine, à droite, et c'est voulu : ce sont deux faces du même
+     geste — celle où l'on choisit parmi ce qu'on a, celle où l'on va chercher ce qu'on
+     n'a pas. Une seule carte à l'intérieur, parce qu'il n'y a qu'un article ; une grille
+     de cases vides annoncerait un catalogue qui n'existe pas. */
+  #screen-boutique {
+    position:absolute; inset:var(--barre) 0 0 auto; width:min(56vw, 880px);
+    display:none; overflow-y:auto; padding:22px 40px 32px 34px;
+    background:linear-gradient(90deg, rgba(14,7,32,0), rgba(14,7,32,.9) 8%, rgba(14,7,32,.96));
+    backdrop-filter:blur(7px);
+  }
+  #screen-boutique.on { display:block; }
+  #screen-boutique .head { display:flex; align-items:flex-start; gap:16px; }
+  #screen-boutique .head .spacer { flex:1; }
+  #screen-boutique h1 {
+    color:#fff; font-size:32px; font-weight:900; letter-spacing:2px; margin-bottom:3px;
+    text-shadow:0 3px 0 rgba(0,0,0,.28);
+  }
+  #screen-boutique .sub { color:rgba(255,255,255,.55); font-weight:800; font-size:13.5px; margin-bottom:20px; }
+
+  /* La carte de l'article. Le cadre prend la couleur de RARETÉ, comme les vignettes de la
+     garde-robe : c'est le même objet des deux côtés de l'écran. */
+  #shop-carte {
+    max-width:660px; border-radius:24px; overflow:hidden; display:flex; gap:20px;
+    padding:20px; align-items:flex-start;
+    background:linear-gradient(168deg, rgba(34,18,64,.96), rgba(14,7,30,.97));
+    box-shadow:inset 0 0 0 3px var(--rar, rgba(255,255,255,.16)), 0 16px 34px rgba(0,0,0,.4);
+  }
+  #shop-port {
+    position:relative; flex:none; width:190px; aspect-ratio:1; border-radius:20px; overflow:hidden;
+    background:
+      radial-gradient(circle at 50% 118%, color-mix(in srgb, var(--rar, #7f8fa6) 60%, transparent), transparent 64%),
+      linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.32));
+    box-shadow:inset 0 0 0 3px var(--rar, rgba(255,255,255,.18));
+  }
+  #shop-port img { width:100%; height:100%; object-fit:contain; padding:8px; display:block; }
+  #shop-corps { flex:1; min-width:0; }
+  #shop-rarity {
+    display:inline-block; padding:4px 12px; border-radius:8px;
+    font-size:11.5px; font-weight:900; letter-spacing:2px; color:#fff;
+  }
+  #shop-prix {
+    display:inline-block; margin-left:8px; padding:4px 12px; border-radius:8px;
+    background:#2ecc71; color:#06331a; font-size:11.5px; font-weight:900; letter-spacing:1.6px;
+  }
+  #shop-nom {
+    color:#fff; font-size:38px; font-weight:900; letter-spacing:1px; line-height:1; margin-top:12px;
+    text-shadow:0 4px 0 rgba(0,0,0,.35);
+  }
+  #shop-accroche { color:rgba(255,255,255,.85); font-weight:800; font-size:15px; margin-top:10px; }
+  #shop-detail { color:rgba(255,255,255,.55); font-weight:700; font-size:13px; margin-top:8px; line-height:1.5; }
+
+  /* Le post, tel qu'il partira. On le MONTRE avant le clic : demander à quelqu'un de
+     publier sous son nom sans lui dire quoi est la meilleure façon de ne rien publier. */
+  #shop-post {
+    margin-top:16px; padding:13px 15px; border-radius:15px; white-space:pre-wrap;
+    background:rgba(255,255,255,.06); box-shadow:inset 0 0 0 2px rgba(255,255,255,.09);
+    color:rgba(255,255,255,.82); font-weight:700; font-size:12.5px; line-height:1.55;
+    max-height:190px; overflow-y:auto;
+  }
+
+  #shop-action {
+    margin-top:18px; width:100%; height:60px; cursor:pointer; font-family:inherit;
+    border:none; border-radius:18px; color:#fff; font-size:19px; font-weight:900; letter-spacing:1.4px;
+    text-shadow:0 2px 0 rgba(0,0,0,.3);
+    background:linear-gradient(180deg, #3a3a3d, #17171a);
+    box-shadow:0 6px 0 #000, 0 12px 22px rgba(0,0,0,.36), inset 0 0 0 3px rgba(255,255,255,.16);
+    transition:transform .09s, box-shadow .09s, filter .09s;
+  }
+  #shop-action:hover:not(:disabled) { transform:translateY(-3px); box-shadow:0 9px 0 #000, 0 16px 26px rgba(0,0,0,.4), inset 0 0 0 3px rgba(255,255,255,.24); }
+  #shop-action:active:not(:disabled) { transform:translateY(4px); box-shadow:0 2px 0 #000, inset 0 0 0 3px rgba(255,255,255,.18); }
+  #shop-action:disabled { filter:grayscale(.6) brightness(.7); cursor:default; }
+  /* L'étape de réclamation quitte le noir de X pour le vert : ce n'est plus le même
+     geste, et deux boutons identiques à la suite se cliquent sans être lus. */
+  #shop-action.reclamer { background:linear-gradient(180deg, #46e08a, #1fa85e); box-shadow:0 6px 0 #0e7040, 0 12px 22px rgba(0,0,0,.34), inset 0 0 0 3px rgba(255,255,255,.22); }
+  #shop-action.reclamer:hover:not(:disabled) { box-shadow:0 9px 0 #0e7040, 0 16px 26px rgba(0,0,0,.4), inset 0 0 0 3px rgba(255,255,255,.3); }
+  #shop-action.porte { background:linear-gradient(180deg, #58dcf0, var(--cyan)); box-shadow:0 6px 0 var(--cyan-dark), 0 12px 22px rgba(0,0,0,.3), inset 0 0 0 3px rgba(255,255,255,.22); }
+
+  #shop-note { margin-top:11px; color:rgba(255,255,255,.6); font-weight:800; font-size:12.5px; line-height:1.5; }
+  #shop-note.ok { color:#7ff0b0; }
+  #shop-note.alerte { color:#ffb37a; }
+  /* Le lien de secours. Il n'apparaît que si le navigateur a bloqué la fenêtre : sinon il
+     offrirait deux chemins pour le même clic, et le joueur choisirait le mauvais. */
+  #shop-lien { display:block; margin-top:9px; color:var(--cyan); font-weight:900; font-size:12.5px; }
+  #shop-lien.hidden { display:none; }
 
   /* ---------- menu de pause ---------- */
   #pause {
@@ -718,6 +1004,177 @@
   @keyframes verdict-fondu    { to { opacity:0; transform:scale(.88); } }
   @keyframes verdict-defile   { to { background-position:48px 0; } }
 
+  /* ═══ LA ROUE ═══════════════════════════════════════════════════════════════
+     Une grosse roue posée en bas de l'écran, dont on ne voit que la calotte haute.
+     Elle ne TIRE rien : le barème a été tiré dans le lobby, avant l'engagement de la
+     mise. Elle s'arrête sur le palier que le classement a donné. Voir `src/roue.js`. */
+
+  /* Le voile prend la couleur du grade atteint. C'est lui qui fait dire « j'ai eu une
+     roue diamant » plutôt que « j'ai eu 10,00 ». */
+  #roue-voile {
+    position:absolute; inset:0; z-index:22; pointer-events:none;
+    background:radial-gradient(120% 80% at 50% 100%, var(--teinte, #fff) 0%, transparent 62%);
+    opacity:0; transition:opacity .5s ease-out;
+  }
+  #roue-voile.visible { opacity:.30; }
+
+  #roue-scene {
+    position:absolute; left:50%; bottom:0; z-index:24;
+    width:min(940px, 128vw); aspect-ratio:1;
+    /* Hors champ au repos ; à 58 % dessous quand elle monte, donc 42 % visible. */
+    transform:translate(-50%, 100%);
+    transition:transform .62s cubic-bezier(.15,.85,.3,1.08);
+    pointer-events:none; touch-action:none;
+  }
+  #roue-scene.visible { transform:translate(-50%, 58%); }
+  /* Elle ne devient cliquable qu'une fois ARMÉE : lancer une roue avant de savoir où elle
+     tombe est exactement le geste qu'il ne faut pas rendre possible. */
+  #roue-scene.armee { pointer-events:auto; cursor:grab; }
+  #roue-scene.armee:active { cursor:grabbing; }
+  #roue-scene.calee { pointer-events:none; }
+
+  /* `z-index:1` : la jante `::before` est POSITIONNÉE et le `<svg>` ne l'est pas, donc la
+     jante peignait par-dessus le disque — on voyait un cercle violet vide, jante comprise,
+     à la place des quartiers. Un empilement, pas une opacité : rien n'était transparent,
+     tout était simplement dans le mauvais ordre. */
+  #roue-disque-hote { position:absolute; inset:0; }
+  .roue-svg { width:100%; height:100%; display:block; overflow:visible;
+    filter:drop-shadow(0 -10px 34px rgba(0,0,0,.6)); }
+  /* SEUL le groupe des quartiers tourne. La jante et le moyeu restent fixes : sur une
+     vraie roue, l'axe et le cadre ne bougent pas, et les faire tourner donnait une toupie. */
+  .roue-svg .roue-disque { transform-origin:50% 50%; }
+  .roue-relief, .roue-moyeu { pointer-events:none; }
+
+  /* Les montants, écrits le long du rayon. */
+  .roue-montant {
+    font-family:inherit; font-weight:900; font-size:52px;
+    font-variant-numeric:tabular-nums; letter-spacing:-1px;
+    paint-order:stroke fill; stroke:#20060a; stroke-width:9px;
+  }
+  .roue-montant.m-or   { fill:#fff; stroke:#7a4a00; }
+  .roue-montant.m-paye { fill:#fff; }
+
+  /* Le quartier atteint reste, les autres S'ÉTEIGNENT — on les assombrit, on ne les rend
+     pas transparents : une opacité laissait passer le décor et les perdants viraient au
+     délavé, donc plus clairs que le gagnant. */
+  #roue-scene.calee .roue-q { filter:brightness(.38) saturate(.5); transition:filter .45s; }
+  #roue-scene.calee .roue-q.gagnant {
+    filter:brightness(1.16) saturate(1.15) drop-shadow(0 0 26px rgba(255,240,180,.85));
+  }
+
+  /* Le curseur, fixe, au sommet — la flèche rouge et or de la référence. */
+  #roue-curseur {
+    position:absolute; left:50%; top:-2.6%; z-index:3; transform:translateX(-50%);
+    width:8.4%; height:11%;
+    background:linear-gradient(180deg, #ffe27a, #e0a012);
+    border:5px solid #7a0d10;
+    border-radius:22% 22% 50% 50% / 16% 16% 62% 62%;
+    box-shadow:0 4px 0 rgba(0,0,0,.35), inset 0 -6px 10px rgba(122,13,16,.35);
+  }
+  #roue-curseur::after {
+    content:''; position:absolute; left:50%; top:24%; transform:translateX(-50%);
+    width:26%; aspect-ratio:1; border-radius:50%; background:#8c0d12;
+    box-shadow:inset 0 2px 3px rgba(0,0,0,.5);
+  }
+
+  /* C'est le CURSEUR qui bat, pas le disque : faire respirer le disque faisait tourner la
+     jante avec lui, et une jante qui bouge n'est plus un cadre. */
+  #roue-scene.armee:not(.calee) #roue-curseur { animation:roue-appel 1.5s ease-in-out infinite; }
+  @keyframes roue-appel { 50% { transform:translateX(-50%) translateY(-9%) scale(1.06); } }
+
+  /* ═══ LE PODIUM ══════════════════════════════════════════════════════════════
+     La partie est COUPEE : le HUD de course disparait entierement — objectif, chrono,
+     places, nom de carte, barre de progression, aide. Le vainqueur occupe le tiers
+     gauche de l'image (cadrage `PODIUM_POS`), le panneau de fin et la roue se poussent
+     a droite pour ne pas le couvrir. */
+  body.podium #hud, body.podium #hud-droite, body.podium #help, body.podium #progressbar,
+  body.podium #dist, body.podium #perf, body.podium #enligne-hud { display:none !important; }
+  body.podium #fin-panneau { left:70%; width:min(540px, 56vw); }
+  body.podium #roue-scene { left:70%; width:min(760px, 92vw); }
+  /* Le voile du grade reste au pied de la roue : monte jusqu'au panneau, il delavait le
+     montant du gain — un texte blanc sous un voile blanc. */
+  body.podium #roue-voile { background:radial-gradient(48% 42% at 70% 104%, var(--teinte, #fff) 0%, transparent 66%); }
+  /* `inset:0` : on ne deplace que le bord gauche, le bandeau se centre alors a 70 %. */
+  body.podium #verdict { left:40%; }
+
+  /* ═══ LE PANNEAU DE FIN ═════════════════════════════════════════════════════
+     RIEN NE SE FERME TOUT SEUL. Le joueur vient de gagner ou de perdre de l'argent
+     réel ; lui reprendre l'écran au bout de quatre secondes était une décision qu'on
+     prenait à sa place. */
+  #fin-panneau {
+    position:absolute; left:50%; top:8%; z-index:26; transform:translateX(-50%);
+    width:min(600px, 94vw); text-align:center; pointer-events:none;
+    opacity:0; transition:opacity .35s;
+  }
+  /* Un voile sombre DERRIÈRE le texte. Le panneau se lit par-dessus une arène en pleine
+     lumière et un personnage rose vif : sans lui, le podium et le sous-titre passaient
+     sous le seuil de lisibilité au moment précis où ils comptent le plus. */
+  #fin-panneau::before {
+    content:''; position:absolute; inset:-26px -40px;
+    background:radial-gradient(58% 62% at 50% 42%, rgba(12,6,26,.82), transparent 74%);
+    z-index:-1; pointer-events:none;
+  }
+  #fin-panneau.show { opacity:1; }
+  #fin-panneau.show #fin-boutons { pointer-events:auto; }
+  #fin-titre {
+    font-size:46px; font-weight:900; letter-spacing:2px; color:#fff;
+    -webkit-text-stroke:6px var(--ink); paint-order:stroke fill;
+    text-shadow:0 6px 0 rgba(0,0,0,.28);
+  }
+  #fin-gain {
+    font-size:76px; font-weight:900; line-height:1.02; color:var(--yellow);
+    font-variant-numeric:tabular-nums;
+    -webkit-text-stroke:7px var(--ink); paint-order:stroke fill;
+    text-shadow:0 0 40px rgba(255,201,60,.55);
+  }
+  #fin-panneau[data-grade="diamant"] #fin-gain { color:#bff2ff; text-shadow:0 0 46px rgba(143,233,255,.7); }
+  #fin-panneau[data-grade="argent"]  #fin-gain { color:#eef1f6; }
+  #fin-panneau[data-grade="bronze"]  #fin-gain { color:#f0b784; }
+  #fin-panneau.rien #fin-gain { color:rgba(255,255,255,.5); text-shadow:none; }
+  #fin-sous {
+    font-size:15px; font-weight:900; letter-spacing:2.4px; color:rgba(255,255,255,.72);
+    text-shadow:0 2px 0 rgba(0,0,0,.5); margin-top:2px;
+  }
+  #fin-podium {
+    margin-top:10px; font-size:14px; font-weight:800; letter-spacing:.6px;
+    color:rgba(255,255,255,.66); text-shadow:0 2px 0 rgba(0,0,0,.5);
+  }
+  #fin-appel {
+    margin-top:14px; font-size:13px; font-weight:800; letter-spacing:1px;
+    color:rgba(255,255,255,.8); text-shadow:0 2px 0 rgba(0,0,0,.5);
+  }
+  #fin-appel b { color:var(--yellow); }
+  #fin-panneau.lance #fin-appel { display:none; }
+  #fin-boutons { display:none; gap:12px; justify-content:center; margin-top:16px; }
+  #fin-panneau.calee #fin-boutons { display:flex; }
+  .finbtn {
+    height:52px; padding:0 26px; border:none; border-radius:15px; cursor:pointer;
+    font-family:inherit; font-size:19px; font-weight:900; letter-spacing:1.2px;
+    background:rgba(255,255,255,.14); color:#fff;
+    box-shadow:0 5px 0 rgba(0,0,0,.32), inset 0 0 0 2.5px rgba(255,255,255,.24);
+    transition:transform .09s, filter .12s;
+  }
+  .finbtn:hover { transform:translateY(-2px); filter:brightness(1.15); }
+  .finbtn:active { transform:translateY(2px); box-shadow:0 2px 0 rgba(0,0,0,.32); }
+  .finbtn.primaire {
+    background:linear-gradient(180deg, #ff5c9e, var(--pink)); color:#fff;
+    box-shadow:0 5px 0 var(--pink-dark), inset 0 0 0 2.5px rgba(255,255,255,.4);
+  }
+
+  /* L'aperçu du ticket : LE MÊME disque, à 60 px. Un aperçu qui aurait sa propre
+     géométrie finirait par ne plus montrer la roue qu'on lance. */
+  #roue-fiche { display:flex; align-items:center; gap:10px; }
+  #roue-mini { width:60px; height:60px; flex:none; position:relative; }
+  #roue-mini .roue-svg { filter:drop-shadow(0 2px 6px rgba(0,0,0,.5)); }
+  #roue-mini::after {
+    content:''; position:absolute; inset:0; border-radius:50%;
+    box-shadow:inset 0 0 0 2.5px var(--ink), inset 0 0 0 4px rgba(255,201,60,.75);
+  }
+  #roue-dit { flex:1; min-width:0; font-size:10px; font-weight:800; letter-spacing:.4px;
+    color:rgba(255,255,255,.45); line-height:1.35; }
+  #roue-dit b { display:block; font-size:12.5px; letter-spacing:1px; color:#ffdc72; }
+
+
   /* ===== Carte-titre du survol =====
      Le nom de l'epreuve pendant le survol, puis plus rien. Il ne reste pas en HUD : une
      fois la manche lancee, le joueur sait ou il est, et l'information devient du bruit. */
@@ -790,12 +1247,109 @@
 
   .lil-gui.root { top:82px !important; z-index:30 !important; }
 
+  /* ---------- la porte : connexion plein page ----------
+     Le lobby reste derrière, flouté : on voit le jeu, on comprend qu'il faut entrer. */
+  #porte { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:24px; box-sizing:border-box; overflow:auto;
+    background:radial-gradient(1200px 700px at 20% 10%, rgba(255,61,139,.28), transparent 60%),
+               radial-gradient(900px 600px at 85% 90%, rgba(49,199,240,.25), transparent 60%),
+               linear-gradient(160deg, #1b1030 0%, #241546 55%, #12092a 100%); }
+  #porte.hidden { display:none; }
+  body.porte-ouverte #lobby-ui { filter:blur(6px) saturate(.7); }
+  #porte-cadre { display:grid; grid-template-columns:minmax(280px, 1fr) minmax(320px, 420px); gap:44px; align-items:center;
+    width:min(1040px, 100%); }
+  #porte-pitch { color:var(--cream); }
+  #porte-pitch img { width:min(360px, 80%); display:block; filter:drop-shadow(0 10px 22px rgba(0,0,0,.45)); margin-bottom:18px; }
+  #porte-pitch h1 { margin:0 0 10px; font-size:34px; line-height:1.05; font-weight:900; letter-spacing:.5px;
+    text-shadow:0 3px 0 rgba(0,0,0,.25); }
+  #porte-pitch h1 b { color:var(--cyan); }
+  #porte-pitch p { margin:0 0 20px; font-size:15.5px; color:rgba(255,246,230,.82); line-height:1.5; max-width:440px; }
+  #porte-pitch ul { list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+  #porte-pitch li { display:flex; gap:12px; align-items:center; font-size:14px; font-weight:700; }
+  #porte-pitch li i { width:34px; height:34px; border-radius:11px; display:grid; place-items:center; font-style:normal; font-size:17px;
+    background:rgba(255,255,255,.08); box-shadow:inset 0 0 0 2px rgba(255,255,255,.12); }
+  #porte-pitch li img { width:22px; height:22px; margin:0; filter:none; }
+  #porte-boite { position:relative; padding:26px 28px 22px; border-radius:22px; background:rgba(20,12,40,.82);
+    box-shadow:0 30px 80px rgba(0,0,0,.55), inset 0 0 0 2px rgba(255,255,255,.08); backdrop-filter:blur(10px); color:#dfe6ff; }
+  #porte-onglets { display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:5px; border-radius:14px; background:rgba(0,0,0,.35); margin-bottom:18px; }
+  .porte-onglet { border:none; border-radius:10px; padding:10px; cursor:pointer; background:transparent; color:#8f9cc8;
+    font-family:inherit; font-weight:900; font-size:12px; letter-spacing:1px; transition:background .12s, color .12s; }
+  .porte-onglet.on { background:var(--cyan); color:#06213a; box-shadow:0 3px 0 var(--cyan-dark); }
+  #porte-boite label { display:block; font-size:11px; font-weight:800; letter-spacing:1.2px; color:#8f9cc8; margin:0 0 6px 2px; }
+  #porte-boite .champ { position:relative; margin-bottom:12px; }
+  #porte-boite input { width:100%; box-sizing:border-box; padding:12px 14px; border-radius:12px; border:2px solid rgba(255,255,255,.1);
+    background:#0d0a1f; color:#fff; font-family:inherit; font-size:15px; transition:border-color .12s; }
+  #porte-boite input:focus { outline:none; border-color:var(--cyan); }
+  #porte-voir { position:absolute; right:8px; top:50%; transform:translateY(-50%); border:none; background:none; color:#8f9cc8; cursor:pointer;
+    font-family:inherit; font-weight:900; font-size:10px; letter-spacing:1px; padding:6px; }
+  #porte-nom.hidden { display:none; }
+  #porte-bouton { width:100%; margin-top:6px; padding:14px; border:none; border-radius:14px; cursor:pointer; background:var(--pink);
+    box-shadow:0 5px 0 var(--pink-dark); color:#fff; font-family:inherit; font-weight:900; font-size:15px; letter-spacing:1.4px;
+    transition:transform .08s, box-shadow .08s; }
+  #porte-bouton:active { transform:translateY(3px); box-shadow:0 2px 0 var(--pink-dark); }
+  #porte-bouton:disabled { opacity:.55; cursor:default; }
+  #porte-oublie { display:block; margin:12px auto 0; border:none; background:none; color:#8f9cc8; cursor:pointer; font-family:inherit;
+    font-size:12px; font-weight:700; text-decoration:underline; }
+  #porte-oublie.hidden { display:none; }
+  #porte-msg { min-height:18px; margin:10px 0 0; font-size:13px; color:var(--yellow); text-align:center; line-height:1.4; }
+  #porte-msg.ok { color:#8bf5b0; }
+  #porte-pied { margin:16px 0 0; font-size:11px; color:#6f7ca8; text-align:center; letter-spacing:.4px; line-height:1.5; }
+  #porte.occupee #porte-boite { opacity:.85; }
+  @media (max-width:820px) {
+    #porte { place-items:start center; padding:18px 14px 30px; }
+    #porte-cadre { grid-template-columns:1fr; gap:22px; }
+    #porte-pitch { text-align:center; } #porte-pitch img { margin:0 auto 12px; } #porte-pitch p { margin:0 auto 14px; }
+    #porte-pitch ul { max-width:360px; margin:0 auto; text-align:left; }
+    #porte-pitch h1 { font-size:26px; }
+  }
+
   #loading { position:fixed; inset:0; display:grid; place-items:center; background:#f5a623;
     color:#fff; font-size:23px; font-weight:900; z-index:20; text-shadow:0 3px 0 rgba(0,0,0,.2); }
 </style>
 </head>
 <body>
 <div id="loading">Loading…</div>
+
+<!--
+  LA PORTE. Plein page, avant tout le reste, quand le serveur a de l'argent derrière lui et
+  qu'aucune session n'existe (porte.js). Sur un banc elle ne s'ouvre jamais.
+-->
+<div id="porte" class="hidden">
+  <div id="porte-cadre">
+    <div id="porte-pitch">
+      <img src="/icons/logo-babyguy.png" alt="Baby Guy">
+      <h1>Run. Tumble. <b>Win USDC.</b></h1>
+      <p>Obstacle races against real players. Pick a table, stake USDC on Solana, and the podium gets paid on-chain the second the match ends.</p>
+      <ul>
+        <li><i><img src="/icons/icon-play.png" alt=""></i>1v1, Squad of 4 or 16-player Arena · 2, 5 or 10 USDC tables</li>
+        <li><i><img src="/icons/icon-usdc.png" alt=""></i>Your own Solana wallet · deposits and withdrawals verifiable on-chain</li>
+        <li><i>🔥</i>Every fee buys and burns BG, the Baby Guy token</li>
+      </ul>
+    </div>
+    <div id="porte-boite">
+      <div id="porte-onglets">
+        <button class="porte-onglet on" data-onglet="entrer">SIGN IN</button>
+        <button class="porte-onglet" data-onglet="creer">CREATE ACCOUNT</button>
+      </div>
+      <div class="champ hidden" id="porte-nom">
+        <label for="porte-nom-champ">PLAYER NAME</label>
+        <input id="porte-nom-champ" type="text" maxlength="24" autocomplete="nickname" placeholder="What opponents will see">
+      </div>
+      <div class="champ">
+        <label for="porte-mail">EMAIL</label>
+        <input id="porte-mail" type="email" autocomplete="email" placeholder="you@example.com">
+      </div>
+      <div class="champ">
+        <label for="porte-mdp">PASSWORD</label>
+        <input id="porte-mdp" type="password" autocomplete="current-password" placeholder="8+ characters">
+        <button id="porte-voir" type="button">SHOW</button>
+      </div>
+      <button id="porte-bouton">SIGN IN</button>
+      <button id="porte-oublie" type="button">Forgot password?</button>
+      <div id="porte-msg"></div>
+      <p id="porte-pied">Solana devnet — test USDC only, for now · 18+ · Skill competition, stakes committed at launch</p>
+    </div>
+  </div>
+</div>
 
 <!-- ===== LOBBY ===== -->
 <div id="lobby-ui" class="hidden">
@@ -806,7 +1360,8 @@
       <span class="port"><img id="profil-port" alt=""></span>
       <span class="lvl"><img src="/icons/icon-level.png" alt=""><b id="profil-niveau">1</b></span>
       <span class="bloc">
-        <span class="nom" id="pname">Baby #2005</span>
+        <span class="nom" id="pname" title="Click to change your name">—</span><!-- rempli par majBarre() : un nom en dur ici masquerait une panne -->
+        <input id="pname-champ" class="hidden" type="text" maxlength="24" spellcheck="false" aria-label="Your name">
         <span class="xp"><i id="xp-fill"></i></span>
       </span>
       <span class="xpnum" id="xp-num">0 / 240</span>
@@ -814,34 +1369,16 @@
     <div class="spacer"></div>
     <div id="solde" title="Spendable balance">
       <img src="/icons/icon-usdc.png" alt="">
-      <span id="balance">25,00</span><small>USDC</small>
-      <button id="recharger" class="hidden" title="Prototype: restores the starting balance">TOP UP</button>
+      <span id="balance">—</span><small>USDC</small><!-- rempli par majBarre() : un chiffre en dur ici serait un solde inventé -->
+      <button id="recharger" class="hidden" title="Sign in to deposit USDC and play">SIGN IN</button>
     </div>
-    <button class="navbtn" id="btn-enligne" title="Play against other players">ONLINE</button>
+    <!-- La liaison au serveur de jeu. Pas un bouton : il n'y a rien à ouvrir, on est
+         toujours en ligne ou en train de l'être. La pastille dit lequel. -->
+    <div id="lien" class="connexion" title="Game server"><i></i><span id="lien-txt">CONNECTING…</span></div>
     <button class="navbtn" id="btn-compte" title="Sign in">SIGN IN</button>
     <button class="navbtn" id="btn-settings" title="Settings">⚙</button>
   </div>
 
-  <!-- Panneau EN LIGNE : adresse du serveur, pseudo, file d'attente. -->
-  <div id="enligne-fond" class="hidden">
-    <div id="enligne-boite">
-      <h3>Play online</h3>
-      <p id="enligne-note">Two machines, two names, one server.</p>
-      <input id="enligne-url" type="text" placeholder="ws://127.0.0.1:8080">
-      <input id="enligne-nom" type="text" placeholder="Your name" maxlength="32">
-      <div id="enligne-msg"></div>
-      <div id="enligne-actions">
-        <button id="enligne-jouer" class="primaire">FIND A MATCH</button>
-        <button id="enligne-quitter" class="hidden">LEAVE QUEUE</button>
-      </div>
-      <div id="enligne-salon" class="hidden"></div>
-      <button id="enligne-accepter" class="hidden">START NOW WITH FEWER PLAYERS</button>
-      <button id="enligne-fermer" title="Close">×</button>
-    </div>
-  </div>
-
-  <!-- Bandeau permanent pendant une partie en ligne : latence et joueurs. -->
-  <div id="enligne-hud" class="hidden"></div>
 
   <!--
     Panneau de compte. Il n'apparait QUE si Supabase est configure : sans backend, le jeu
@@ -866,11 +1403,48 @@
     </div>
   </div>
 
+  <!--
+    Le portefeuille : déposer, retirer, relire l'historique on-chain. Connecté seulement —
+    il n'y a plus de recharge, et un solde sans compte n'existe pas (lobbyui.js).
+  -->
+  <div id="wallet-fond" class="hidden">
+    <div id="wallet-boite">
+      <h3>Wallet</h3>
+      <p class="wallet-note" id="wallet-solde">—</p>
+      <section>
+        <h4>DEPOSIT USDC</h4>
+        <a id="wallet-adresse" target="_blank" rel="noopener">—</a>
+        <div class="wallet-ligne"><button id="wallet-copier">COPY ADDRESS</button><button id="wallet-relever">CHECK DEPOSITS</button></div>
+        <p class="wallet-note" id="wallet-depot-note"></p>
+      </section>
+      <section>
+        <h4>WITHDRAW</h4>
+        <div id="wallet-lie"></div>
+        <div class="wallet-ligne"><input id="wallet-montant" type="number" min="0" step="0.01" placeholder="Amount (USDC)"><button id="wallet-retirer" class="primaire">WITHDRAW</button></div>
+        <p class="wallet-note" id="wallet-retrait-note"></p>
+      </section>
+      <section>
+        <h4>HISTORY</h4>
+        <div id="wallet-historique"></div>
+      </section>
+      <a id="wallet-stats" target="_blank" rel="noopener">On-chain stats · BG burns ↗</a>
+      <div id="wallet-msg"></div>
+      <button id="wallet-fermer" title="Close">×</button>
+    </div>
+  </div>
+
   <div id="leftpanel">
     <div id="logo"><img src="/icons/logo-babyguy.png" alt="Baby Guy"></div>
     <button id="btn-perso" title="Pick your character">
       <span class="ico">👕</span>
       <span class="txt">CHARACTER</span>
+    </button>
+    <!-- La boutique. Un seul article, et il ne se paie pas : il se gagne en publiant un
+         post sur X. Le compteur rouge tombe à zéro et s'efface une fois l'article pris. -->
+    <button id="btn-boutique" title="Unlock the BabyTrump skin">
+      <span class="ico">🛒</span>
+      <span class="txt">SHOP</span>
+      <span class="neuf hidden" id="shop-neuf">1</span>
     </button>
   </div>
 
@@ -878,6 +1452,8 @@
        Aucun chiffre n'est écrit ici : tout vient de src/economie.js. -->
   <div id="playzone">
     <div id="ticket">
+      <div class="tk-label">GAME MODE</div>
+      <div id="modes"></div>
       <div class="tk-label">PICK YOUR TABLE</div>
       <div id="paliers"></div>
       <div id="ticket-pot">
@@ -885,9 +1461,44 @@
         <div id="pot-val">—</div>
         <div id="pot-sub"></div>
       </div>
+      <!-- La roue, en petit. C'est LE MÊME composant que la grande roue de fin de partie,
+           rendu à 60 px : un aperçu qui aurait sa propre géométrie finirait par ne plus
+           montrer le disque qu'on lance. Tirée AVANT le départ, à la création du salon :
+           le joueur lit le barème de sa partie avant d'engager sa mise. -->
+      <div id="roue">
+        <div class="tk-label" id="roue-titre">THE WHEEL</div>
+        <div id="roue-fiche">
+          <div id="roue-mini"></div>
+          <div id="roue-dit"></div>
+        </div>
+      </div>
       <div class="tk-label">WHERE YOU FINISH</div>
       <div id="echelle"></div>
-      <button id="play"><span class="key">↵</span>PLAY</button>
+
+      <!-- Pas de serveur trouvé : la page ne vient pas du serveur de jeu. On propose de
+           saisir une adresse plutôt que de deviner — un essai à l'aveugle journalise une
+           erreur toutes les dix secondes chez tous les harnais qui tournent sans serveur. -->
+      <div id="serveur-absent" class="hidden">
+        <div class="sa-txt">No game server on this page. Start it with <code>cd serveur && npm start</code> and open the game from there — or enter its address:</div>
+        <div class="sa-ligne">
+          <input id="serveur-url" type="text" placeholder="ws://127.0.0.1:8080" spellcheck="false">
+          <button id="serveur-connecter">CONNECT</button>
+        </div>
+      </div>
+
+      <!-- LA FILE. Visible pendant l'attente seulement : où l'on attend, avec qui, depuis
+           quand, et le décompte du départ réduit quand le serveur l'annonce (au-dessus du
+           minimum, il part dès que plus personne n'arrive). Tout vient du serveur ; rien
+           ici n'est calculé. -->
+      <div id="file" class="hidden">
+        <div class="fl-tete"><span id="file-titre">LOOKING FOR PLAYERS</span><span id="file-chrono"></span></div>
+        <div id="file-ligne"></div>
+        <div id="file-sieges"></div>
+        <div id="file-msg"></div>
+        <div id="file-depart" class="hidden"></div>
+      </div>
+
+      <button id="play"><span class="key">↵</span><span id="play-txt">PLAY</span></button>
       <div id="play-note"></div>
     </div>
   </div>
@@ -902,6 +1513,38 @@
       <button id="btn-retour">BACK</button>
     </div>
     <div class="tiles" id="skins-grid"></div>
+  </div>
+
+  <!--
+    LA BOUTIQUE. Tout le contenu est posé par `lobbyui.js` : le nom, la rareté et le
+    portrait viennent du catalogue de `cosmetics.js`, le texte du post et la condition de
+    `boutique.js`. Rien n'est écrit en dur ici — une étiquette de maquette dans le HTML ne
+    se voit jamais depuis le JS, et c'est comme ça que « Baby #2005 » a survécu des
+    semaines dans la barre du haut.
+  -->
+  <div id="screen-boutique">
+    <div class="head">
+      <div>
+        <h1>SHOP</h1>
+        <div class="sub" id="shop-sub">One skin. No price tag — tell the world about the game instead.</div>
+      </div>
+      <div class="spacer"></div>
+      <button id="btn-retour-boutique">BACK</button>
+    </div>
+
+    <div id="shop-carte">
+      <div id="shop-port"><img id="shop-port-img" alt=""></div>
+      <div id="shop-corps">
+        <span id="shop-rarity">—</span><span id="shop-prix">—</span>
+        <div id="shop-nom">—</div>
+        <div id="shop-accroche"></div>
+        <div id="shop-detail"></div>
+        <div id="shop-post"></div>
+        <button id="shop-action">—</button>
+        <div id="shop-note"></div>
+        <a id="shop-lien" class="hidden" target="_blank" rel="noopener noreferrer">Open X manually →</a>
+      </div>
+    </div>
   </div>
 
   <div id="skin-info" class="hidden">
@@ -919,6 +1562,15 @@
   </div>
 </div>
 
+<!-- Les notifications : une suggestion du serveur, une alerte. Une à la fois. HORS du
+     lobby, délibérément : une mise refusée s'annonce en pleine course, quand le lobby est
+     masqué — et c'est précisément là qu'on ne doit pas la taire. -->
+<div id="notifs"></div>
+
+<!-- Bandeau permanent pendant une partie en ligne : latence et joueurs. Hors du lobby
+     lui aussi, sinon il n'est visible que quand il n'y a rien à mesurer. -->
+<div id="enligne-hud" class="hidden"></div>
+
 <!-- ===== PAUSE ===== -->
 <div id="pause" class="hidden">
   <div id="pause-inner">
@@ -926,6 +1578,7 @@
     <button class="pbtn resume" id="pause-resume"><span>RESUME</span></button>
     <button class="pbtn opts" id="pause-settings"><span>SETTINGS</span></button>
     <button class="pbtn quit" id="pause-quit"><span>QUIT MATCH</span></button>
+    <div id="pause-note">Quitting forfeits your stake — the match goes on without you.</div>
   </div>
 </div>
 
@@ -992,6 +1645,36 @@
     <div class="obj" id="titlecard-obj">RACE TO THE FINISH!</div>
   </div>
 </div>
+
+<!-- ═══ LA COUCHE DE FIN DE PARTIE ═════════════════════════════════════════════
+     HORS de `#race-ui`, et c'est le point : le HUD de course se masque au retour au
+     lobby, et l'écran de fin doit survivre à ce masquage. Les avoir imbriqués faisait
+     disparaître la roue au moment précis où le joueur allait la lancer. -->
+  <!-- ═══ LA ROUE DE FIN DE PARTIE ═══════════════════════════════════════════════
+       Une grosse roue posée en bas de l'écran, dont on ne voit que la calotte haute.
+       Elle ne TIRE rien : le barème a été tiré dans le lobby, avant l'engagement de la
+       mise, et elle s'arrête sur le palier que le classement a donné au joueur. Voir
+       l'en-tête de `src/roue.js`. -->
+  <div id="roue-voile"></div>
+  <div id="roue-scene">
+    <div id="roue-curseur"></div>
+    <div id="roue-disque-hote"></div>
+  </div>
+
+  <!-- Le panneau de fin. RIEN NE SE FERME TOUT SEUL : on reste ici tant que le joueur
+       n'a pas choisi. Il vient de perdre ou de gagner de l'argent réel ; lui reprendre
+       l'écran au bout de quatre secondes était une décision qu'on prenait à sa place. -->
+  <div id="fin-panneau">
+    <div id="fin-titre">MATCH OVER</div>
+    <div id="fin-gain">—</div>
+    <div id="fin-sous"></div>
+    <div id="fin-podium"></div>
+    <div id="fin-appel">Click the wheel, or press <b>SPACE</b></div>
+    <div id="fin-boutons">
+      <button id="fin-lobby" class="finbtn">LOBBY</button>
+      <button id="fin-rejouer" class="finbtn primaire">PLAY AGAIN</button>
+    </div>
+  </div>
 
 <!-- ===== Carrousel « Prochaine épreuve » ===== -->
 <div id="nextup" class="hidden">

@@ -52,17 +52,58 @@ export function creerFigurants({ scene, assets }) {
   /** Les instantanés reçus, du plus ancien au plus récent. */
   const tampon = [];
 
+  // Deux quaternions de travail, réutilisés : `update` tourne soixante fois par seconde
+  // pour chaque figurant, et n'a aucune raison d'allouer.
+  const qa = new THREE.Quaternion();
+  const qb = new THREE.Quaternion();
+
   let monIndex = -1;
 
-  /** Le modèle d'un joueur : déterministe, pour qu'il ne change pas d'apparence en route. */
-  const modelePour = (index) => MODELS[index % MODELS.length]?.id ?? MODELS[0].id;
+  /**
+   * L'APPARENCE D'UN ADVERSAIRE — celle qu'IL a choisie.
+   *
+   * Elle était déduite de son numéro de siège : `MODELS[index % MODELS.length]`. Comme
+   * chaque joueur, lui, s'affiche avec le personnage qu'il a réellement choisi, les deux
+   * écrans ne racontaient pas la même chose — vu en jouant à deux, le même joueur
+   * apparaissait en Trump sur une machine et en Musk sur l'autre.
+   *
+   * Le serveur annonce désormais le personnage de chacun dans la composition de la manche.
+   * On vérifie tout de même qu'il existe dans NOTRE catalogue : la chaîne vient d'un autre
+   * client, et un identifiant inconnu — version différente, catalogue modifié, client
+   * bricolé — ne doit pas laisser un joueur invisible. À défaut, on retombe sur l'ancien
+   * choix par siège, qui a au moins le mérite d'être stable et de varier.
+   */
+  const modelePour = (id, index) =>
+    MODELS.find((m) => m.id === id) ?? MODELS[index % MODELS.length] ?? MODELS[0];
 
-  function creerAvatar(index, nom) {
+  function creerAvatar(index, nom, idModele) {
+    const modele = modelePour(idModele, index);
     const groupe = new THREE.Group();
-    const rigge = createRiggedCharacter(assets, HAUTEUR, modelePour(index));
+
+    /*
+     * UN PIVOT AU MILIEU DU CORPS.
+     *
+     * `groupe` est posé aux PIEDS — c'est là qu'un personnage se place. Mais un plongeon
+     * ou une culbute font tourner le corps autour de son MILIEU, comme le fait la capsule
+     * physique du joueur local. Faire tourner `groupe` ferait pivoter le personnage autour
+     * de ses talons : il se coucherait en balayant le sol au lieu de basculer.
+     *
+     * D'où ce nœud intermédiaire, remonté de `PIED` et dont le contenu redescend d'autant.
+     * Le modèle reste donc exactement où il était, mais toute rotation se fait maintenant
+     * autour du centre de la capsule.
+     */
+    const pivot = new THREE.Group();
+    pivot.position.y = PIED;
+    groupe.add(pivot);
+
+    const rigge = createRiggedCharacter(assets, HAUTEUR, modele.id);
 
     if (rigge) {
-      groupe.add(rigge.model);
+      // On RETRANCHE, on n'affecte pas : la fabrique a déjà posé le modèle sur ses pieds
+      // (`model.position.y -= measureFloor`), et écraser cette valeur l'enfoncerait dans
+      // le sol ou le ferait flotter selon le modèle.
+      rigge.model.position.y -= PIED;
+      pivot.add(rigge.model);
     } else {
       /*
        * Repli si les modèles ne sont pas chargés — le mode `noassets`, ou un chargement
@@ -71,10 +112,10 @@ export function creerFigurants({ scene, assets }) {
        */
       const corps = new THREE.Mesh(
         new THREE.CapsuleGeometry(0.45, 0.7, 6, 12),
-        new THREE.MeshToonMaterial({ color: MODELS[index % MODELS.length]?.accent ?? 0xffffff }),
+        new THREE.MeshToonMaterial({ color: modele.accent ?? 0xffffff }),
       );
-      corps.position.y = HAUTEUR / 2;
-      groupe.add(corps);
+      corps.position.y = HAUTEUR / 2 - PIED;
+      pivot.add(corps);
     }
 
     /*
@@ -97,7 +138,8 @@ export function creerFigurants({ scene, assets }) {
 
     scene.add(groupe);
     return {
-      index, nom, groupe, ombre,
+      index, nom, groupe, pivot, ombre,
+      modele: modele.id,          // ce qu'on affiche vraiment, une fois le repli appliqué
       rig: rigge?.rig ?? null,
       cap: 0,
       solY: 0,              // dernière hauteur de sol connue, pour poser l'ombre
@@ -146,7 +188,7 @@ export function creerFigurants({ scene, assets }) {
       this.vider();
       for (const j of joueurs) {
         if (j.nom === nomLocal) { monIndex = j.index; continue; }
-        avatars.set(j.index, creerAvatar(j.index, j.nom));
+        avatars.set(j.index, creerAvatar(j.index, j.nom, j.modele));
       }
       return avatars.size;
     },
@@ -213,7 +255,28 @@ export function creerFigurants({ scene, assets }) {
         const dz = p1.z - p0.z;
         const vitesse = Math.hypot(dx, dz) / Math.max(0.0001, span);
         if (vitesse > 0.3) a.cap = Math.atan2(dx, dz);
-        a.groupe.rotation.y = a.cap;
+
+        /*
+         * PLONGEON ET CULBUTE : la rotation vient du RÉSEAU, pas du déplacement.
+         *
+         * C'est la même bascule que celle du joueur local, qui bascule en `ragdoll` sur ces
+         * deux poses (`character.js`) — et c'est elle qui rend le geste lisible. Le cap
+         * déduit du mouvement ne dit rien d'un corps qui pique vers l'avant : sans ça, un
+         * adversaire qui plonge glissait tout droit, bien debout. Rapporté en jouant :
+         * « on voit les sauts, on ne voit pas les plongeons. »
+         *
+         * On interpole en SLERP, jamais composante par composante : un quaternion moyenné
+         * bêtement se dénormalise, et le personnage s'écrase en traversant l'interpolation.
+         */
+        if (p1.pose === 'diving' || p1.pose === 'tumbling') {
+          qa.set(p0.qx ?? 0, p0.qy ?? 0, p0.qz ?? 0, p0.qw ?? 1).normalize();
+          qb.set(p1.qx ?? 0, p1.qy ?? 0, p1.qz ?? 0, p1.qw ?? 1).normalize();
+          a.pivot.quaternion.slerpQuaternions(qa, qb, u);
+        } else {
+          // Debout : le cap suffit, et il ne coûte pas un octet.
+          a.pivot.quaternion.identity();
+          a.pivot.rotation.y = a.cap;
+        }
 
         /*
          * LE REBOND DU RIG, qu'on jetait.
@@ -248,6 +311,27 @@ export function creerFigurants({ scene, assets }) {
     },
 
     /** Enlève tout — fin de manche, changement de carte. */
+    /**
+     * POSE CHAQUE AVATAR SUR SA PLACE DE DÉPART, avant le premier instantané.
+     *
+     * Un avatar naît à l'origine du monde et n'en bouge qu'une fois DEUX instantanés
+     * reçus ET appliqués. Or `update` n'était appelé qu'après le décompte : pendant trois
+     * secondes, l'adversaire se tenait en T-pose à (0, 0, 0) — sur La Course, douze mètres
+     * devant le départ, au milieu du pont. Vu en jouant à deux. On lui donne donc sa place
+     * tout de suite, calculée comme le serveur la calcule (`placement.js`), et l'ombre avec.
+     *
+     * @param {(index: number) => {x:number,y:number,z:number}} placeDe le CENTRE du corps
+     */
+    poser(placeDe) {
+      for (const a of avatars.values()) {
+        const p = placeDe(a.index);
+        if (!p) continue;
+        a.groupe.position.set(p.x, p.y - PIED, p.z);
+        a.solY = p.y - PIED;
+        a.ombre.position.set(p.x, a.solY + 0.05, p.z);
+      }
+    },
+
     vider() {
       for (const a of avatars.values()) {
         scene.remove(a.groupe);

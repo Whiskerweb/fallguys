@@ -17,7 +17,25 @@
  * `.env.example`. Les nouvelles variables y sont declarees a vide.
  */
 
+import { readFileSync, existsSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { MICROS } from './argent.js';
+
+/*
+ * Le `.env` de la racine est charge ICI, sans rien ecraser : une variable deja posee dans
+ * l'environnement gagne. « set -a && source ../.env » reste possible, mais plus
+ * obligatoire — c'est l'etape qu'on oublie, et l'oubli se paie en « configuration
+ * incomplete » au demarrage.
+ */
+const ENV = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '.env');
+if (existsSync(ENV)) {
+  for (const ligne of readFileSync(ENV, 'utf8').split('\n')) {
+    const m = /^\s*(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(ligne);
+    if (!m || m[1] in process.env) continue;
+    process.env[m[1]] = /^(["']).*\1$/.test(m[2]) ? m[2].slice(1, -1) : m[2];
+  }
+}
 
 const lire = (nom, defaut = undefined) => {
   const v = process.env[nom];
@@ -39,8 +57,48 @@ export const config = {
    */
   mintUsdc: lire('USDC_MINT', '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'),
 
-  /** Cle de la caisse, en base58. Le seul secret qui signe des paiements. */
+  /**
+   * Cle de la CAISSE, en base58 : le payeur de frais et de rente de toutes les transactions
+   * du service, et l'autorite qui a cree le jeton BG. Depuis le 2 septembre 2026 elle ne
+   * detient plus les USDC des joueurs — chacun les garde sur son propre wallet derive —
+   * mais elle signe encore chaque transaction comme payeur : elle reste LE secret.
+   */
   caisseCle: lire('CAISSE_CLE'),
+
+  /**
+   * Les wallets de TRESORERIE, generes par `outils/tresorerie.mjs` et notes dans
+   * `wallets/<reseau>.json` (ignore par git) :
+   *
+   *   - FRAIS : recoit le rake de chaque partie, sur la chaine. C'est le wallet que la
+   *     page de suivi montre comme « frais », et celui que le brulage vide ;
+   *   - POOL  : la liquidite BG/USDC. Sur devnet il n'existe aucun marche pour un jeton
+   *     neuf, donc le service tient lui-meme une reserve a produit constant, dont les
+   *     soldes ON-CHAIN fixent le prix. Sur mainnet, ce wallet s'efface derriere un
+   *     agregateur (Jupiter) et une vraie paire : voir `solana/brulage.js`.
+   */
+  fraisCle: lire('FRAIS_CLE'),
+  poolCle: lire('POOL_CLE'),
+
+  /**
+   * Le jeton BG (« Baby Guy »), cree par `outils/jeton.mjs` : 1 milliard d'unites, six
+   * decimales, autorite de frappe REVOQUEE — l'offre ne peut que baisser.
+   */
+  mintBg: lire('BG_MINT'),
+
+  /**
+   * La cle PUBLIQUE du serveur de jeu. Un resultat de partie n'est accepte que signe par
+   * la cle secrete correspondante (`SERVEUR_CLE`, cote serveur de jeu). Sans elle, le
+   * backend refuse tout reglement : il n'y a plus de chemin non signe.
+   */
+  serveurPublique: lire('SERVEUR_PUBLIQUE'),
+
+  /**
+   * Le brulage : des que le wallet des frais detient au moins `brulageSeuil` USDC, on
+   * achete des BG avec et on les brule. Le seuil evite de payer une transaction pour
+   * quelques centimes ; l'intervalle est celui de la boucle de fond.
+   */
+  brulageSeuil: Number(lire('BRULAGE_SEUIL_MICROS', String(1 * MICROS))),
+  brulageActif: lire('BRULAGE', '1') !== '0',
 
   /**
    * Graine maitresse des adresses de depot.
@@ -67,7 +125,7 @@ export const config = {
    * coute des frais et peut echouer). Un depot plus petit est donc CREDITE quand meme ;
    * le minimum vit dans l'interface, la ou il sert a orienter le joueur.
    */
-  depotMinimum: 20 * MICROS,
+  depotMinimum: Number(lire('DEPOT_MINIMUM_MICROS', String(20 * MICROS))),
 
   /**
    * Retrait minimum, et delai sur le premier retrait d'un compte.
@@ -77,8 +135,8 @@ export const config = {
    * cher a fabriquer qu'il ne rapporte — et pendant ce temps le web reste ouvert en
    * grand a l'inscription, ce qui est exactement ce qu'on veut pour l'acquisition.
    */
-  retraitMinimum: 25 * MICROS,
-  delaiPremierRetraitHeures: 24,
+  retraitMinimum: Number(lire('RETRAIT_MINIMUM_MICROS', String(25 * MICROS))),
+  delaiPremierRetraitHeures: Number(lire('DELAI_PREMIER_RETRAIT_HEURES', '24')),
 
   // ---- serveur ----
   port: Number(lire('PORT', '8787')),

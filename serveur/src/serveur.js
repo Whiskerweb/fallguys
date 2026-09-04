@@ -4,7 +4,7 @@
  * WebSocket et pas autre chose, parce que c'est ce qui marche partout dans un navigateur,
  * sans installation. WebTransport donnerait des datagrammes non fiables — plus proche
  * d'UDP, donc mieux pour un jeu — mais c'est une optimisation de second temps : à 20 Hz
- * et 138 octets par instantané, TCP tient très bien. `envoyer()` est isolé pour que
+ * et 202 octets par instantané, TCP tient très bien. `envoyer()` est isolé pour que
  * changer de transport ne touche à rien d'autre.
  *
  * Ce fichier ne contient AUCUNE règle de jeu. Il traduit des octets en appels et des
@@ -22,6 +22,7 @@ import { preparer } from './monde.js';
 import { creerMatchmaking } from './matchmaking.js';
 import { POLITIQUES } from './politique.js';
 import { typeDe, decoderEntree, TYPE } from './reseau.js';
+import { verifierJeton, IDENTITE_CONFIGUREE } from './identite.js';
 
 /** Cadence du matchmaking. Une fois par seconde suffit : il ne simule rien. */
 const BATTEMENT = 1000;
@@ -93,11 +94,14 @@ async function servirFichier(req, res) {
  * @param {number} [p.port]
  * @param {string|object} [p.politique]
  * @param {number} [p.graine]
+ * @param {object|null} [p.pont] le pont vers le backend (`argent.js`). Sans lui, aucune
+ *   file payante ne s'ouvre hors banc, et `/api/…` répond 503.
  */
 export async function demarrerServeur({
   port = 8080,
   politique = POLITIQUES.PRODUCTION,
   graine = Date.now() >>> 0,
+  pont = null,
 } = {}) {
   await preparer();
 
@@ -121,13 +125,44 @@ export async function demarrerServeur({
     }
   };
 
-  const mm = creerMatchmaking({ politique, envoyer, graine });
+  /**
+   * À TOUS les connectés — c'est par là que part la présence des files.
+   *
+   * Un joueur qui n'a encore rien choisi doit déjà voir où sont les autres : c'est ce qui
+   * fait la différence entre un lobby vivant et un lobby qu'on croit vide. Le message est
+   * encodé UNE fois pour tout le monde ; à un battement par seconde et neuf files, c'est
+   * dérisoire, mais c'est le geste juste.
+   */
+  const diffuser = (message) => {
+    const texte = JSON.stringify(message);
+    for (const ws of liens.values()) {
+      if (ws.readyState !== ws.OPEN) continue;
+      try { ws.send(texte); } catch { /* le ménage se fera sur `close` */ }
+    }
+  };
+
+  const mm = creerMatchmaking({ politique, envoyer, diffuser, graine, pont });
 
   const http = createServer(async (req, res) => {
     // Un point de contrôle, pour savoir d'un coup d'œil ce que le serveur fait.
     if (req.url === '/etat') {
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ joueurs: liens.size, ...mm.etat() }));
+      res.end(JSON.stringify({
+        joueurs: liens.size, ...mm.etat(),
+        argent: Boolean(pont), identite: IDENTITE_CONFIGUREE,
+      }));
+      return;
+    }
+    /*
+     * `/api/…` RELAIE AU BACKEND. Le navigateur ne connaît qu'une adresse — celle qui lui
+     * a servi la page — et c'est ce qui rend le déploiement à une machine possible sans
+     * CORS, sans seconde URL à configurer dans le bundle, et sans exposer le backend
+     * lui-même. Le flux d'événements (`/api/stats/flux`) passe aussi : on recopie la
+     * réponse morceau par morceau au lieu de l'attendre en entier.
+     */
+    if (req.url.startsWith('/api/') || req.url === '/api') {
+      if (!pont) { res.writeHead(503, { 'content-type': 'application/json' }); res.end('{"erreur":"ARGENT_INDISPONIBLE"}'); return; }
+      await relayer(req, res, pont.url);
       return;
     }
     if (await servirFichier(req, res)) return;
@@ -137,8 +172,12 @@ export async function demarrerServeur({
 
   const wss = new WebSocketServer({ server: http });
 
+  const politiqueObjet = typeof politique === 'string' ? POLITIQUES[politique] : politique;
+
   wss.on('connection', (ws) => {
     let nom = null;
+    /** L'identifiant Supabase vérifié, ou `null` pour un invité. */
+    let compte = null;
 
     ws.on('message', (donnees, estBinaire) => {
       /*
@@ -167,31 +206,91 @@ export async function demarrerServeur({
       switch (msg.type) {
         case 'bonjour': {
           /*
-           * L'identité est DÉCLARÉE, et c'est temporaire.
+           * LE NOM EST UNE ÉTIQUETTE ; LE COMPTE EST UNE PREUVE.
            *
-           * En production, ce nom viendra du jeton Supabase vérifié — sinon n'importe qui
-           * se présente sous le nom de n'importe qui, et le règlement paierait le mauvais
-           * joueur. Le raccord se fait ici, en une vérification de jeton, quand le
-           * `MatchResult` signé arrivera.
+           * Le nom reste déclaré : c'est ce que les autres voient. Mais depuis que le
+           * serveur fait engager des mises et régler des gains, il lui faut savoir QUI
+           * paie : le jeton Supabase envoyé avec `bonjour` est vérifié auprès de Supabase
+           * (`identite.js`), et le compte qu'il désigne suit le joueur jusqu'au règlement.
+           * Sans jeton valide, c'est un invité — files gratuites seulement (`politique.js`).
+           *
+           * La vérification est un aller-retour HTTP : on répond `bienvenue` APRÈS, pour
+           * que le client sache d'emblée s'il est reconnu. Les messages qui arriveraient
+           * entre-temps sont ignorés (`nom` est encore nul).
            */
+          if (nom) return;
           const voulu = String(msg.nom ?? '').slice(0, 32) || `joueur-${liens.size + 1}`;
-          if (liens.has(voulu)) { envoyer(voulu, null); ws.close(4001, 'nom deja pris'); return; }
-          nom = voulu;
-          liens.set(nom, ws);
-          envoyer(nom, { type: 'bienvenue', nom, politique: mm.etat().politique });
+          verifierJeton(msg.jeton).then((identite) => {
+            if (ws.readyState !== ws.OPEN) return;
+            if (liens.has(voulu)) { ws.close(4001, 'nom deja pris'); return; }
+            nom = voulu;
+            compte = identite?.userId ?? null;
+            liens.set(nom, ws);
+            envoyer(nom, {
+              type: 'bienvenue', nom, politique: mm.etat().politique, joueurs: liens.size,
+              compte,
+              // Ce que le client doit savoir pour dessiner son lobby : y a-t-il de l'argent
+              // derrière ce serveur, et faut-il un compte pour miser ?
+              argent: Boolean(pont),
+              // Même règle que `refusDEntree` : seule une politique qui EXIGE l'identité
+              // ferme le banc. Une politique écrite à la main dans un harnais n'en dit
+              // rien, et le client doit alors se voir offrir son portefeuille imaginaire.
+              identite: politiqueObjet?.identite === 'requise' ? 'requise' : 'facultative',
+            });
+            // La présence tout de suite, sans attendre le battement : le lobby s'ouvre sur
+            // l'état des files, pas sur une seconde de cases vides.
+            envoyer(nom, mm.presence());
+          }).catch(() => { try { ws.close(4002, 'identite invalide'); } catch {} });
           break;
         }
 
         case 'rejoindre': {
           if (!nom) return;
-          const r = mm.rejoindre({ nom, faire: () => pilotageAutomatique() }, Number(msg.mise ?? 0));
+          /*
+           * LE PERSONNAGE CHOISI n'est qu'une étiquette, et le serveur la traite comme
+           * telle : il ne la comprend pas, il la relaie aux autres joueurs. Aucune règle
+           * de jeu n'en dépend — c'est le principe de ce fichier.
+           *
+           * Il la BORNE quand même. Un client peut envoyer ce qu'il veut, et cette chaîne
+           * finit dans l'annonce de manche de tous les autres : sans garde-fou, un joueur
+           * pourrait leur expédier un mégaoctet. Le client, lui, vérifie de son côté que
+           * l'identifiant existe vraiment dans son catalogue.
+           */
+          const modele = typeof msg.modele === 'string' && /^[a-z0-9-]{1,40}$/i.test(msg.modele)
+            ? msg.modele
+            : null;
+          /*
+           * LE MODE, en revanche, change tout : effectif, nombre de manches, barème. Il
+           * vient du client, donc il n'est pas digne de confiance — `mm.rejoindre` le
+           * confronte au catalogue et refuse l'inconnu plutôt que d'ouvrir une file
+           * fantôme. On se contente ici de le borner en longueur avant de le transmettre.
+           */
+          const mode = typeof msg.mode === 'string' && /^[a-z]{1,16}$/.test(msg.mode)
+            ? msg.mode
+            : 'arena';
+          const r = mm.rejoindre(
+            { nom, modele, compte, faire: () => pilotageAutomatique() },
+            Number(msg.mise ?? 0),
+            mode,
+          );
           if (!r.accepte) envoyer(nom, { type: 'refus', raison: r.raison });
           break;
         }
 
-        case 'accepter':
-          if (nom) mm.accepter(nom);
+        case 'basculer': {
+          /*
+           * Le joueur accepte une suggestion. Mode et mise viennent du client, et sont
+           * bornés ici EXACTEMENT comme dans `rejoindre` : une suggestion n'est pas un
+           * laissez-passer, c'est une entrée en file comme une autre.
+           */
+          if (!nom) return;
+          const mode = typeof msg.mode === 'string' && /^[a-z]{1,16}$/.test(msg.mode)
+            ? msg.mode
+            : 'arena';
+          const r = mm.basculer(nom, Number(msg.mise ?? 0), mode);
+          if (!r.accepte) envoyer(nom, { type: 'refus', raison: r.raison });
           break;
+        }
 
         case 'quitter':
           if (nom) mm.quitter(nom);
@@ -232,6 +331,49 @@ export async function demarrerServeur({
       await new Promise((r) => http.close(r));
     },
   };
+}
+
+/**
+ * Relaie une requête `/api/…` au backend, en flux.
+ *
+ * L'en-tête `authorization` passe tel quel : c'est le jeton du joueur, et c'est le backend
+ * qui le vérifie. Rien n'est ajouté, rien n'est retiré — ce serveur n'a pas d'avis sur
+ * l'argent, il tient le tuyau.
+ */
+async function relayer(req, res, base) {
+  const cible = `${base}${req.url.slice(4) || '/'}`;
+  const morceaux = [];
+  for await (const c of req) morceaux.push(c);
+  let r;
+  try {
+    r = await fetch(cible, {
+      method: req.method,
+      headers: {
+        ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
+        ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}),
+        accept: req.headers.accept ?? '*/*',
+      },
+      body: ['GET', 'HEAD'].includes(req.method) ? undefined : Buffer.concat(morceaux),
+    });
+  } catch (e) {
+    res.writeHead(502, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ erreur: 'BACKEND_INJOIGNABLE', message: e.message }));
+    return;
+  }
+  const entetes = {};
+  for (const [k, v] of r.headers) if (!['content-length', 'transfer-encoding', 'connection'].includes(k)) entetes[k] = v;
+  res.writeHead(r.status, entetes);
+  if (!r.body) { res.end(); return; }
+  const lecteur = r.body.getReader();
+  req.on('close', () => lecteur.cancel().catch(() => {}));
+  try {
+    for (;;) {
+      const { done, value } = await lecteur.read();
+      if (done) break;
+      res.write(value);
+    }
+  } catch { /* le client est parti */ }
+  res.end();
 }
 
 /**

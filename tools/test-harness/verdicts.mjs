@@ -22,9 +22,12 @@
 import { preparer, construire, creerPerso, epreuves, liberer } from '../../serveur/src/monde.js';
 import { avancerTick } from '../../serveur/src/tick.js';
 import { jouerManche } from '../../serveur/src/manche.js';
-import { jouerPartie, survivants } from '../../serveur/src/partie.js';
+import { jouerPartie, creerPartie, survivants } from '../../serveur/src/partie.js';
 import { creerSalon } from '../../serveur/src/salon.js';
-import { POLITIQUES, botsAutorises, BOTS } from '../../serveur/src/politique.js';
+import { creerMatchmaking } from '../../serveur/src/matchmaking.js';
+import { creerInstance } from '../../serveur/src/instance.js';
+import { MODES, ORDRE_MODES, ISSUES, PALIERS, tirerIssue } from '../../serveur/src/economie.js';
+import { POLITIQUES, botsAutorises, formatDe, misePayable, BOTS } from '../../serveur/src/politique.js';
 import { creerBot } from '../../serveur/src/pilotes/bot.js';
 
 let ko = 0;
@@ -79,7 +82,7 @@ titre('1. Aucun bot dans une partie payante');
 }
 
 // ===========================================================================
-titre('2. L\'attente, et la proposition de partir à effectif réduit');
+titre('2. L\'attente, et le départ à effectif réduit après un temps de calme');
 // ===========================================================================
 {
   const pilote = () => ({ entree: () => ({ x: 0, z: 0, jump: false, dive: false }) });
@@ -93,39 +96,66 @@ titre('2. L\'attente, et la proposition de partir à effectif réduit');
   const banc = creerSalon({ politique: 'BANC', mise: 0, graine: 7, horloge });
   dit(banc.resteAAttendre() === null, 'un salon vide n\'attend rien : le compte à rebours n\'a pas commencé');
 
-  // ── le cas PRODUCTION : douze joueurs, figés ────────────────────────────────
+  /*
+   * LA RÈGLE DE DÉPART DE L'ARÈNE (décision produit du 2 septembre 2026) : seize, tout de
+   * suite ; ou treize et plus, quand trente-cinq secondes passent sans nouvelle arrivée.
+   * Douze ne partent jamais. Personne n'a rien à accepter — le ticket a annoncé le pot en
+   * fourchette avant le clic. Les valeurs attendues sont posées à la main.
+   */
+  // ── le cas PRODUCTION : douze joueurs, figés — JAMAIS ────────────────────────
   maintenant = 2_000_000;
   const prod = creerSalon({ politique: 'PRODUCTION', mise: 1_000_000, graine: 3, horloge });
   for (let i = 0; i < 12; i++) prod.rejoindre(joueur(`j${i}`));
   dit(prod.resteAAttendre() === 15, 'le compte à rebours démarre au PREMIER joueur');
-  dit(prod.proposition() === null, 'aucune proposition tant que le délai n\'est pas écoulé');
-  dit(!prod.pretAPartir(), 'on ne part pas pendant l\'attente');
+  dit(prod.departReduit() === null, 'à douze, aucun départ réduit n\'est annoncé');
+  maintenant += 600_000;                       // dix minutes : largement au-delà de tout délai
+  dit(!prod.pretAPartir(), 'douze joueurs, dix minutes : on ne part toujours pas (minimum 13)');
 
-  maintenant += 60_000;
-  const offre = prod.proposition();
-  dit(offre !== null && offre.joueurs === 12 && offre.manques === 4,
-    `à 60 s, on propose de partir à ${offre?.joueurs} au lieu de ${offre?.cible}`);
-  dit(offre?.pot === 12_000_000, `le pot annoncé est celui des présents : ${offre?.pot / 1e6} USDC`);
-
-  dit(!prod.pretAPartir(), 'la proposition seule ne suffit pas : il faut l\'accord de tous');
-  for (let i = 0; i < 11; i++) prod.accepter(`j${i}`);
-  dit(!prod.pretAPartir(), '11 accords sur 12 ne suffisent pas non plus');
-  prod.accepter('j11');
-  dit(prod.pretAPartir(), 'les 12 accords obtenus, on part');
+  // ── treize : le calme fait partir ──────────────────────────────────────────
+  prod.rejoindre(joueur('j12'));
+  const annonce = prod.departReduit();
+  dit(annonce !== null && annonce.joueurs === 13 && annonce.manques === 3 && annonce.dans === 35,
+    `à treize, le départ réduit est annoncé : ${annonce?.joueurs} joueurs, dans ${annonce?.dans} s`);
+  dit(annonce?.pot === 13_000_000, `le pot annoncé est celui des présents : ${annonce?.pot / 1e6} USDC`);
+  dit(!prod.pretAPartir(), 'mais on ne part pas tout de suite');
+  maintenant += 20_000;
+  dit(!prod.pretAPartir(), 'ni à 20 s de calme');
+  prod.rejoindre(joueur('j13'));               // une arrivée remet le calme à zéro
+  maintenant += 20_000;
+  dit(!prod.pretAPartir() && prod.departReduit()?.dans === 15,
+    'une arrivée REMET LE CALME À ZÉRO : 20 s plus tard il en reste 15');
+  maintenant += 15_000;
+  dit(prod.pretAPartir(), '35 s sans arrivée depuis le quatorzième : on part à quatorze');
 
   const compo = prod.composer();
-  dit(compo.humains === 12 && compo.bots === 0, `12 humains, 0 bot — c'est une partie payante`);
+  dit(compo.humains === 14 && compo.bots === 0 && !compo.complete,
+    `14 humains, 0 bot, salon réduit — c'est une partie payante au barème de 14`);
 
-  // ── SOUS le minimum : on ne propose rien, et on ne part jamais ──────────────
+  // ── seize : on part sans attendre le calme ─────────────────────────────────
+  maintenant = 2_500_000;
+  const plein = creerSalon({ politique: 'PRODUCTION', mise: 1_000_000, graine: 3, horloge });
+  for (let i = 0; i < 16; i++) plein.rejoindre(joueur(`p${i}`));
+  dit(plein.pretAPartir() && plein.departReduit() === null, 'à seize, on part tout de suite');
+
+  // ── le squad et le 1v1 ne partent que PLEINS ────────────────────────────────
+  const squad = creerSalon({ politique: 'PRODUCTION', mode: 'squad', mise: 1_000_000, graine: 3, horloge });
+  for (let i = 0; i < 3; i++) squad.rejoindre(joueur(`s${i}`));
+  maintenant += 600_000;
+  dit(!squad.pretAPartir() && squad.departReduit() === null && squad.calme === null,
+    'un squad à trois ne part jamais : le minimum EST la cible, aucun départ réduit');
+  squad.rejoindre(joueur('s3'));
+  dit(squad.pretAPartir(), 'à quatre, il part');
+
+  // ── SOUS le minimum : rien n'est annoncé, et on ne part jamais ──────────────
   maintenant = 3_000_000;
   const maigre = creerSalon({ politique: 'PRODUCTION', mise: 1_000_000, graine: 3, horloge });
   maigre.rejoindre(joueur('a'));
   maigre.rejoindre(joueur('b'));
-  maintenant += 600_000;                       // dix minutes : largement au-delà de tout délai
-  dit(maigre.proposition() === null,
-    'sous le minimum, AUCUNE proposition — on ne propose jamais l\'impossible');
+  maintenant += 600_000;
+  dit(maigre.departReduit() === null,
+    'sous le minimum, AUCUN départ annoncé — on n\'annonce jamais l\'impossible');
   dit(!maigre.pretAPartir(),
-    `2 joueurs pour un minimum de ${POLITIQUES.PRODUCTION.minimum} : on ne part pas, quoi qu'ils en disent`);
+    `2 joueurs pour un minimum de ${formatDe(POLITIQUES.PRODUCTION, 'arena').minimum} : on ne part pas, quoi qu'ils en disent`);
   dit(maigre.etat().sousLeMinimum === true, 'le salon le dit clairement à l\'interface');
 
   // ── DUEL_TEST : deux machines, deux comptes, et ça part ─────────────────────
@@ -201,7 +231,10 @@ titre('5. Une manche pourvoit toujours ses places');
     faire: () => ({ entree: () => ({ x: 0, z: 0, jump: false, dive: false }) }),
   }));
 
-  for (const id of ['course', 'hexagone']) {
+  // LES CINQ CARTES, pas deux. Le repêchage est le chemin par lequel `doors` et `dalles`
+  // sortent TOUJOURS — nos bots ne les ont jamais terminées — donc c'est sur elles qu'un
+  // classement incomplet passerait inaperçu le plus longtemps.
+  for (const id of ['course', 'doors', 'rondin', 'dalles', 'hexagone']) {
     const r = jouerManche({ epreuve: id, graine: 5, inscrits, qualifies: 4, dureeMax: 20 });
     const q = r.classement.filter((c) => c.etat === 'qualifie').length;
     dit(q === 4, `${id.padEnd(9)} : 4 qualifiés même quand PERSONNE ne finit (repêchage)`);
@@ -209,6 +242,96 @@ titre('5. Une manche pourvoit toujours ses places');
     const rangs = r.classement.map((c) => c.rang).sort((a, b) => a - b);
     dit(rangs.join(',') === '1,2,3,4,5,6,7,8', `${id.padEnd(9)} : les rangs vont de 1 à 8, sans trou ni doublon`);
   }
+}
+
+// ===========================================================================
+titre('5 bis. Une place est une PLACE : jamais deux couronnes');
+// ===========================================================================
+/*
+ * `places >= qualifies` arrête la manche, mais n'a jamais tronqué la liste des qualifiés.
+ *
+ * En survie, `t` est l'horloge de la MANCHE, la même pour tout le monde : au tick où elle
+ * atteint la durée, TOUS les survivants étaient qualifiés d'un coup. En finale d'arène —
+ * quatre joueurs, une place — Hexagone rendait donc jusqu'à quatre vainqueurs, que le
+ * classement départageait ensuite par leur temps, identique, c'est-à-dire par rien.
+ *
+ * Dans une partie à mises, c'est la couronne et l'argent qui vont au mauvais joueur.
+ */
+{
+  // Des pilotes INERTES sur Hexagone tiennent la durée entière sans consommer une seule
+  // dalle : c'est exactement le cas qui produisait quatre vainqueurs.
+  const inertes = Array.from({ length: 4 }, (_, i) => ({
+    nom: `f${i}`,
+    faire: () => ({ entree: () => ({ x: 0, z: 0, jump: false, dive: false }) }),
+  }));
+
+  const r = jouerManche({ epreuve: 'hexagone', graine: 7, inscrits: inertes, qualifies: 1, dureeMax: 120 });
+  const q = r.classement.filter((c) => c.etat === 'qualifie');
+  dit(q.length === 1, `hexagone en finale : ${q.length} qualifié pour 1 place`);
+  dit(r.qualifies.length === 1, `la liste des qualifiés en contient ${r.qualifies.length}, pas quatre`);
+  dit(r.classement.length === 4 && r.classement[0].rang === 1,
+    'les quatre joueurs sont classés, le vainqueur en tête');
+
+  /*
+   * ET IL EST DÉPARTAGÉ PAR UNE MESURE DE JEU, pas par l'ordre du tableau.
+   *
+   * Tous ont tenu la même durée : c'est l'ALTITUDE qui tranche, et sur une tour qui
+   * s'effondre le plus haut a consommé le moins de dalles. Pour le prouver il faut que
+   * l'altitude et l'ordre d'inscription se CONTREDISENT : on inscrit donc EN PREMIER un
+   * joueur qui marche — il use ses dalles et descend d'un étage — et on garde trois
+   * immobiles derrière lui.
+   *
+   * Avant le correctif, les quatre étaient qualifiés au même tick avec le même temps, le
+   * comparateur rendait zéro, et le vainqueur était le premier du tableau : le marcheur.
+   * Il doit maintenant perdre.
+   *
+   * (On ne peut pas inverser l'ordre d'inscription pour sonder la même chose : la grille
+   * de départ dérive de l'index, donc l'inverser déplace les joueurs sur la tour et change
+   * la physique. Ce serait une autre manche, pas la même dans un autre ordre.)
+   */
+  const marcheur = {
+    nom: 'marcheur',
+    faire: () => ({ entree: () => ({ x: 0, z: -1, jump: false, dive: false }) }),
+  };
+  const melange = [marcheur, ...inertes.slice(0, 3)];
+  const r3 = jouerManche({ epreuve: 'hexagone', graine: 7, inscrits: melange, qualifies: 1, dureeMax: 120 });
+  dit(r3.classement[0].nom !== 'marcheur',
+    `celui qui a usé ses dalles ne gagne pas, même inscrit en premier `
+    + `(vainqueur : ${r3.classement[0].nom})`);
+  dit(r3.classement.filter((c) => c.etat === 'qualifie').length === 1,
+    'et il n\'y a toujours qu\'une seule couronne');
+}
+
+// ===========================================================================
+titre('5 ter. Les survivants gardent l\'ordre de la manche');
+// ===========================================================================
+/*
+ * `encaisser()` ne faisait que FILTRER `enLice` : son ordre restait celui de la grille de
+ * départ. Or le classement final se construit par `[...enLice, ...elimines.reverse()]` —
+ * le rang 1 revenait donc à qui s'était inscrit le premier au salon.
+ */
+{
+  // Des niveaux MELANGES : si l'ordre venait de l'inscription, un faible inscrit en
+  // premier ressortirait devant un fort. C'est exactement ce qu'on veut voir echouer.
+  const niveaux = ['faible', 'fort', 'faible', 'fort', 'moyen', 'fort', 'faible', 'moyen'];
+  const seize = niveaux.map((niveau, i) => ({
+    nom: `g${i}`,
+    faire: (monde, perso, index) => creerBot({ monde, perso, index, graine: 11, niveau }),
+  }));
+  const partie = creerPartie({ graine: 11, inscrits: seize, dureeMax: 40 });
+  partie.demarrer();
+
+  let manche1 = null;
+  for (let i = 0; i < 60 * 30 && !manche1; i++) {
+    const e = partie.avancer();
+    if (e.finManche) manche1 = e.finManche;
+  }
+
+  const ordreClassement = manche1.classement
+    .filter((c) => c.etat === 'qualifie').map((c) => c.nom);
+  const ordreEnLice = partie.enLice.map((i) => i.nom);
+  dit(String(ordreEnLice) === String(ordreClassement),
+    `les survivants sont dans l'ordre de la manche : ${ordreEnLice.join(' ')}`);
 }
 
 // ===========================================================================
@@ -312,6 +435,146 @@ titre('8. Les trois niveaux de bot — mesure, sans verdict');
     console.log(`     ${id.padEnd(9)} rang moyen · fort ${m('fort').padStart(4)}`
       + ` · moyen ${m('moyen').padStart(4)} · faible ${m('faible').padStart(4)}`
       + `   ${ordonne ? '\x1b[32mordre respecté\x1b[0m' : '\x1b[33mordre non respecté\x1b[0m'}`);
+  }
+}
+
+// ===========================================================================
+titre('9. Trois modes, trois paliers, neuf files qui ne se melangent pas');
+// ===========================================================================
+/*
+ * Un joueur qui engage 5 USDC en duel ne doit jamais se retrouver dans le pot d'un joueur
+ * qui en a engage 2 en arene. Le pot serait indetermine et la table des gains ne voudrait
+ * plus rien dire — c'est la meme raison qui separait deja les paliers, en plus fort : deux
+ * modes n'ont ni le meme effectif, ni le meme nombre de manches, ni le meme bareme.
+ */
+{
+  // La forme des files de PRODUCTION, sans backend : un banc doit dire que l'identité y
+  // est facultative, sinon les files payantes sont fermées — et c'est voulu en production.
+  const mm = creerMatchmaking({ politique: { ...POLITIQUES.PRODUCTION, identite: 'facultative' }, envoyer: () => {}, graine: 4242 });
+
+  let n = 0;
+  for (const mode of ORDRE_MODES) {
+    for (const usdc of PALIERS) {
+      mm.rejoindre({ nom: `j${n++}` }, usdc * 1_000_000, mode);
+    }
+  }
+  const etat = mm.etat();
+  dit(etat.salons.length === 9,
+    `${n} joueurs, un par combinaison → ${etat.salons.length} files distinctes (attendu 9)`);
+  dit(etat.salons.every((f) => f.joueurs === 1),
+    'aucune file n\'en a ramasse deux : rien ne se melange');
+
+  // Un mode invente ne doit pas ouvrir une file fantome que rien ne viderait jamais.
+  const r = mm.rejoindre({ nom: 'tricheur' }, 2_000_000, 'jackpot');
+  dit(r.accepte === false && r.raison === 'MODE_INCONNU',
+    `un mode hors catalogue est refuse : ${r.raison}`);
+  dit(mm.etat().salons.length === 9, 'et il n\'a laisse aucune file derriere lui');
+
+  mm.arreter();
+}
+
+// ===========================================================================
+/*
+ * UNE MISE N'EST PRISE QUE LA OU UN BAREME LA PAIE.
+ *
+ * Le client regle un salon complet au bareme du MODE, un salon reduit au bareme de son
+ * EFFECTIF — et ce second bareme n'existe pas sous trois joueurs. Une politique de banc
+ * a effectif deux (`DUEL_TEST`) ouvre pourtant des « arenes » de deux : la partie se
+ * jouait, puis le reglement jetait dans le gestionnaire de fin du client — vainqueur
+ * renvoye au lobby sans ecran, perdant toujours en course. Vu en jouant, ticket reste sur
+ * sa valeur par defaut (ARENA, 2 USDC), serveur lance sans `POLITIQUE=`.
+ *
+ * Les valeurs attendues sont posees a la main, mode par mode.
+ */
+{
+  const M = 1_000_000;
+  // Gratuit : tout passe, il n'y a rien a regler.
+  dit(misePayable(POLITIQUES.DUEL_TEST, 'arena', 0) === true, 'DUEL_TEST, arene GRATUITE : acceptee');
+  // DUEL_TEST a effectif deux : seul le duel se paie — complet a deux, au bareme du mode.
+  dit(misePayable(POLITIQUES.DUEL_TEST, 'duel', 2 * M) === true, 'DUEL_TEST, duel a 2 USDC : accepte');
+  dit(misePayable(POLITIQUES.DUEL_TEST, 'arena', 2 * M) === false, 'DUEL_TEST, arene a 2 USDC : REFUSEE — aucun bareme pour une arene de deux');
+  dit(misePayable(POLITIQUES.DUEL_TEST, 'squad', 2 * M) === false, 'DUEL_TEST, squad a 2 USDC : REFUSE');
+  // PRODUCTION : les trois modes se paient, sans que le format bouge.
+  for (const mode of ORDRE_MODES) {
+    dit(misePayable(POLITIQUES.PRODUCTION, mode, 10 * M) === true, `PRODUCTION, ${mode} a 10 USDC : accepte`);
+  }
+  dit(formatDe(POLITIQUES.PRODUCTION, 'arena', 10 * M).minimum === 13, 'PRODUCTION arene : le minimum reste 13 avec une mise');
+  dit(formatDe(POLITIQUES.PRODUCTION, 'duel', 10 * M).minimum === 2, 'PRODUCTION duel : le minimum reste 2 — complet a deux, pas un salon reduit');
+  // Une politique qui laisse partir a deux GRATUITEMENT exige trois des qu'un pot existe.
+  const dev = { nom: 'X', modes: { arena: { cible: 16, minimum: 2 } } };
+  dit(formatDe(dev, 'arena', 0).minimum === 2, 'arene a minimum 2, gratuite : part a deux');
+  dit(formatDe(dev, 'arena', 2 * M).minimum === 3, 'la meme avec une mise : minimum releve a 3 — le plus petit effectif que `tableEffectif` paie');
+  dit(misePayable(dev, 'arena', 2 * M) === true, 'et la mise y est acceptee : le salon peut atteindre trois');
+
+  // Vu du matchmaking : refus nomme, aucune file ouverte derriere.
+  const mm = creerMatchmaking({ politique: 'DUEL_TEST', envoyer: () => {}, graine: 7 });
+  const r = mm.rejoindre({ nom: 'defaut' }, 2 * M, 'arena');
+  dit(r.accepte === false && r.raison === 'MISE_IMPAYABLE', `le matchmaking refuse : ${r.raison}`);
+  dit(mm.etat().salons.length === 0, 'et n\'ouvre aucune file');
+  const d = mm.rejoindre({ nom: 'duelliste' }, 2 * M, 'duel');
+  dit(d.accepte === true, 'le duel a 2 USDC, lui, entre en file');
+  mm.arreter();
+}
+
+// ===========================================================================
+titre('10. La roue tire A LA FIN, sur le serveur, et le salon ne promet plus rien');
+// ===========================================================================
+/*
+ * Ceci a change de sens le 2 septembre 2026, par decision du directeur produit : la roue
+ * tirait au salon (avant la mise, position juridique du § 5), elle tire desormais au
+ * classement final. Ce bloc prouve trois choses :
+ *
+ *   1. le salon n'annonce PLUS de variante — un ticket qui promettrait une table certaine
+ *      mentirait, puisque la ligne n'est tiree qu'a la fin ;
+ *   2. la graine de roue arrive avec `fin-partie`, tient sur 32 bits, et le meme
+ *      `tirerIssue` des deux cotes en derive la meme ligne ;
+ *   3. deux parties n'ont pas la meme graine — elle vient du hasard cryptographique, pas
+ *      de la graine de partie, qui est publiee des la manche 1.
+ */
+{
+  const salon = creerSalon({ politique: 'PRODUCTION', mode: 'arena', mise: 2_000_000, graine: 25 });
+  const premier = salon.etat();
+  dit(premier.variante === undefined, 'le salon n\'annonce aucune variante : rien n\'est tire avant la partie');
+  dit(premier.pot === 32_000_000 && premier.mode === 'arena',
+    `il annonce le mode et le pot de la table pleine : ${premier.pot / 1e6} USDC`);
+  dit(ORDRE_MODES.every((id) => ISSUES[id].length === 10), 'dix issues par mode, duel compris');
+
+  // La graine de roue, vue du fil : deux duels en parallele, deux graines. Les instances
+  // tournent en temps reel (manche de deux secondes, tranchee au chrono) : on attend leur
+  // fin, pas une duree.
+  const inerte = () => ({ entree: () => ({ x: 0, z: 0, jump: false, dive: false }) });
+  const lancerDuel = (k) => new Promise((resolve) => {
+    const messages = [];
+    const salonDuel = creerSalon({ politique: 'DUEL_TEST', mode: 'duel', mise: 2_000_000, graine: 4242 + k });
+    salonDuel.rejoindre({ nom: 'a', faire: inerte });
+    salonDuel.rejoindre({ nom: 'b', faire: inerte });
+    const grille = salonDuel.composer();
+    const instance = creerInstance({
+      id: `roue-${k}`, graine: 99 + k, inscrits: grille.inscrits, dureeMax: 2,
+      envoyer: (nom, m) => { if (nom === 'a' && !(m instanceof ArrayBuffer)) messages.push(m); },
+      surFin: (resultat) => resolve({ messages, resultat }),
+    });
+    instance.demarrer();
+  });
+  const duels = await Promise.all([lancerDuel(0), lancerDuel(1)]);
+  const graines = [];
+  for (const { messages, resultat } of duels) {
+    const fin = messages.find((m) => m.type === 'fin-partie');
+    dit(Boolean(fin?.roue) && Number.isInteger(fin.roue.graine) && fin.roue.graine >= 0 && fin.roue.graine <= 0xFFFFFFFF,
+      `fin-partie porte une graine de roue de 32 bits (${fin?.roue?.graine})`);
+    dit(resultat?.roue?.graine === fin?.roue?.graine,
+      'et le resultat garde la meme graine : ce que le backend recevra est ce que le client a vu');
+    graines.push(fin?.roue?.graine);
+  }
+  dit(graines[0] !== graines[1], `deux parties, deux graines (${graines[0]} et ${graines[1]}) : le hasard n'est pas la graine de partie`);
+  dit(tirerIssue('duel', 1).id === 'standard' && tirerIssue('arena', 25).id === 'royale' && tirerIssue('squad', 0).id === 'plat',
+    'le serveur derive la meme ligne que le lobby et le backend : graine 1 → STANDARD, 25 → ROYALE, 0 → FLAT');
+
+  // La pyramide d'elimination JOUEE est celle du mode PAYE. Une partie qui se joue en deux
+  // manches et se paie en trois serait la pire panne possible : silencieuse, et sur l'argent.
+  for (const id of ORDRE_MODES) {
+    dit(String(survivants(MODES[id].joueurs)) === String(MODES[id].survivants),
+      `${id} : le serveur joue ${MODES[id].survivants.join('→')} et se paie sur ${MODES[id].survivants.join('→')}`);
   }
 }
 

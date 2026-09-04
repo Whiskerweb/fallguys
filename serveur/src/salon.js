@@ -4,23 +4,33 @@
  * Trois issues possibles, et le salon en choisit une :
  *
  *   1. IL SE REMPLIT → on part tout de suite, personne n'attend pour rien.
- *   2. IL SE FIGE AU-DESSUS DU MINIMUM → passé un délai, on PROPOSE aux présents de
- *      partir à effectif réduit. Il faut leur accord à tous : un joueur qui n'a pas dit
- *      oui n'a pas accepté un pot plus petit que celui qu'on lui avait montré.
+ *   2. IL EST AU-DESSUS DU MINIMUM ET PLUS PERSONNE N'ARRIVE → passé `calme` secondes sans
+ *      nouvelle arrivée, on part à effectif réduit. Une arrivée remet ce compte à zéro :
+ *      on ne coupe pas une file qui se remplit encore. Personne n'a à dire oui — ce qui
+ *      rend ce départ défendable, c'est que le ticket annonce le pot EN FOURCHETTE (de
+ *      treize à seize mises pour l'arène) avant que quiconque ne clique.
  *   3. IL SE FIGE SOUS LE MINIMUM → on ne part pas. Jamais. Une partie à deux ou trois
  *      n'est pas la promesse qu'on a faite, et le fait que les deux présents soient
  *      d'accord ne la rend pas défendable — ça la rend plus difficile à défendre.
+ *
+ * L'ACCORD DE TOUS A ÉTÉ RETIRÉ le 2 septembre 2026, par décision produit. Il faisait
+ * attendre treize personnes qu'une quatorzième daigne cliquer, et personne ne cliquait :
+ * une arène à treize ne partait jamais. Un mode dont le minimum vaut la cible (1v1, squad)
+ * n'a pas de départ réduit du tout.
  *
  * L'effectif réel décide ensuite du nombre de manches et de la table des gains :
  * `configPour(n)` côté argent, `manchesPour(n)` côté jeu. Un salon de huit joue trois
  * manches et se paie au barème de huit — pas à celui de seize.
  *
- * L'HORLOGE EST INJECTABLE. Sans cela, éprouver une attente de soixante secondes coûterait
- * soixante secondes par test, et personne ne lancerait la suite.
+ * LE SALON N'A PLUS DE BARÈME À TIRER. Il portait la variante de roue, tirée à sa
+ * création — avant la mise. Depuis le 2 septembre 2026 la roue tire à la FIN de la partie
+ * (`instance.js`), et le salon n'annonce qu'un mode et une mise ; le ticket montre les dix
+ * possibilités de chaque palier, pas une table certaine.
  */
 
 import { creerBot, NIVEAUX } from './pilotes/bot.js';
-import { POLITIQUES, botsAutorises, politique as trouverPolitique } from './politique.js';
+import { POLITIQUES, botsAutorises, formatDe, politique as trouverPolitique } from './politique.js';
+import { MODES, table } from './economie.js';
 
 /** La composition des bots, du plus fort au plus faible. */
 export const MELANGE = ['fort', 'moyen', 'moyen', 'faible'];
@@ -28,31 +38,63 @@ export const MELANGE = ['fort', 'moyen', 'moyen', 'faible'];
 /**
  * @param {object} p
  * @param {string|object} [p.politique] nom d'une politique, ou la politique elle-même
+ * @param {string} [p.mode] `duel` | `squad` | `arena`
  * @param {number} [p.mise] mise en micro-USDC. Non nulle = aucun bot, quoi qu'il arrive.
  * @param {number} [p.graine]
  * @param {() => number} [p.horloge] source de temps, en millisecondes
  */
 export function creerSalon({
   politique = POLITIQUES.PRODUCTION,
+  mode = 'arena',
   mise = 0,
   graine = 1,
   horloge = Date.now,
 } = {}) {
   const regle = typeof politique === 'string' ? trouverPolitique(politique) : politique;
+  // Avec une mise, le minimum de départ monte à trois : voir `formatDe`.
+  const format = formatDe(regle, mode, mise);
+
+  /*
+   * LA ROUE TOURNE ICI, À LA CRÉATION DU SALON — c'est-à-dire AVANT que quiconque ait
+   * engagé sa mise, et non à la fin de la partie.
+   *
+   * Ce n'est pas un choix d'ergonomie. Toute la qualification « compétition de skill » du
+   * spec (§ 5) tient à ce qu'aucune machine ne décide de ce qu'un joueur gagne. Une roue
+   * tournée après la partie déterminerait le montant du prix par le hasard : c'est le motif
+   * exact qu'un régulateur cherche pour requalifier en jeu d'argent. Tournée ici, et
+   * diffusée dans `etat()` pendant que le salon se remplit, ce n'est plus un tirage — c'est
+   * un tournoi à barème publié, que le joueur lit avant de décider de jouer.
+   *
+   * Elle est tirée UNE FOIS et ne rebouge plus : un joueur qui arrive ne doit pas pouvoir
+   * changer la table de ceux qui attendaient déjà. C'est aussi pourquoi elle dérive de la
+   * graine du salon et non de son effectif.
+   */
+  /*
+   * PLUS DE TIRAGE ICI. La roue tirait sa variante a la creation du salon — avant la mise,
+   * c'etait la position juridique. Le directeur produit a choisi le 2 septembre 2026 que
+   * la roue TIRE a la fin de la partie ; le tirage vit desormais dans `instance.js`, au
+   * classement final, et le salon n'annonce plus qu'un mode et une mise. Voir l'amendement
+   * du 2 septembre dans la spec.
+   */
 
   const humains = [];
-  const accords = new Set();
   let ouvertDepuis = null;
+  /** L'instant de la DERNIÈRE arrivée : c'est lui que le calme mesure. */
+  let derniereArrivee = null;
   let lance = false;
 
   const ecoule = () => (ouvertDepuis === null ? 0 : (horloge() - ouvertDepuis) / 1000);
   const reste = (seuil) => (ouvertDepuis === null ? null : Math.max(0, seuil - ecoule()));
+  const calmeEcoule = () => (derniereArrivee === null ? 0 : (horloge() - derniereArrivee) / 1000);
 
   const salon = {
     get politique() { return regle; },
+    get mode() { return mode; },
     get mise() { return mise; },
-    get cible() { return regle.cible; },
-    get minimum() { return regle.minimum; },
+    get cible() { return format.cible; },
+    get minimum() { return format.minimum; },
+    /** Secondes de calme exigées avant un départ réduit ; `null` si ce mode part plein ou jamais. */
+    get calme() { return format.calme ?? null; },
     get dureeManche() { return regle.dureeManche ?? 180; },
     get humains() { return humains.slice(); },
     get lance() { return lance; },
@@ -64,6 +106,15 @@ export function creerSalon({
     resteAAttendre: () => reste(regle.attente),
 
     /**
+     * Secondes écoulées depuis le PREMIER arrivant. Zéro pour un salon vide.
+     *
+     * C'est l'âge du salon, et il sert à deux choses en dehors d'ici : décider quand
+     * SUGGÉRER une autre file à ses occupants (`matchmaking.js`), et départager deux salons
+     * également remplis — le plus ancien attire, le plus récent se déplace.
+     */
+    attenteEcoulee: () => ecoule(),
+
+    /**
      * Un joueur entre.
      *
      * Le compte à rebours démarre au PREMIER, pas à chaque arrivée : sinon un flux régulier
@@ -71,67 +122,74 @@ export function creerSalon({
      */
     rejoindre(joueur) {
       if (lance) return { accepte: false, raison: 'PARTIE_LANCEE' };
-      if (humains.length >= regle.cible) return { accepte: false, raison: 'SALON_PLEIN' };
+      if (humains.length >= format.cible) return { accepte: false, raison: 'SALON_PLEIN' };
       humains.push(joueur);
       if (ouvertDepuis === null) ouvertDepuis = horloge();
-      // Une arrivée change le pot : les accords donnés portaient sur une autre partie.
-      accords.clear();
-      return { accepte: true, place: humains.length, sur: regle.cible };
+      // Une arrivée remet le calme à zéro : on ne coupe pas une file qui se remplit.
+      derniereArrivee = horloge();
+      return { accepte: true, place: humains.length, sur: format.cible };
     },
 
     quitter(nom) {
       const i = humains.findIndex((h) => h.nom === nom);
       if (i < 0) return false;
       humains.splice(i, 1);
-      accords.delete(nom);
-      if (!humains.length) ouvertDepuis = null;   // salon vidé : l'attente repart de zéro
+      if (!humains.length) { ouvertDepuis = null; derniereArrivee = null; }   // salon vidé : tout repart de zéro
       return true;
     },
 
     /**
-     * Y a-t-il une proposition de départ à effectif réduit ?
+     * Le DÉPART RÉDUIT en cours de décompte, ou `null`.
      *
-     * `null` tant qu'il est trop tôt, que le salon est plein, ou qu'on est sous le minimum.
-     * Ce dernier cas est le plus important : **on ne propose jamais l'impossible**. Un
-     * joueur à qui l'on demande son accord pour une partie à trois comprend que c'est
-     * permis, et il a raison de le comprendre.
+     * Non nul quand le salon est au-dessus de son minimum, pas plein, et que ce mode
+     * connaît un départ réduit (`calme`). Il dit dans combien de secondes on part si
+     * personne n'arrive — et c'est ce que l'interface affiche : « Starting in 23 s with
+     * 13 players unless someone joins ». Sous le minimum, `null` : **on n'annonce jamais
+     * l'impossible**, un compte à rebours vers une partie à trois ferait croire qu'elle
+     * est permise.
      */
-    proposition() {
-      if (lance || ouvertDepuis === null) return null;
-      if (humains.length >= regle.cible) return null;
-      if (humains.length < regle.minimum) return null;
-      if (ecoule() < regle.proposerApres) return null;
+    departReduit() {
+      if (lance || ouvertDepuis === null || format.calme == null) return null;
+      if (humains.length >= format.cible) return null;
+      if (humains.length < format.minimum) return null;
 
       return {
         joueurs: humains.length,
-        cible: regle.cible,
-        manques: regle.cible - humains.length,
-        // Ce que le joueur doit comprendre avant de dire oui : le pot ne contiendra que
-        // les mises des présents, et les manches s'ajustent à l'effectif.
+        cible: format.cible,
+        manques: format.cible - humains.length,
+        // Ce que le joueur doit lire : le pot ne contiendra que les mises des présents,
+        // et les manches s'ajustent à l'effectif.
         pot: mise * humains.length,
-        accords: accords.size,
-        attendus: humains.length,
+        dans: Math.max(0, Math.ceil(format.calme - calmeEcoule())),
+        calme: format.calme,
       };
     },
 
-    /** Un joueur accepte de partir à effectif réduit. */
-    accepter(nom) {
-      if (!this.proposition()) return { accepte: false, raison: 'AUCUNE_PROPOSITION' };
-      if (!humains.some((h) => h.nom === nom)) return { accepte: false, raison: 'ABSENT' };
-      accords.add(nom);
-      return { accepte: true, accords: accords.size, attendus: humains.length };
-    },
-
-    /** Ce que l'interface doit montrer, en une lecture. */
+    /**
+     * Ce que l'interface doit montrer, en une lecture.
+     *
+     * `mode` et `mise` en font partie, et c'est le point : ils partent à chaque battement,
+     * donc AVANT que la partie commence. Le joueur voit la table qu'on lui propose pendant
+     * qu'il décide d'y rester ou non ; le client en déduit les dix possibilités de chaque
+     * palier avec `economie.js`, qui est LE MÊME module que celui importé ici.
+     */
     etat() {
       return {
         politique: regle.nom,
+        mode,
+        mise,
+        // Le pot annoncé est celui de la table PLEINE. Un salon incomplet qui part fait
+        // l'objet d'une proposition explicite, avec son propre pot — voir `proposition()`.
+        pot: mise * format.cible,
         humains: humains.length,
-        cible: regle.cible,
-        minimum: regle.minimum,
+        cible: format.cible,
+        minimum: format.minimum,
         resteAAttendre: this.resteAAttendre(),
-        proposition: this.proposition(),
-        sousLeMinimum: humains.length > 0 && humains.length < regle.minimum
+        // L'âge du salon, pour que l'interface montre depuis combien de temps on cherche
+        // — depuis le premier arrivant, pas depuis notre propre entrée.
+        attente: Math.round(ecoule()),
+        departReduit: this.departReduit(),
+        sousLeMinimum: humains.length > 0 && humains.length < format.minimum
           && ecoule() >= regle.attente,
         pretAPartir: this.pretAPartir(),
       };
@@ -144,19 +202,20 @@ export function creerSalon({
       if (lance || !humains.length) return false;
 
       // 1. Plein : on part, sans attendre la fin du compte à rebours.
-      if (humains.length >= regle.cible) return true;
+      if (humains.length >= format.cible) return true;
 
       // 2. Sous le minimum : jamais, quoi qu'il arrive et quoi qu'en disent les présents.
-      if (humains.length < regle.minimum) return false;
+      if (humains.length < format.minimum) return false;
 
       // 3. Complété par des bots : l'attente écoulée suffit, personne n'a son mot à dire
       //    sur des adversaires qui ne misent rien.
       if (this.botsAutorises() && this.resteAAttendre() === 0) return true;
 
-      // 4. Sinon il faut l'accord de TOUS les présents. Un joueur qui n'a pas dit oui n'a
-      //    pas accepté un pot plus petit que celui qu'on lui avait montré.
-      if (!this.proposition()) return false;
-      return accords.size >= humains.length;
+      // 4. Au-dessus du minimum, dans un mode qui connaît le départ réduit : on part quand
+      //    plus personne n'arrive depuis `calme` secondes. Un mode sans `calme` — le 1v1,
+      //    le squad — ne part que plein.
+      if (format.calme == null) return false;
+      return calmeEcoule() >= format.calme;
     },
 
     /**
@@ -167,21 +226,42 @@ export function creerSalon({
     composer() {
       lance = true;
 
-      const inscrits = humains.map((h) => ({ nom: h.nom, estBot: false, faire: h.faire }));
-      const manquants = regle.cible - inscrits.length;
+      /*
+       * `modele` FAIT PARTIE DE L'INSCRIT, au même titre que le nom.
+       *
+       * Cette projection ne recopiait que trois champs, et le personnage choisi mourait
+       * ici — silencieusement, puisque tout le reste de la chaîne continuait de
+       * fonctionner avec `null`. Le client retombait alors sur son ancien repli, qui
+       * déduit l'apparence du NUMÉRO DE SIÈGE : chacun se voyait juste et voyait tous les
+       * autres de travers. Vu en jouant à deux, le même joueur en Trump sur une machine et
+       * en Musk sur l'autre.
+       *
+       * Les bots n'en ont pas besoin, et ce n'est pas un oubli : n'ayant aucune vue
+       * d'eux-mêmes, ils sont affichés par le repli sur leur index — le même chez tout le
+       * monde, donc déjà cohérent.
+       */
+      const inscrits = humains.map((h) => ({
+        nom: h.nom, estBot: false, faire: h.faire, modele: h.modele ?? null,
+        // Le COMPTE — l'identifiant verifie du joueur. C'est lui que le backend debite et
+        // paie ; le nom n'est qu'une etiquette. `null` pour un invite d'une file gratuite.
+        compte: h.compte ?? null,
+      }));
+      const manquants = format.cible - inscrits.length;
 
       if (manquants <= 0 || !this.botsAutorises()) {
         /*
          * On part À EFFECTIF RÉDUIT. C'est un vrai coût produit — la table des gains est
-         * celle de l'effectif réel, donc un pot plus petit et des gains plus modestes —
-         * mais l'alternative serait de faire décider une machine du gain d'un joueur, et
-         * ce coût-là ne se paie pas en argent.
+         * celle de l'effectif réel, donc un pot plus petit et des gains plus modestes,
+         * annoncés en fourchette dans le ticket — mais l'alternative serait de faire
+         * décider une machine du gain d'un joueur, et ce coût-là ne se paie pas en argent.
          */
         return {
           inscrits,
+          mode,
+          mise,
           humains: inscrits.length,
           bots: 0,
-          complete: inscrits.length === regle.cible,
+          complete: inscrits.length === format.cible,
           raison: manquants > 0 ? 'AUCUN_BOT_AUTORISE' : undefined,
         };
       }
@@ -199,7 +279,10 @@ export function creerSalon({
         });
       }
 
-      return { inscrits, humains: humains.length, bots: manquants, complete: true };
+      return {
+        inscrits, mode, mise,
+        humains: humains.length, bots: manquants, complete: true,
+      };
     },
   };
 

@@ -19,7 +19,7 @@ node partie.mjs 777 8  # graine 777, salon de 8
 | | |
 |---|---|
 | **1** | **Aucun bot dans une partie payante.** Le seul verdict dont l'échec interdirait de livrer : c'est une règle juridique avant d'être une règle de jeu. |
-| **2** | L'attente et la **proposition de partir à effectif réduit** : le compte à rebours part au premier joueur, une arrivée tardive ne le repousse pas, il faut l'accord de tous les présents, et **sous le minimum on ne propose rien**. |
+| **2** | L'attente et le **départ à effectif réduit** : douze ne partent jamais, treize partent après 35 s sans nouvelle arrivée (une arrivée remet le calme à zéro), seize partent tout de suite, le squad et le 1v1 ne partent que pleins, et **sous le minimum rien n'est annoncé**. |
 | **3** | Le serveur joue les cinq cartes avec le code du client : 16 personnages posés, aucun NaN. |
 | **4** | **Déterminisme** : même graine, même classement, sur les cinq cartes. Sans lui, aucun replay ne reproduit rien. |
 | **5** | Une manche pourvoit toujours ses places, même quand personne ne finit. |

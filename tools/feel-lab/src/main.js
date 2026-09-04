@@ -7,16 +7,21 @@ import { assets } from './assets.js';
 import { loadExternalTextures } from './textures.js';
 import { MINIGAMES, minigame, graineDeManche, tirerParcours } from './scenes/index.js';
 import { construireSurvol, SURVOL_DUREE } from './survol.js';
-import { buildLobbyScreen, LOBBY, SHOWCASE_POS, SHOWCASE_LOOK } from './scenes/lobby.js';
+import { buildLobbyScreen, LOBBY, SHOWCASE_POS, SHOWCASE_LOOK, PODIUM_POS, PODIUM_LOOK } from './scenes/lobby.js';
+import { creerPlotsDeDepart } from './departvisuel.js';
 import { Character } from './character.js';
 import { cosmetics, MODELS } from './cosmetics.js';
+import { placer, graineCulbute } from './placement.js';
 import { sfx, unlockAudio, audio } from './audio.js';
 import { RIG, RIG_RANGES, createRiggedCharacter } from './rig.js';
 import { settings, ACTIONS, CAMERA_RANGES, CAMERA_LABELS, keyName } from './settings.js';
-import { applyIcons, buildSkinsScreen, buildTicket, buildCompte, buildEnLigne, majBarre, wireEcrans } from './lobbyui.js';
-import { table, progression, miseChoisie, ordinal, XP_MANCHE, XP_VICTOIRE, montant } from './economie.js';
+import { applyIcons, buildSkinsScreen, buildBoutique, buildTicket, buildCompte, buildPortefeuille, majBarre, wireEcrans } from './lobbyui.js';
+import { brancherMatchmaking } from './matchmaking.js';
+import { table, tableEffectif, tirerIssue, progression, miseChoisie, modeChoisi, MODES, ordinal, XP_MANCHE, XP_VICTOIRE, montant } from './economie.js';
+import { creerRoue } from './roue.js';
 import { caisse } from './caisse.js';
 import { surSession } from './compte.js';
+import { buildPorte } from './porte.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -96,7 +101,7 @@ addEventListener('keydown', (e) => {
   // Echap en course ouvre le menu de pause plutot que de quitter d'un coup :
   // abandonner une partie ne doit jamais tenir a une frappe involontaire.
   if (e.code === 'Escape') {
-    if (game?.mode === 'lobby') return;
+    if (game?.mode === 'lobby' || game?.mode === 'podium') return;
     paused ? closePause() : openPause();
     return;
   }
@@ -107,10 +112,10 @@ addEventListener('keydown', (e) => {
   // graine sont tirees avant qu'elle ne commence.
   if (game?.intro) { game.sauterIntro(); return; }
 
-  // Entree fait exactement ce que fait le bouton : une PARTIE. Elle appelait
-  // `startRace()`, qui laisse `partie` a null et ne joue donc qu'une seule manche —
-  // deux chemins pour la meme action, l'un des deux se trompant de jeu.
-  if (e.code === 'Enter' && game?.mode === 'lobby') game.startEpisode();
+  // Entree fait exactement ce que fait le bouton : chercher une PARTIE EN LIGNE — ou
+  // sortir de la file si l'on y est. `jouer` est pose par `matchmaking.js` ; il n'existe
+  // plus de chemin hors ligne derriere cette touche.
+  if (e.code === 'Enter' && game?.mode === 'lobby') game.jouer?.();
   if (settings.matches(e.code, 'restart') && game?.mode === 'racing') game.restart();
   if (e.code === 'KeyH') gui.show(gui._hidden);
   if (e.code === 'KeyP') el('perf').classList.toggle('hidden');
@@ -195,7 +200,7 @@ function buildGui(getWorld) {
 let paused = false;
 
 function openPause() {
-  if (!game || game.mode === 'lobby') return;
+  if (!game || game.mode === 'lobby' || game.mode === 'podium') return;
   paused = true;
   keys.clear();                 // sinon une touche restee enfoncee reprend a la reprise
   el('pause').classList.remove('hidden');
@@ -305,6 +310,9 @@ function wireSettings() {
 }
 
 // ---------- jeu ----------
+/** Entree neutre : ce qu'on donne a un personnage que le joueur ne pilote plus. */
+const INERTE = Object.freeze({ x: 0, z: 0, jump: false, dive: false });
+
 class Game {
   constructor(view, lobby) {
     this.view = view;
@@ -316,6 +324,18 @@ class Game {
     // Une PARTIE est une suite de manches tirees au sort. `partie` vaut null au lobby.
     this.partie = null;
     this.mode = 'lobby';
+
+    /*
+     * LE FORMAT DE PARTIE — `duel` | `squad` | `arena` — et la variante de roue sous
+     * laquelle elle se paie.
+     *
+     * Il s'appelle `format` et non `mode` parce que `this.mode` est DEJA pris par l'etat de
+     * la boucle de jeu (`lobby` / `racing` / `finished`), que `__probeGame()` publie et que
+     * les deux harnais navigateur attendent. Les confondre a suffi a figer `diag/duel.mjs`
+     * sur une attente qui n'arrivait jamais : le serveur jouait, la page disait « duel ».
+     */
+    this.format = 'arena';
+    this.variante = 'standard';
     this.character = null;
     this.runTime = 0;
     this.falls = 0;
@@ -340,6 +360,8 @@ class Game {
   /** Detruit l'arene courante : monde physique, geometries, et retrait de la scene. */
   releaseArena() {
     if (!this.arena) return;
+    this.plots?.retirer();
+    this.plots = null;
     this.view.scene.remove(this.arena.group);
     this.arena.dispose?.();
     this.arena = null;
@@ -362,6 +384,11 @@ class Game {
 
   enterLobby(showResult) {
     this.mode = 'lobby';
+    // Ceinture et bretelles : on peut rentrer au lobby par le menu de pause, qui ne passe
+    // pas par `quitterEcranDeFin`.
+    this.cacherEcranDeFin();
+    // Le plateau rend son avatar au joueur : le podium du vainqueur est fini.
+    this.lobby.quitterPodium?.();
     this.character?.dispose();
     this.character = null;
     // Ordre imperatif : le personnage detient un corps dans le monde physique de
@@ -387,6 +414,17 @@ class Game {
     this.view.camera.fov = LOBBY.cameraFov;
     this.view.camera.updateProjectionMatrix();
     this.applyLobbyFraming();
+    /*
+     * `showResult` VAUT DESORMAIS TOUJOURS FAUX, et ce n'est pas un oubli.
+     *
+     * `#result-card` etait la carte de fin de partie : elle s'ouvrait au retour au lobby et
+     * se refermait seule 4,2 s plus tard. L'ecran de fin — la roue et son panneau — l'a
+     * remplacee, et l'afficher par-dessus ferait deux annonces du meme resultat.
+     *
+     * Le parametre reste, et les trois `#result-*` continuent d'etre REMPLIS par
+     * `finishRace` : `diag/hexagone.mjs` y lit le titre de fin de manche. Ce sont des
+     * champs de texte que le harnais interroge, plus un panneau qu'on montre.
+     */
     if (showResult) {
       el('result-card').classList.add('show');
       clearTimeout(this._resultTimer);
@@ -395,8 +433,13 @@ class Game {
   }
 
   /**
-   * Lance une PARTIE : une suite de manches tirees au sort, jouees d'affilee.
-   * Le joueur ne choisit pas son terrain — c'est le principe de la structure.
+   * Lance une PARTIE SOLO : une suite de manches tirees au sort, jouees d'affilee.
+   *
+   * BANC UNIQUEMENT. Il n'existe plus de partie hors ligne pour le joueur : ni PLAY, ni
+   * Entree, ni aucun bouton n'arrive ici. Cette methode ne survit que pour les harnais
+   * qui mesurent une CARTE sans serveur — `diag/partie.mjs` et les mesures de traversee —
+   * et ils l'appellent par `__probeGame().startEpisode()`. Le jour ou ces bancs passent
+   * par le serveur, elle part avec `finishRace`, `perdreManche` et `mancheSuivante`.
    */
   /*
    * La mise est DEBITEE au lancement, pas a l'arrivee.
@@ -422,8 +465,48 @@ class Game {
 
     this.matchId = matchId;
     this.mise = engagee;
-    this.partie = { parcours: tirerParcours(NB_MANCHES), index: 0, temps: [], chutes: 0 };
+    /*
+     * LE SOLO SE PAIE AU BAREME DE REFERENCE, et la roue n'y tourne pas.
+     *
+     * Ce n'est pas un oubli : la roue tire la forme d'un bareme entre plusieurs joueurs, et
+     * il n'y en a qu'un ici. Un solo qui tirerait sa propre variante serait la seule partie
+     * du jeu ou une machine deciderait du gain d'un joueur sans adversaire — exactement ce
+     * que la section 5 du spec interdit.
+     */
+    this.format = modeChoisi();
+    this.variante = 'standard';
+    // Autant de manches que le mode en compte : un duel se joue en une, une arene en trois.
+    // Sans cela, le ticket annoncerait une forme de partie et le jeu en jouerait une autre.
+    const manches = MODES[this.format]?.survivants.length ?? NB_MANCHES;
+    this.partie = { parcours: tirerParcours(manches), index: 0, temps: [], chutes: 0 };
     this.startRace();
+  }
+
+  /**
+   * Engage la mise d'une partie EN LIGNE.
+   *
+   * Meme geste que `startEpisode`, moins tout ce qui construit la partie : en ligne, c'est
+   * le serveur qui impose la carte, la graine et le depart. Il ne reste donc que l'argent.
+   *
+   * APPELE AU LANCEMENT DE LA MANCHE 1, jamais a l'entree en file. C'est ce que le ticket
+   * promet — « ta mise part au lancement » — et c'est la seule position defendable : un
+   * joueur qui attend dans un salon qui ne part pas ne doit rien avoir paye.
+   *
+   * Le MODE et la VARIANTE viennent du SERVEUR, comme la carte et la graine. Le client ne
+   * choisit pas le bareme selon lequel il sera paye ; il l'a lu dans le lobby avant de
+   * rester, et c'est tout.
+   */
+  async engagerEnLigne({ mise = 0, mode = 'arena' } = {}) {
+    this.format = mode;
+
+    if (!mise) { this.mise = 0; return true; }
+
+    const matchId = (crypto.randomUUID?.() ?? String(Date.now())) + '';
+    if (!(await caisse.engager(matchId, mise))) return false;
+
+    this.matchId = matchId;
+    this.mise = mise;
+    return true;
   }
 
   /**
@@ -434,8 +517,9 @@ class Game {
    * 1er. Le CALCUL, lui, est celui du noyau de regles — le jour ou quinze adversaires
    * arrivent, seul le rang passe change.
    */
-  reglerPartie(rang) {
+  reglerPartie(rang, effectif = null, graineRoue = 0) {
     if (!this.mise) return 0;
+    if (rang > (MODES[this.format ?? 'arena']?.joueurs ?? 16)) return 0;
     const mise = this.mise;
     this.mise = 0;
 
@@ -449,8 +533,28 @@ class Game {
      * ici EST celui qui sera paye. Et la requete etant idempotente, un reseau coupe ne
      * perd rien : elle repassera.
      */
-    const gain = table(mise).parRang[rang - 1] ?? 0;
-    caisse.regler(this.matchId, rang, mise);
+    const mode = this.format ?? 'arena';
+    /*
+     * UN SALON PARTI INCOMPLET NE SE PAIE PAS AU BAREME DE LA TABLE PLEINE.
+     *
+     * L'ecart n'est pas cosmetique : une arene partie a douze n'a que douze mises dans son
+     * pot, et la payer au bareme de seize ferait combler la difference par la caisse a
+     * chaque partie — la maison paierait des gains que personne n'a finances. Le joueur, de
+     * son cote, a explicitement accepte ce pot plus petit avant le depart.
+     *
+     * Un salon reduit n'a pas de variante non plus : la roue tire la forme d'un bareme
+     * annonce d'avance, et celui-la ne l'a pas ete.
+     */
+    /*
+     * LA LIGNE DU TABLEAU EST DERIVEE DE LA GRAINE, jamais declaree. Le serveur de jeu l'a
+     * tiree au classement final ; ici comme au backend on refait le meme tirage. Un salon
+     * reduit n'a pas de roue : sa table est calculee, sans graine.
+     */
+    const joueurs = MODES[mode]?.joueurs ?? 16;
+    const complet = (effectif ?? joueurs) === joueurs;
+    const bareme = complet ? table(mise, mode, tirerIssue(mode, graineRoue).id) : tableEffectif(mise, effectif);
+    const gain = bareme.parRang[rang - 1] ?? 0;
+    caisse.regler(this.matchId, rang, mise, mode, graineRoue, effectif);
     return gain;
   }
 
@@ -493,6 +597,12 @@ class Game {
     this.character = null;
     this.releaseArena();
     this.arena = jeu.build(RAPIER, assets, { seed: this.manche });
+    // Les seize plots de depart, un par siege. Ils se posent au sol au premier pas de
+    // physique (voir `update`) : un rayon ne touche rien avant.
+    this.plots = creerPlotsDeDepart(this.arena);
+    // Une manche qui commence pendant que le plateau montre encore un vainqueur (REJOUER
+    // sans repasser par le lobby) : on lui rend le joueur.
+    this.lobby.quitterPodium?.();
     this.bestKey = `feel-lab-best-${this.jeuId}`;
     this.best = Number(localStorage.getItem(this.bestKey)) || null;
     this.view.scene.add(this.arena.group);
@@ -521,12 +631,43 @@ class Game {
     el('result-card').classList.remove('show');
     el('race-ui').classList.remove('hidden');
     el('verdict').className = 'hidden';
-    this.character = new Character(RAPIER, this.arena.world, this.view.scene, this.arena.spawn);
+    // Et la roue s'en va. Elle n'appartient qu'à la fin d'une partie ; la laisser vivre
+    // dans une manche neuve en ferait un élément permanent du décor.
+    this.cacherEcranDeFin();
+    /*
+     * SA PLACE, pas le milieu de la carte.
+     *
+     * Le personnage naissait sur `arena.spawn` brut : les seize joueurs se créaient tous au
+     * MEME point, et la correction les repoussait ensuite vers la place que le serveur leur
+     * avait attribuee — une teleportation des le premier instantane, a chaque manche.
+     *
+     * `monIndex` et l'effectif sont poses par la session AVANT que l'annonce ne remonte
+     * jusqu'ici : les deux sont donc renseignes a temps. On LIT deux nombres et on APPELLE
+     * le meme calcul que le serveur ; aucun netcode n'entre dans ce fichier.
+     *
+     * La graine de culbute suit le meme chemin. Elle valait ZERO ici — quatre arguments au
+     * lieu de cinq — alors que le serveur en derive une par joueur : les deux ne
+     * culbutaient donc pas pareil, et l'ecart passait pour un defaut de prediction.
+     */
+    const siege = this.enligne?.monIndex ?? 0;
+    const effectif = this.enligne?.manche?.joueurs?.length ?? 1;
+    const place = placer(this.arena, siege, effectif);
+    this.depart = new THREE.Vector3(place.x, place.y, place.z);
+
+    this.character = new Character(
+      RAPIER, this.arena.world, this.view.scene,
+      this.depart, graineCulbute(this.manche, siege),
+    );
     // La session recoit le personnage local et la scene : c'est ici que naissent les
     // figurants des autres joueurs, pas avant (il faut une scene) ni apres (les premiers
     // instantanes arriveraient sans personne a animer).
-    this.enligne?.attacher({ personnage: this.character, scene: this.view.scene, assets });
-    const p = this.arena.spawn;
+    // `placeDe` : la place de chaque siège, LE MÊME calcul que le nôtre et que le serveur.
+    // Sans elle, un adversaire naît à l'origine du monde et y reste tout le décompte.
+    this.enligne?.attacher({
+      personnage: this.character, scene: this.view.scene, assets,
+      placeDe: (index) => placer(this.arena, index, effectif),
+    });
+    const p = this.depart;   // la camera cadre LE JOUEUR, pas le milieu de la carte
     this.camTarget.set(p.x, p.y + settings.camera.height, p.z + settings.camera.distance);
     this.ySlow = undefined;
     this.view.camera.fov = settings.camera.fov;
@@ -739,7 +880,7 @@ class Game {
     // revoir a chaque tentative transformerait la sequence en peage.
     this.countdown = 3 * DECOMPTE_PAS;
     el('countdown').classList.remove('hidden');
-    this.character.respawn(this.arena.spawn);
+    this.character.respawn(this.depart);
     el('banner').classList.remove('show');
   }
 
@@ -765,10 +906,14 @@ class Game {
       const e = document.createElement('div');
       e.className = 'etiquette';
       e.textContent = sous.etiquette;
-      const v = document.createElement('div');
-      v.className = 'valeur';
-      v.textContent = sous.valeur;
-      sousBox.append(e, v);
+      sousBox.append(e);
+      // Pas de valeur, pas de pilule vide : l'ecran de fin ne montre que le rang.
+      if (sous.valeur) {
+        const v = document.createElement('div');
+        v.className = 'valeur';
+        v.textContent = sous.valeur;
+        sousBox.append(v);
+      }
     } else {
       sousBox.textContent = sous ?? '';
     }
@@ -810,17 +955,25 @@ class Game {
     this.finishTimer = 0;
     sfx.finish();
     const total = this.partie.temps.reduce((a, b) => a + b, 0);
-    const gain = this.reglerPartie(1);
+    // La mise AVANT `reglerPartie`, qui la remet a zero : la roue en a besoin pour
+    // construire ses quartiers, et elle ne se construit qu'apres le reglement.
+    const mise = this.mise;
+    const parcours = this.partie.parcours.map((m) => m.name).join(' · ');
+    // En solo, personne ne tire pour nous : la graine de roue vient du navigateur. C'est le
+    // prototype ; en ligne elle vient du serveur, avec le classement.
+    const graineRoue = crypto.getRandomValues(new Uint32Array(1))[0];
+    const gain = this.reglerPartie(1, null, graineRoue);
     progression.gagner(XP_VICTOIRE);
-    this.verdict('VICTORY!',
-      { etiquette: `1st place · +${montant(gain)} USDC`, valeur: formaterChrono(total) },
-      'win');
-    el('result-title').textContent = 'MATCH WON';
-    el('result-time').textContent = `+${montant(gain)} USDC`;
-    el('result-line').textContent =
-      `${this.partie.parcours.map((m) => m.name).join(' · ')} · ${total.toFixed(2)} s`;
     this.partie = null;
     this._finDePartie = true;
+    this._rejouer = () => this.startEpisode();
+    this.ecranDeFin({
+      titre: 'MATCH WON', banniere: 'VICTORY!', type: 'win',
+      vainqueur: { modele: cosmetics.model },
+      rang: 1, total: MODES[this.format ?? 'arena']?.joueurs ?? 16,
+      gain, mise, mode: this.format ?? 'arena', graineRoue,
+      podium: `${parcours} · ${formaterChrono(total)}`,
+    });
   }
 
   /** Fin d'une MANCHE : le joueur est qualifie pour la suivante. */
@@ -904,40 +1057,330 @@ class Game {
     // Pas de son dedie : `tumble` EST deja le bruit du personnage qui part au tapis. En
     // inventer un second pour le meme evenement les ferait se marcher dessus.
     sfx.tumble();
-    const gain = this.reglerPartie(rang);
+    // Meme raison qu'a la victoire : la roue lit la mise, `reglerPartie` l'efface.
+    const mise = this.mise;
+    const graineRoue = crypto.getRandomValues(new Uint32Array(1))[0];
+    const gain = this.reglerPartie(rang, null, graineRoue);
     // L'XP est acquise : la manche a ete JOUEE. C'est le seul retour d'une partie perdue,
     // et c'est ce que suppose la courbe de niveaux — sans elle, tomber en manche 1 ne
     // rendrait strictement rien, ni argent ni progression.
     progression.gagner(XP_MANCHE);
-    this.verdict('ELIMINATED!',
-      { etiquette: gain > 0 ? `${ordinal(rang)} place · +${montant(gain)} USDC` : `${ordinal(rang)} place`,
-        valeur: formaterChrono(this.runTime) },
-      'ko');
-    el('result-title').textContent = 'ELIMINATED';
-    el('result-time').textContent = gain > 0 ? `+${montant(gain)} USDC` : formaterChrono(this.runTime);
-    el('result-line').textContent = this.arena?.survie
+    const detail = this.arena?.survie
       ? `Held ${this.runTime.toFixed(2)} s out of ${this.arena.survie.duree} s`
       : `${this.falls} fall${this.falls > 1 ? 's' : ''}`;
     this.partie = null;
-    // Comme la victoire : 3,2 s plus tard on rentre au lobby, on n'enchaine pas.
+    // Comme la victoire : le bandeau se lit, puis la roue monte. On n'enchaine pas.
     this._finDePartie = true;
+    this._rejouer = () => this.startEpisode();
+    this.ecranDeFin({
+      titre: 'ELIMINATED', banniere: 'ELIMINATED!', type: 'ko',
+      rang, total: MODES[this.format ?? 'arena']?.joueurs ?? 16,
+      gain, mise, mode: this.format ?? 'arena', graineRoue,
+      podium: detail,
+    });
   }
 
   returnToLobby() {
+    // Une partie EN LIGNE quittee en route : on le dit au serveur avant de ranger la
+    // scene. Le point d'accroche est pose par `matchmaking.js` ; aucun netcode ici.
+    if (this.enligne) this.surAbandon?.();
     this.partie = null;
     this._finDePartie = false;
     this.cacherVerdict();
     el('banner').classList.remove('show');
     el('countdown').classList.add('hidden');
     this.countdown = 0;
-    this.enterLobby(this.mode === 'finished');
+    // Plus de `#result-card` : l'écran de fin l'a remplacée, et l'afficher par-dessus
+    // ferait deux annonces du même résultat.
+    this.enterLobby(false);
+  }
+
+  /*
+   * ═══ L'ÉCRAN DE FIN ═══════════════════════════════════════════════════════════
+   *
+   * RIEN NE SE FERME TOUT SEUL. Le joueur vient de gagner ou de perdre de l'argent réel ;
+   * lui reprendre l'écran au bout de quatre secondes était une décision qu'on prenait à sa
+   * place. Il lance la roue quand il veut, il la regarde autant qu'il veut, et il choisit
+   * entre LOBBY et REJOUER.
+   *
+   * LA ROUE NE TIRE RIEN. Le barème a été tiré dans le lobby, avant l'engagement de la
+   * mise ; elle s'arrête sur le palier que le classement a donné. Voir `roue.js`.
+   */
+
+  /** La roue, construite à la demande : une page qui ne joue jamais n'en fabrique aucune. */
+  get laRoue() {
+    if (!this._roue) {
+      this._roue = creerRoue({
+        hote: el('roue-scene'),          // les classes d'état et les gestes
+        montage: el('roue-disque-hote'), // le point de montage du SVG, vidé à chaque partie
+        voile: el('roue-voile'),
+      });
+      this.brancherLancer();
+    }
+    return this._roue;
+  }
+
+  /**
+   * Les trois façons de la lancer : le clic, l'espace, et le vrai geste.
+   *
+   * La force du geste change le nombre de tours et la durée — JAMAIS l'endroit où elle
+   * s'arrête. La destination vient du classement ; le poignet ne décide de rien.
+   */
+  brancherLancer() {
+    const scene = el('roue-scene');
+    let depart = null;
+
+    const lancer = (force) => {
+      if (!this._roue?.armee || this._roue.lancee) return;
+      // `lance` cache l'invite au clic ; `calee` — pose seulement au calage, dans
+      // `poserLeGain` — sort les boutons. Les confondre laissait partir le joueur en
+      // pleine rotation, avant d'avoir vu son montant.
+      el('fin-panneau').classList.add('lance');
+      this._roue.tourner(force, this._sansRecit).then((r) => this.poserLeGain(r));
+    };
+
+    scene.addEventListener('pointerdown', (e) => {
+      depart = { x: e.clientX, y: e.clientY, t: performance.now() };
+      scene.setPointerCapture?.(e.pointerId);
+    });
+    scene.addEventListener('pointerup', (e) => {
+      if (!depart) return;
+      const d = Math.hypot(e.clientX - depart.x, e.clientY - depart.y);
+      const dt = Math.max(60, performance.now() - depart.t);
+      depart = null;
+      // Un clic net vaut un lancer moyen ; un grand geste rapide, un lancer appuyé.
+      lancer(d < 12 ? 0.5 : Math.min(1, (d / dt) * 0.9));
+    });
+    this._lancerAuClavier = (e) => {
+      if (e.code !== 'Space' || !this._roue?.armee || this._roue.lancee) return;
+      e.preventDefault();
+      lancer(0.5);
+    };
+    addEventListener('keydown', this._lancerAuClavier);
+
+    el('fin-lobby').addEventListener('click', () => { sfx.click(); this.quitterEcranDeFin(); });
+    el('fin-rejouer').addEventListener('click', () => {
+      sfx.click();
+      const rejouer = this._rejouer;
+      this.quitterEcranDeFin();
+      rejouer?.();
+    });
+  }
+
+  /**
+   * Ouvre l'écran de fin.
+   *
+   * Le bandeau de verdict d'abord — il dit ce qui vient de se passer —, puis la roue monte.
+   * Les deux temps sont voulus : une roue qui apparaîtrait sur le même souffle que le
+   * verdict ferait lire les deux en même temps, donc aucun des deux.
+   */
+  ecranDeFin({ titre, banniere, type, rang, total, gain, mise, mode, graineRoue = 0, podium, sous, vainqueur = null }) {
+    this._sansRecit = new URLSearchParams(location.search).has('nointro');
+    this._fin = { titre, rang, total, gain, mise, mode, graineRoue, podium, sous };
+    // LA COUPURE. Avant tout texte : la partie est finie, on ne la regarde plus.
+    if (vainqueur) this.montrerLePodium(vainqueur);
+    /*
+     * LE BANDEAU ET LE PANNEAU NE DISENT PAS LA MEME CHOSE, et c'est voulu.
+     *
+     * Le bandeau CRIE — « VICTORY! » —, c'est le cri du jeu au moment ou l'on gagne. Le
+     * panneau CONSTATE — « MATCH WON », un rang, un montant. Les fondre en un seul texte
+     * faisait perdre le cri : le verdict annoncait sobrement « MATCH WON » et la fin de
+     * partie n'avait plus de pic.
+     */
+    /*
+     * LE MONTANT NE SE LIT PAS AVANT LA ROUE. Le bandeau dit le rang, et rien d'autre :
+     * il affichait « +3.60 USDC » ici, avant que le joueur ait lance quoi que ce soit, et
+     * la roue ne revelait plus rien. Le chiffre n'apparait que dans `poserLeGain`, quand
+     * elle s'est calee. Demande du directeur produit, et c'est tout l'interet du geste.
+     */
+    this.verdict(banniere ?? titre, { etiquette: `${ordinal(rang)} of ${total}`, valeur: '' }, type);
+    clearTimeout(this._roueTimer);
+    // Sans récit (harnais, `?nointro`), la roue est là tout de suite : un drapeau saute la
+    // MISE EN SCÈNE, jamais le RÉSULTAT.
+    this._roueTimer = setTimeout(() => this.montrerLaRoue(), this._sansRecit ? 0 : 1700);
+  }
+
+  /**
+   * ═══ LE PODIUM ═════════════════════════════════════════════════════════════
+   *
+   * La partie est finie : on la COUPE. Plus d'arene, plus de chrono, plus d'objectif,
+   * plus de nom de carte — les deux joueurs regardaient encore leur point de vue de
+   * course derriere le verdict, et rien ne distinguait le gagnant du perdant sinon un
+   * texte. Demande du directeur produit, 2 septembre 2026, et c'est la reference : le
+   * vainqueur se teleporte sur un plateau, vu de face, et danse.
+   *
+   * Le plateau est celui du lobby — la meme scene, le meme socle, les memes projecteurs :
+   * c'est deja la vitrine d'un personnage, et un second decor de podium ne ferait que
+   * diverger du premier. Ce qui change : le personnage est celui du VAINQUEUR (chez le
+   * perdant aussi), il regarde la camera, et il danse. `body.podium` masque le HUD de
+   * course et pousse le panneau de fin et la roue vers la droite, ou ils ne le couvrent
+   * pas.
+   *
+   * `mode` vaut `podium` : la boucle de jeu ne simule plus rien, le menu de pause ne
+   * s'ouvre plus, et les harnais qui attendent « pas racing » le lisent tel quel.
+   */
+  montrerLePodium({ modele = null } = {}) {
+    this.mode = 'podium';
+    this.intro = null;
+    this.survol = null;
+    // Ordre imperatif, le meme qu'au lobby : le personnage detient un corps dans le monde
+    // physique de l'arene ; liberer le monde avant lui laisserait un pointeur wasm mort.
+    this.character?.dispose();
+    this.character = null;
+    this.releaseArena();
+
+    this.lobby.group.visible = true;
+    this.view.sky.visible = false;
+    this.view.clouds.visible = false;
+    this.view.scene.fog = null;
+    this.view.renderer.setClearColor(0x0a0620, 1);
+    this.view.camera.position.copy(PODIUM_POS);
+    this.view.camera.lookAt(PODIUM_LOOK);
+    this.view.camera.fov = LOBBY.cameraFov;
+    this.view.camera.updateProjectionMatrix();
+    this.lobby.setShowcase?.(false);
+
+    el('countdown').classList.add('hidden');
+    el('nextup').classList.add('hidden');
+    el('iris').className = 'hidden';
+    el('titlecard').className = 'hidden';
+    el('race-ui').classList.remove('presentation');
+    el('race-ui').classList.remove('hidden');   // le verdict et le panneau de fin y vivent
+    document.body.classList.add('podium');
+
+    const dessus = modele ?? cosmetics.model;
+    this.lobby.montrerVainqueur?.(MODELS.some((m) => m.id === dessus) ? dessus : cosmetics.model);
+  }
+
+  montrerLaRoue() {
+    const f = this._fin;
+    if (!f) return;
+    const panneau = el('fin-panneau');
+
+    /*
+     * PAS DE ROUE QUAND IL N'Y A RIEN EN JEU.
+     *
+     * Une partie gratuite ne paie aucun rang : `echelle()` regroupe alors les seize rangs
+     * en UN quartier de 360°, et la roue devient un disque uni qu'on fait tourner pour
+     * apprendre qu'on ne gagne rien. C'est pire qu'une absence — ça ressemble à une panne.
+     *
+     * On montre donc directement le résultat et les deux boutons. La roue est la cérémonie
+     * d'un gain ; sans gain, il n'y a pas de cérémonie.
+     */
+    /*
+     * ET PAS DE ROUE NON PLUS POUR UN SALON REDUIT : le tableau a dix lignes est ecrit
+     * pour l'effectif du mode, et une arene partie a treize se paie au bareme calcule,
+     * sans graine. Le resultat s'affiche directement, montant compris.
+     */
+    const complet = f.total === (MODES[f.mode]?.joueurs ?? f.total);
+    if (!f.mise || !complet) {
+      el('fin-titre').textContent = f.titre;
+      el('fin-gain').textContent = f.gain > 0 ? `+${montant(f.gain)} USDC` : '—';
+      el('fin-sous').textContent = f.sous ?? `${ordinal(f.rang)} of ${f.total} · ${f.mise ? 'reduced room' : 'free match'}`;
+      el('fin-podium').textContent = f.podium ?? '';
+      panneau.classList.remove('lance', 'rien');
+      delete panneau.dataset.grade;
+      panneau.classList.add('show', 'calee');
+      this.cacherVerdict();
+      return;
+    }
+
+    /*
+     * LA ROUE DE CE JOUEUR : la colonne de son rang, dix cases. Elle s'arretera sur la
+     * ligne que la graine du serveur designe — `tirerIssue` est le meme calcul que celui
+     * du reglement, donc la case ou elle se cale EST ce qui a ete paye.
+     */
+    const issue = tirerIssue(f.mode, f.graineRoue);
+    const xp = table(f.mise, f.mode, issue.id).xp[f.rang - 1] ?? 0;
+    this.laRoue.preparer({ mode: f.mode, rang: f.rang, mise: f.mise });
+    this.laRoue.montrer();
+    this.laRoue.armer(issue.id, f.gain, xp);
+
+    el('fin-titre').textContent = f.titre;
+    el('fin-gain').textContent = '—';
+    el('fin-sous').textContent = f.sous ?? `${ordinal(f.rang)} of ${f.total}`;
+    el('fin-podium').textContent = f.podium ?? '';
+    panneau.classList.remove('calee', 'lance', 'rien');
+    delete panneau.dataset.grade;
+    panneau.classList.add('show');
+    this.cacherVerdict();
+
+    /*
+     * `?nointro` NE LANCE PAS LA ROUE A LA PLACE DU JOUEUR.
+     *
+     * Le drapeau saute le RECIT — l'attente avant qu'elle monte, et la rotation elle-meme
+     * (`tourner(force, instantane)`) —, jamais le GESTE. Un harnais qui n'aurait rien a
+     * cliquer ne prouverait pas que le clic marche, et c'est precisement le chemin que le
+     * joueur empruntera a chaque partie.
+     */
+  }
+
+  /**
+   * La roue s'est calée : on écrit le montant, en USDC.
+   *
+   * Il monte de zéro jusqu'à sa valeur. C'est le seul endroit du jeu où un chiffre s'anime,
+   * et il le mérite : c'est celui que le joueur est venu chercher.
+   */
+  poserLeGain(r) {
+    const panneau = el('fin-panneau');
+    const cible = el('fin-gain');
+    panneau.classList.add('calee');
+    if (r.gemme) panneau.dataset.grade = r.gemme;
+    panneau.classList.toggle('rien', r.gain === 0 && !r.xp);
+    el('fin-sous').textContent = `${ordinal(r.rang)} of ${this._fin?.total ?? '—'} · ${r.grade}`
+      + (r.gain === 0 && !r.xp ? ' · no payout' : '');
+
+    /*
+     * UN BRONZE GAGNE DE L'XP, et c'est la roue qui le lui donne — pas une constante. Le
+     * montant d'XP est celui de la case ou elle s'est calee ; il s'ajoute a l'XP de manche
+     * deja acquise. Credite ICI, a l'arret, pour la meme raison que l'argent ne s'affiche
+     * qu'a l'arret : avant, le joueur ne l'a pas encore vu.
+     */
+    if (r.gain === 0 && r.xp > 0) {
+      progression.gagner(r.xp);
+      cible.textContent = `+${r.xp} XP`;
+      return;
+    }
+    if (r.gain === 0 || this._sansRecit) { cible.textContent = r.gain === 0 ? '—' : `+${r.montant} USDC`; return; }
+    const t0 = performance.now();
+    const monter = (t) => {
+      const u = Math.min(1, (t - t0) / 900);
+      cible.textContent = `+${montant(Math.round(r.gain * (1 - (1 - u) ** 3)))} USDC`;
+      if (u < 1) requestAnimationFrame(monter);
+    };
+    requestAnimationFrame(monter);
+  }
+
+  /**
+   * RANGE L'ÉCRAN DE FIN. Appelé de partout où une partie commence ou se quitte.
+   *
+   * La roue est un MOMENT, pas un décor. Elle n'existe qu'entre le dernier classement et
+   * le choix du joueur ; partout ailleurs elle n'est pas là. Sans ce rangement, la roue
+   * d'une partie restait en bas de l'écran pendant la suivante — on la voyait « tout le
+   * temps », ce qui est exactement ce qu'elle ne doit pas être.
+   */
+  cacherEcranDeFin() {
+    clearTimeout(this._roueTimer);
+    this._fin = null;
+    this._ecranFin = false;
+    document.body.classList.remove('podium');
+    this._roue?.cacher();
+    el('fin-panneau').classList.remove('show', 'calee', 'lance', 'rien');
+    delete el('fin-panneau').dataset.grade;
+  }
+
+  /** Ferme l'écran de fin et rend la main au lobby. */
+  quitterEcranDeFin() {
+    this.cacherEcranDeFin();
+    this.returnToLobby();
   }
 
   update(dt, elapsed) {
     this.lobby.update(elapsed, dt);
     this.view.animateSky(elapsed, dt);
 
-    if (this.mode === 'lobby') return;
+    // Lobby et podium : le decor du plateau vit (ligne au-dessus), rien d'autre ne tourne.
+    if (this.mode === 'lobby' || this.mode === 'podium') return;
 
     // En pause : le decor continue de vivre mais la simulation est figee, sinon le
     // chronometre avance et le personnage glisse pendant que le joueur lit le menu.
@@ -978,7 +1421,22 @@ class Game {
     const focus = this.enligne
       ? this.enligne.positions(this.character?.position ?? null)
       : (this.character?.position ?? null);
-    this.arena.update(elapsed, paused ? 0 : dt, focus, this.view.camera, enJeu);
+    /*
+     * L'HORLOGE DU DECOR VIENT DU SERVEUR, pas de la page.
+     *
+     * `elapsed` compte depuis l'ouverture de l'onglet — plusieurs minutes en general. Le
+     * serveur, lui, repart de zero a chaque manche. Or le decor s'anime en fonction de ce
+     * nombre, et cette animation deplace de VRAIS colliders : sur Le Rondin, l'angle d'un
+     * tronc en est une fonction pure, et il fixe le visuel comme la physique.
+     *
+     * Les troncs n'etaient donc pas au meme angle des deux cotes. Rapporte en jouant :
+     * « je me prends des obstacles invisibles ». Et chaque page ayant son propre decalage,
+     * les deux joueurs ne voyaient meme pas le meme monde.
+     *
+     * En solo, rien ne change : il n'y a pas d'autre horloge que la sienne.
+     */
+    const horlogeDecor = this.enligne ? this.enligne.tempsMonde : elapsed;
+    this.arena.update(horlogeDecor, paused ? 0 : dt, focus, this.view.camera, enJeu);
     if (paused) { this.updateCamera(dt, this.character.position.clone()); return; }
 
     // Sequence d'entree : le decor vit deja (les barils roulent, les drapeaux battent) mais
@@ -990,6 +1448,9 @@ class Game {
     // Pendant le decompte, la physique tourne (le personnage se pose) mais il ne repond pas.
     if (this.countdown > 0) {
       this.countdown -= dt;
+      // Les AUTRES joueurs vivent déjà : leurs instantanés arrivent pendant le décompte,
+      // et ne pas les appliquer les laissait figés en T-pose là où ils étaient nés.
+      this.enligne?.avancer(dt);
       input.x = 0; input.z = 0; input.jump = false; input.dive = false;
       jumpEdge = false; diveEdge = false;
       if (this.countdown > 0) {
@@ -1019,8 +1480,30 @@ class Game {
     const world = this.arena.world;
     this.accumulator += dt;
     let steps = 0;
+    /*
+     * UN ELIMINE NE PILOTE PLUS.
+     *
+     * Le serveur a cesse de simuler ce personnage et a fige son corps. Continuer a lui
+     * donner les touches le ferait courir sur notre seul ecran, contre une position
+     * autoritaire immobile : la correction le rappellerait a chaque image, et le joueur
+     * verrait un tremblement au lieu d'un arret net.
+     *
+     * On lit un drapeau, on n'installe pas de logique reseau ici : la decision appartient
+     * au serveur, ce fichier ne fait qu'en tenir compte.
+     */
+    /*
+     * ON NE PILOTE PLUS NON PLUS PENDANT L'ECRAN DE FIN.
+     *
+     * En ligne, `jeu.mode` reste `racing` apres le dernier classement : la manche n'a pas
+     * de fin cote client, c'est le serveur qui l'annonce. Sans cette garde, le personnage
+     * continuait de courir derriere la roue pendant que le joueur lisait son gain.
+     *
+     * `estSorti` et non `estElimine` : le serveur fige aussi le corps d'un QUALIFIE, et
+     * pousser un corps sans gravite que la correction rappelle a chaque image tremble.
+     */
+    const pilotable = !this._fin && !this.enligne?.estSorti;
     while (this.accumulator >= world.timestep && steps < 3) {
-      this.character.update(world.timestep, input, camYaw);
+      this.character.update(world.timestep, pilotable ? input : INERTE, camYaw);
       world.step();
       // Garde-fou APRES le pas : c'est le solveur qui produit les expulsions, donc c'est
       // apres lui qu'il faut les borner. Pose avant, la limite serait ecrasee par le pas.
@@ -1032,6 +1515,8 @@ class Game {
     }
 
     const pos = this.character.position.clone();
+    // Les plots de depart se posent des que le monde a fait un pas ; ensuite ne coute rien.
+    this.plots?.poser(RAPIER);
 
     // Tapis roulants : Rapier n'a pas de surface mobile native. On pousse le joueur
     // tant qu'il repose sur la zone — plus stable qu'un corps cinematique en translation
@@ -1115,7 +1600,25 @@ class Game {
      * pour fermer. Il continue de PREDIRE son deplacement ; il n'en tire aucune
      * consequence de jeu.
      */
-    if (!this.enligne && pos.y < this.arena.killY) {
+    /*
+     * DEUX GARDES ICI AUSSI, et il en manquait un.
+     *
+     * `enligne` couvre la manche en cours. `_fin` couvre l'INSTANT D'APRES : `brancher.js`
+     * annule `jeu.enligne` avant d'ouvrir l'ecran de fin, et sans cette seconde garde la
+     * boucle retombe dans les regles hors ligne a l'image suivante.
+     *
+     * Le meme trou avait deja ete bouche plus bas, sur la branche de la LIGNE D'ARRIVEE,
+     * ou il frappait le vainqueur d'une course. Ici c'est la branche du SEUIL DE MORT, et
+     * elle frappe le vainqueur d'une SURVIE — car sur Les Hexagones il finit lui aussi
+     * sous le seuil : il a tenu plus longtemps que l'autre, pas indefiniment.
+     *
+     * Ce qui se passait : le serveur le sacrait premier, `brancher.js` affichait
+     * « MATCH WON », puis a l'image suivante `perdreManche()` ecrasait tout par
+     * « ELIMINATED · 2nd of 16 · Held 3.93 s out of 75 s ». Le joueur voyait une defaite
+     * apres avoir gagne — et le « of 16 » venait de la table par defaut de cette voie
+     * hors ligne, pas de l'effectif reel de sa partie.
+     */
+    if (!this.enligne && !this._fin && pos.y < this.arena.killY) {
       if (this.arena.survie) {
         if (this.mode === 'racing' && this.countdown <= 0) this.perdreManche();
       } else {
@@ -1124,6 +1627,9 @@ class Game {
         this.ySlow = undefined;
       }
     }
+    // Une fin de partie vient de COUPER la course (podium) : l'arene n'existe plus, et la
+    // suite de cette fonction la lit. On sort — la scene du plateau n'a rien a mesurer.
+    if (!this.arena) return;
 
     if (this.mode === 'racing' && this.countdown <= 0) {
       this.runTime += dt;
@@ -1133,18 +1639,45 @@ class Game {
       // masquer l'absence d'adversaires — la reference elle-meme s'arrete au bout d'un
       // delai, et tous les survivants prennent alors la couronne. On garde la regle, on
       // raccourcit l'horloge.
-      if (this.enligne) {
-        // Rien : le serveur annoncera la fin de manche.
+      /*
+       * DEUX GARDES, ET IL EN FAUT DEUX.
+       *
+       * `enligne` couvre la manche en cours : le serveur tranche, le client n'a rien a
+       * decider. `_fin` couvre l'instant d'apres — `brancher.js` annule `jeu.enligne`
+       * avant d'ouvrir l'ecran de fin, et sans cette seconde garde la boucle retombait
+       * dans les regles HORS LIGNE a l'image suivante.
+       *
+       * Ce qui se passait alors, et c'est le bug qu'on repare ici : le vainqueur est
+       * encore pose au-dela de la ligne, donc `pos.z <= finishZ` est vrai, donc
+       * `finishRace()` partait et ecrasait le verdict « VICTORY! · +3.60 USDC » par un
+       * « QUALIFIED! », puis renvoyait au lobby 3,2 s plus tard en detruisant la roue.
+       * L'argent avait bien ete verse ; le joueur ne le voyait jamais.
+       *
+       * Le bug ne frappait QUE celui qui avait franchi la ligne — donc le vainqueur, et
+       * seulement sur les cartes qu'on peut finir. D'ou le motif « certaines cartes
+       * comptent, d'autres non », alors que le chemin de l'argent ne lit jamais quelle
+       * epreuve a ete jouee.
+       */
+      if (this.enligne || this._fin) {
+        // Rien : le serveur a tranche, ou la partie est DEJA finie et l'ecran de fin a la main.
       } else if (this.arena.survie) {
         if (this.runTime >= this.arena.survie.duree) this.finishRace();
       } else if (pos.z <= this.arena.finishZ) this.finishRace();
+      // La finale franchie ouvre le podium et libere l'arene : plus rien a lire ici.
+      if (!this.arena) return;
     } else if (this.mode === 'finished') {
       this.finishTimer += dt;
       // 3,2 s : le temps que le bandeau s'installe et se lise. En dessous, la manche
       // suivante demarre avant qu'on ait su ce qui venait de se passer.
-      if (this.finishTimer > 3.2) {
-        if (this._finDePartie) { this._finDePartie = false; this.returnToLobby(); }
-        else this.mancheSuivante();
+      if (this.finishTimer > 3.2 && !this._ecranFin) {
+        /*
+         * FIN DE PARTIE : on ne rentre plus au lobby tout seul. L'écran de fin prend la
+         * main et n'en sort que sur LOBBY ou REJOUER — voir `ecranDeFin`. Entre deux
+         * MANCHES, en revanche, l'enchaînement automatique reste : là, le joueur n'a rien
+         * à décider, il a juste besoin de trois secondes pour lire son verdict.
+         */
+        if (this._finDePartie) { this._finDePartie = false; this._ecranFin = true; return; }
+        this.mancheSuivante();
         // Sortie immediate : la suite de cette fonction lit `this.arena.spawn` pour la
         // barre de progression, et l'arene vient d'etre liberee ou remplacee. Sans ce
         // retour, chaque fin de partie levait une TypeError sur un pointeur mort.
@@ -1260,15 +1793,21 @@ async function boot() {
   wireSettings();
   await applyIcons();
   buildSkinsScreen(onCosmeticChange);
+  // La boutique. Un seul article — BabyTrump — et il se gagne en publiant un post sur X ;
+  // toute la regle est dans `boutique.js`, tout le dessin dans `lobbyui.js`.
+  buildBoutique(onCosmeticChange);
   const ecrans = wireEcrans((nom) => {
-    // La vitrine recadre la camera sur le buste ; le plateau la remet en vue d'accueil.
-    LOBBY.showcase = nom === 'skins';
+    // La vitrine ET la boutique recadrent la camera sur le buste ; le plateau la remet en
+    // vue d'accueil. La boutique montre le personnage qu'on porte pendant qu'on regarde
+    // celui qu'on n'a pas — et c'est justement la comparaison qu'on veut lui donner.
+    LOBBY.showcase = nom !== 'play';
     if (game?.mode === 'lobby') game.applyLobbyFraming();
   }, onCosmeticChange);
   wirePause();
   game = new Game(view, lobby);
-  // Le ticket detient la mise : c'est lui qui declenche la partie, avec le montant choisi.
-  buildTicket((mise) => { ecrans.montrer('play'); game.startEpisode(mise); });
+  // Le ticket detient la mise et le mode ; PLAY entre en file — ou en sort. Il n'y a plus
+  // de partie hors ligne derriere ce bouton : `jouer` est pose par `matchmaking.js`.
+  buildTicket(() => { ecrans.montrer('play'); game.jouer?.(); });
 
   /*
    * On demande son solde au backend, SANS BLOQUER LE DEMARRAGE.
@@ -1280,7 +1819,14 @@ async function boot() {
    * les quarante harnais de `diag/`, qui n'ont jamais eu de backend.
    */
   buildCompte();
-  buildEnLigne(game);
+  // Le portefeuille : déposer, retirer, relire l'historique on-chain. Connecté seulement.
+  buildPortefeuille(() => majBarre());
+  // La porte : connexion plein page, avant le lobby, dès que le serveur dit qu'il y a de
+  // l'argent derrière lui et qu'aucune session n'existe (porte.js).
+  buildPorte();
+  // Le lobby en ligne : il trouve le serveur, s'y connecte, et pose `game.jouer`. Sans
+  // `await` : un serveur absent ne doit pas empecher la page de s'afficher.
+  brancherMatchmaking(game).catch((e) => console.error('matchmaking :', e));
   caisse.rafraichir().then(() => majBarre());
   surSession(() => caisse.rafraichir().then(() => majBarre()));
 
