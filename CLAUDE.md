@@ -606,6 +606,26 @@ octet de trop rend des positions plausibles mais fausses.
 
 ---
 
+## En ligne
+
+**Le jeu est déployé sur Fly.io** (`deploy/`), depuis le 4 septembre 2026 : `tumble-bg-jeu`
+(public, `https://tumble-bg-jeu.fly.dev`, WebSockets, une machine jamais éteinte) et
+`tumble-bg-backend` (privé, joint par `http://tumble-bg-backend.internal:8787`). Les
+secrets partent du `.env` par `deploy/fly/deployer.sh`, sans s'afficher. Le jeu est
+compilé DANS l'image avec les deux variables Supabase publiques ; `npm ci --include=dev`
+y est obligatoire, `NODE_ENV=production` ferait sauter Vite.
+
+**UN SEUL backend à la fois sur les wallets de trésorerie.** Le backend de Fly et un
+backend local lancé « pour voir » signent avec les mêmes clés sur la même base : c'est
+le double paiement dont on ne se relève pas. Quand Fly tourne, on n'a pas de backend
+local — ou on lui donne d'autres wallets et une autre base.
+
+**Le build du jeu dépasse dix minutes** (three, rapier, playwright sans navigateurs, puis
+les dépendances Solana) : `fly deploy` en arrière-plan, jamais en avant-plan avec un
+délai court.
+
+---
+
 ## Avant le mainnet
 
 Liste complète en bas de `backend/README.md`. En résumé : serveur autoritatif et

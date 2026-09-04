@@ -13,7 +13,8 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 # 1. Le jeu : dependances (Vite compris, il faut construire), puis la compilation.
 COPY tools/feel-lab/package.json tools/feel-lab/package-lock.json ./tools/feel-lab/
-RUN cd tools/feel-lab && npm ci
+# `--include=dev` : Vite est une dependance de developpement, et NODE_ENV=production la ferait sauter.
+RUN cd tools/feel-lab && npm ci --include=dev
 COPY tools/feel-lab/index.html tools/feel-lab/viewer.html ./tools/feel-lab/
 COPY tools/feel-lab/src ./tools/feel-lab/src
 COPY tools/feel-lab/public ./tools/feel-lab/public
