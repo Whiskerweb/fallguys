@@ -1,0 +1,20 @@
+# Ce qui ne doit JAMAIS entrer dans une image : secrets, dependances locales, artefacts.
+.env
+.env.*
+!.env.example
+backend/wallets/
+**/node_modules/
+tools/feel-lab/dist/
+tools/feel-lab/shots/
+tools/feel-lab/diag/vues/
+tools/meshy-pipeline/
+tools/texture-pipeline/
+tools/icon-pipeline/
+tools/cine/
+game/
+docs/
+bin/
+obj/
+.git/
+replays/
+*.log

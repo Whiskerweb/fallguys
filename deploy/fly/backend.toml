@@ -1,0 +1,15 @@
+# Fly.io — le backend. Prive : aucun port public, le serveur de jeu le joint par le reseau
+# interne de Fly (http://<app>.internal:8787). Une machine, jamais deux, jamais eteinte.
+app = "tumble-bg-backend"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "../../backend/Dockerfile"
+
+[env]
+  PORT = "8787"
+  SOLANA_RESEAU = "devnet"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
