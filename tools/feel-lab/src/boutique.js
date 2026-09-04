@@ -37,16 +37,19 @@
 export const JEU = 'Baby Guys';
 
 /**
- * Le lien du jeu, et le compte X du jeu. VIDES, DÉLIBÉRÉMENT.
+ * Le lien du jeu, et le compte X du jeu.
  *
- * Aucun DNS ne pointe encore sur le jeu et aucun compte X n'est ouvert. Le post part donc
- * en message seul — demande explicite du directeur produit. Tout est en place pour le
- * jour où les deux existent : renseigner ces deux lignes suffit, `lienDePost()` ajoute
- * `url=` et `via=` d'elle-même, et X raccourcit le lien à ~23 caractères dans son compte
- * de 280. Une URL bidon en attendant serait pire que rien : elle enverrait les premiers
- * curieux sur une page morte, et c'est le seul clic qu'ils feront.
+ * `LIEN` est l'adresse PUBLIÉE du jeu, `https://play.babyguy.dev`, depuis que le domaine
+ * pointe dessus (4 septembre 2026, certificat émis, `deploy/fly/deployer.sh`). Il est
+ * resté vide tant qu'aucun DNS n'existait — demande explicite du directeur produit : une
+ * URL bidon aurait envoyé les premiers curieux sur une page morte, et c'est le seul clic
+ * qu'ils feront. `lienDePost()` ajoute `url=` d'elle-même, et X raccourcit le lien à ~23
+ * caractères dans son compte de 280.
+ *
+ * `COMPTE_X` reste VIDE : aucun compte X du jeu n'est ouvert. Le jour où il l'est, le
+ * renseigner suffit, `via=` suit.
  */
-export const LIEN = '';
+export const LIEN = 'https://play.babyguy.dev';
 export const COMPTE_X = '';
 
 /**

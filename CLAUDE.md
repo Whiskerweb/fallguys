@@ -182,10 +182,13 @@ le premier personnage **portable**, jamais `MODELS[0]` : BabyTrump est en tête 
 vitrine, cadenas compris, et un défaut posé dessus l'aurait affiché EQUIPPED sous son
 propre verrou.
 
-**Le post part SANS LIEN, tant qu'aucun DNS ne pointe sur le jeu.** `LIEN` et `COMPTE_X`
-sont vides dans `boutique.js`, et `lienDePost()` ajoutera `url=` et `via=` d'elle-même le
-jour où ils seront renseignés. Une URL bidon en attendant enverrait les premiers curieux
-sur une page morte — et c'est le seul clic qu'ils feront.
+**Le post porte le lien PUBLIÉ du jeu, `https://play.babyguy.dev`, et rien d'autre.**
+`LIEN` est renseigné dans `boutique.js` depuis que le domaine pointe sur le jeu
+(4 septembre 2026) ; il est resté vide avant, parce qu'une URL bidon aurait envoyé les
+premiers curieux sur une page morte — et c'est le seul clic qu'ils feront. `COMPTE_X`
+reste vide tant qu'aucun compte X du jeu n'existe ; `lienDePost()` ajoutera `via=`
+d'elle-même le jour où il sera renseigné. `diag/boutique.mjs` et `boutique-ecran.mjs`
+tiennent les deux.
 
 **Le déblocage est DÉCLARATIF, et il l'est parce que l'enjeu est un cosmétique.** Rien ne
 prouve que le post existe : le joueur ouvre X, revient, et affirme l'avoir publié (huit

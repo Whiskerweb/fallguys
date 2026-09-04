@@ -85,10 +85,12 @@ console.log('\n\x1b[1mLe post\x1b[0m');
   dit(p.get('text').includes('Baby Guys'), 'le texte nomme le jeu tel qu\'il est peint sur le logo');
   dit(p.get('text').includes('BabyTrump'), 'et dit ce que la personne vient de debloquer');
   dit(p.get('hashtags') === 'BabyGuys,BabyTrump', `hashtags : ${p.get('hashtags')}`);
-  dit(!p.has('url') && !p.has('via'),
-    'AUCUN lien ni compte tant que le DNS n\'existe pas — une URL bidon serait pire que rien');
-  dit(B.LIEN === '' && B.COMPTE_X === '',
-    'les deux constantes sont vides, pretes a etre renseignees le jour venu');
+  // Le domaine existe depuis le 4 septembre 2026 : le post porte le lien du jeu, et
+  // seulement lui — aucun compte X n'est ouvert, donc pas de `via=`.
+  dit(p.get('url') === 'https://play.babyguy.dev' && B.LIEN === p.get('url'),
+    `le post porte le lien PUBLIE du jeu : ${p.get('url')}`);
+  dit(!p.has('via') && B.COMPTE_X === '',
+    'et aucun compte X tant qu\'il n\'en existe pas — a renseigner dans COMPTE_X le jour venu');
   dit(p.get('text').length < 280, `le texte tient dans un post : ${p.get('text').length} caracteres`);
   dit(B.apercuDuPost().includes('#BabyGuys'),
     'l\'apercu montre les hashtags, que l\'intention transporte a part');

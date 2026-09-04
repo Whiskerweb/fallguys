@@ -86,7 +86,7 @@ dit(urlX.startsWith('https://x.com/intent/post?'), `un onglet part vers : ${urlX
   const p = new URL(urlX).searchParams;
   dit(p.get('text').includes('Baby Guys') && p.get('text').includes('BabyTrump'),
     'le post est deja ecrit : le jeu et le skin y sont nommes');
-  dit(!p.has('url'), 'et il ne porte AUCUN lien tant que le DNS n\'existe pas');
+  dit(p.get('url') === 'https://play.babyguy.dev', `et il porte le lien du jeu : ${p.get('url')}`);
 }
 
 console.log('\n\x1b[1mL\'attente, puis la reclamation\x1b[0m');
