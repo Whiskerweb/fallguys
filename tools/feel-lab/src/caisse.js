@@ -31,7 +31,7 @@
  */
 
 import { MICROS, PALIERS, MODES, prevenir, lireEntier, table, tableEffectif, tirerIssue } from './economie.js';
-import { CONFIGURE, appeler, session } from './compte.js';
+import { CONFIGURE, appeler, session, deconnecter } from './compte.js';
 
 const CLE_SOLDE = 'tumble-solde-banc';
 
@@ -80,8 +80,16 @@ export const caisse = {
       profil = await appeler('/moi');
       soldeDistant = profil.solde;
       enLigne = true;
-    } catch {
+    } catch (e) {
       enLigne = false;
+      /*
+       * UN JETON REFUSÉ EST UNE SESSION MORTE, pas une panne passagère. Le backend répond
+       * JETON_INVALIDE quand Supabase ne reconnaît plus la session (compte supprimé,
+       * rafraîchissement périmé). La garder ferait vivre un lobby « connecté » que tout
+       * refuse : solde à zéro, nom par défaut, TOP UP qui dit SIGN IN. On la ferme ici,
+       * localement, et la porte se rouvre d'elle-même (`surSession`).
+       */
+      if (e?.code === 'JETON_INVALIDE') { profil = null; await deconnecter(); }
     }
     prevenir();
     return profil;

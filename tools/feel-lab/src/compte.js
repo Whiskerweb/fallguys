@@ -161,6 +161,7 @@ export function messageErreur(e) {
   if (/Password should be/i.test(m)) return 'Password must be at least 6 characters.';
   if (/is invalid/i.test(m)) return 'Supabase rejected this email address. Try another domain.';
   if (/rate limit|too many/i.test(m)) return 'Too many attempts. Wait a minute.';
+  if (/URI which is not allowed|signed for another app/i.test(m)) return 'Wallet sign-in is not allowed for this site yet: play.babyguy.dev must be listed in the Supabase URL configuration.';
   if (e?.code === 'WALLET_ABSENT') return 'No Solana wallet found in this browser. Install Phantom or Solflare, then try again.';
   if (/user rejected|rejected the request|User declined/i.test(m)) return 'Signature refused in the wallet. Nothing was sent.';
   if (/web3.*(disabled|not enabled)|provider is not enabled/i.test(m)) return 'Wallet sign-in is not enabled on the server yet.';
@@ -177,8 +178,26 @@ export async function motDePasseOublie(email) {
   if (error) throw error;
 }
 
+/**
+ * Ferme la session — et la ferme TOUJOURS localement.
+ *
+ * `signOut()` demande d'abord au serveur de revoquer la session. Quand celle-ci n'existe
+ * plus pour lui — compte supprime, jeton de rafraichissement perime, projet reconfigure
+ * —, il repond une erreur et supabase-js gardait la session fantome dans le navigateur.
+ * Le joueur voyait alors un lobby qui le croyait connecte (porte fermee) pendant que le
+ * backend le refusait (solde a zero, nom par defaut, TOP UP qui dit SIGN IN), et SIGN OUT
+ * ne faisait rien : « impossible de me deconnecter » (directeur produit, 4 septembre
+ * 2026). Le repli `scope: 'local'` efface ce que le navigateur tient, quoi que dise le
+ * serveur ; la porte se rouvre.
+ */
 export async function deconnecter() {
-  await supabase?.auth.signOut();
+  if (!supabase) return;
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  } catch {
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+  }
 }
 
 /** Prevenu a chaque ouverture ou fermeture de session. */
