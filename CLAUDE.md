@@ -131,6 +131,17 @@ existe toujours dans `economie.js` et `diag/economie.mjs` le vérifie — c'est 
 lequel NOUS raisonnons, pas son unité de compte. **Ne pas le supprimer comme code mort :
 il est vivant du côté où l'on conçoit, absent du côté où l'on joue.**
 
+**Le ticket dit UNE chose sur l'argent : ce que le vainqueur gagne, en fourchette.**
+« 1ST PLACE WINS 2.60–4.00 USDC · 2 players · winner takes all ». Plus de pot, plus de
+rake, plus de barème rang par rang ni de gemmes dans le ticket — demande du directeur
+produit (4 septembre 2026) : « simple, efficace ». Les deux bornes sont lues sur la roue
+du vainqueur (`roueDe`), et la borne basse descend au gain d'une table partie au minimum
+quand le mode peut partir réduit ; `diag/bascule.mjs` le lit dans `#pot-val` / `#pot-sub`,
+dont les identifiants ont survécu au pot. Le portefeuille et la porte ont été redessinés
+le même jour dans la grammaire du ticket (cadre biseauté, or pour l'argent, cyan pour
+l'action, rose pour le seul geste qui engage) ; leurs identifiants n'ont pas bougé,
+`diag/web3-lobby.mjs` et `diag/web3-duel.mjs` les lisent.
+
 **La roue est un MOMENT, pas un décor.** Elle n'existe qu'entre le dernier classement et le
 choix du joueur. `cacherEcranDeFin()` est appelé par `startRace()`, `enterLobby()` et
 `quitterEcranDeFin()` : sans ces trois-là, la roue d'une partie restait en bas de l'écran

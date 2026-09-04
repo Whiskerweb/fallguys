@@ -62,7 +62,9 @@ async function ouvrir(nom, mode, modele) {
   page.setDefaultTimeout(120000);
   const erreurs = [];
   page.on('pageerror', (e) => erreurs.push(`${nom}: ${String(e).slice(0, 160)}`));
-  await page.addInitScript(({ nom, mode, modele }) => {
+  // `boutique` manquait à la liste : le script jetait « boutique is not defined » sur
+  // chaque machine, et BabyTrump n'était jamais équipé — trouvé par la ligne « erreurs ».
+  await page.addInitScript(({ nom, mode, modele, boutique }) => {
     localStorage.setItem('tumble-pseudo', nom);
     localStorage.setItem('tumble-mode', mode);
     localStorage.setItem('tumble-mise', '2');
@@ -213,8 +215,11 @@ titre('6. Le départ réduit se lit, et LEAVE QUEUE sort de la file');
     val: document.getElementById('pot-val')?.textContent?.trim(),
     sub: document.getElementById('pot-sub')?.textContent?.trim(),
   }));
-  dit(/^6\.00–32\.00/.test(pot.val ?? ''), `le pot de l'arène est annoncé en fourchette : « ${pot.val} »`);
-  dit(/3–16 players · 1st wins [\d.]+–[\d.]+/.test(pot.sub ?? ''), `et le gain du vainqueur aussi : « ${pot.sub} »`);
+  // Depuis le 4 septembre 2026 le ticket ne dit plus le pot : il dit ce que le vainqueur
+  // gagne, du pire au meilleur tirage, et la borne basse descend au gain d'une table
+  // partie au minimum. L'effectif en fourchette reste la divulgation du départ réduit.
+  dit(/^[\d.]+–[\d.]+USDC$/.test(pot.val ?? ''), `le gain du vainqueur de l'arène est annoncé en fourchette : « ${pot.val} »`);
+  dit(/^3–16 players · top \d+ paid$/.test(pot.sub ?? ''), `et l'effectif aussi, réduit compris : « ${pot.sub} »`);
 
   await trois.page.click('#play');
   await quatre.page.click('#play');

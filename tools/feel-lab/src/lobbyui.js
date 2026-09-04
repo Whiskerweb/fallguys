@@ -3,7 +3,7 @@ import { assets } from './assets.js';
 import { sfx } from './audio.js';
 import {
   MICROS, PALIERS, MODES, ORDRE_MODES, VARIANTES,
-  table, tableEffectif, echelle, montant, ordinal,
+  table, tableEffectif, echelle, roueDe, montant,
   miseChoisie, choisirMise, modeChoisi, choisirMode,
   progression, surChangement,
 } from './economie.js';
@@ -13,7 +13,7 @@ import {
  * non, en file ou non) et `majFiles` (qui attend où). Tout ce qui parle au serveur vit
  * dans `matchmaking.js`.
  */
-import { apercu, nomDuGrade } from './roue.js';
+import { apercu } from './roue.js';
 import { portefeuille, caisse } from './caisse.js';
 import {
   ARTICLES, JEU, apercuDuPost, lienDePost, marquerEnvoi,
@@ -134,15 +134,9 @@ export function majBarre() {
  */
 let salonCourant = null;
 
-/** « 1st », « 5th–8th » — le rang tel qu'on le dit, pas tel qu'on l'indexe. */
-function libelleRang(depuis, jusqu) {
-  return depuis === jusqu ? ordinal(depuis) : `${ordinal(depuis)}–${ordinal(jusqu)}`;
-}
-
-const ICONE_RANG = { 1: 'icon-rank-1', 2: 'icon-rank-2', 3: 'icon-rank-3' };
-
 /**
- * Construit le ticket : les trois tables, le pot, l'échelle des gains, le bouton.
+ * Construit le ticket : les trois modes, les trois tables, le gain en fourchette, la
+ * roue en aperçu, le bouton.
  * `onJouer(miseMicros)` est appelé avec la mise engagée.
  */
 export function buildTicket(onJouer) {
@@ -292,90 +286,32 @@ export function rafraichirTicket() {
   }
 
   /*
-   * LE POT EN FOURCHETTE, quand le mode peut partir réduit.
+   * LE GAIN EN FOURCHETTE — « 1ST PLACE WINS 2.60–4.00 USDC ».
    *
-   * L'arène part à seize, ou dès treize quand plus personne n'arrive (`salon.js`). Le
-   * joueur qui entre n'a pas à donner son accord à ce départ réduit — ce qui le rend
-   * défendable, c'est qu'il l'a LU ici avant de cliquer : « 26.00–32.00 USDC ·
-   * 13–16 players », et ce que le vainqueur touche dans les deux cas. Un pot affiché en
-   * un seul chiffre serait une promesse que le salon ne tient qu'une fois sur deux.
+   * Le ticket disait le pot, le rake, et un barème rang par rang avec ses gemmes. Le
+   * directeur produit a demandé une chose simple (4 septembre 2026) : ce qu'on gagne, du
+   * minimum au maximum. Les deux bornes sont lues sur LA ROUE du vainqueur (`roueDe`), dix
+   * cases, une par ligne du tableau : le ticket ne peut donc pas annoncer un montant que
+   * la roue ne paierait pas. Aucun multiplicateur, aucun pot : le joueur mise des USDC et
+   * lit des USDC.
    *
-   * Le minimum vient du SERVEUR, par la présence (`majFiles`) : c'est sa politique qui le
-   * fixe, pas le catalogue. Sans présence encore reçue, on affiche la table pleine.
+   * Quand le mode peut partir RÉDUIT — l'arène part dès treize quand plus personne
+   * n'arrive (`salon.js`) — la borne basse descend jusqu'au gain du vainqueur d'une table
+   * au minimum d'effectif, et le sous-titre annonce l'effectif en fourchette. Le joueur
+   * n'a pas à consentir à ce départ réduit ; ce qui le rend défendable, c'est qu'il l'a
+   * lu ici avant de cliquer. Le minimum vient du SERVEUR, par la présence (`majFiles`) ;
+   * sans présence encore reçue, on affiche la table pleine.
    */
   const fichier = dernieresFiles.find((f) => f.mode === mode && f.mise === mise);
   const minimum = fichier?.minimum ?? config.joueurs;
   const reduit = minimum >= 3 && minimum < config.joueurs;
-  if (reduit) {
-    const gagnants = [tableEffectif(mise, minimum).parRang[0], table(mise, mode, variante).parRang[0]];
-    el('pot-val').innerHTML = `${montant(mise * minimum)}–${montant(pot)}<small>USDC</small>`;
-    el('pot-sub').textContent =
-      `${minimum}–${config.joueurs} players · 1st wins ${montant(Math.min(...gagnants))}–${montant(Math.max(...gagnants))}`
-      + ` · ${config.rakeBp / 100}% rake`;
-  } else {
-    el('pot-val').innerHTML = `${montant(pot)}<small>USDC</small>`;
-    el('pot-sub').textContent =
-      `${config.joueurs} players · ${config.survivants.length} round${config.survivants.length > 1 ? 's' : ''}`
-      + ` · ${config.rakeBp / 100}% rake`;
-  }
-
-  const boite = el('echelle');
-  boite.innerHTML = '';
-  for (const ligne of echelle(mise, mode, variante)) {
-    const row = document.createElement('div');
-    row.className = 'ech'
-      + (ligne.gain === 0 ? ' rien' : '')
-      + (ligne.rembourse ? ' rendu' : '')
-      + (ligne.gemme ? ` g-${ligne.gemme}` : '');
-
-    const ico = document.createElement('div');
-    ico.className = 'ico';
-    const nom = ligne.rembourse ? 'icon-refund' : ICONE_RANG[ligne.depuis];
-    if (nom) {
-      const img = document.createElement('img');
-      img.src = `/icons/${nom}.png`;
-      img.alt = '';
-      // Sans le fichier, on retombe sur la pastille chiffrée plutôt que sur un vide.
-      img.onerror = () => { img.remove(); ico.appendChild(pastille(ligne.depuis)); };
-      ico.appendChild(img);
-    } else {
-      ico.appendChild(pastille(ligne.depuis));
-    }
-
-    // La gemme du palier : diamant, or, argent, bronze. Elle dit la HIÉRARCHIE, que la
-    // roue ne touche jamais — même quand une variante rapproche deux lignes au centime.
-    const gem = document.createElement('div');
-    gem.className = 'gem';
-    if (!ligne.gemme) gem.style.visibility = 'hidden';
-
-    const rang = document.createElement('div');
-    rang.className = 'rang';
-    rang.textContent = libelleRang(ligne.depuis, ligne.jusqu);
-
-    const gain = document.createElement('div');
-    gain.className = 'gain';
-    gain.textContent = ligne.gain === 0 ? '—' : montant(ligne.gain);
-
-    /*
-     * LA COLONNE DE DROITE DIT LE GRADE, PLUS LE MULTIPLICATEUR.
-     *
-     * Elle affichait « ×5 ». Un joueur mise des USDC et gagne des USDC : lui demander de
-     * multiplier de tête pour savoir ce qu'il touche est un travail qu'on lui donne pour
-     * rien, et le montant est déjà dans la colonne d'à côté. Le facteur reste notre outil
-     * de calcul interne — il ne s'affiche plus.
-     *
-     * Ce qu'on met à la place n'est pas décoratif : c'est le nom du quartier de roue sur
-     * lequel il tombera. Le ticket devient la légende de la roue, et le joueur apprend au
-     * lobby la hiérarchie qu'il verra tourner à la fin.
-     */
-    const fact = document.createElement('div');
-    fact.className = 'fact';
-    fact.textContent = ligne.gain === 0 ? 'nothing'
-      : (ligne.rembourse ? 'stake back' : nomDuGrade(ligne.gemme));
-
-    row.append(ico, gem, rang, gain, fact);
-    boite.appendChild(row);
-  }
+  const gains = roueDe(mode, 1, mise).cases.map((c) => c.gain);
+  if (reduit) gains.push(tableEffectif(mise, minimum).parRang[0]);
+  const payes = table(mise, mode, variante).parRang.filter((g) => g > 0).length;
+  el('pot-val').innerHTML = `${montant(Math.min(...gains))}–${montant(Math.max(...gains))}<small>USDC</small>`;
+  el('pot-sub').textContent =
+    `${reduit ? `${minimum}–${config.joueurs}` : config.joueurs} players · `
+    + (payes === 1 ? 'winner takes all' : `top ${payes} paid`);
 
   /*
    * LE BOUTON DIT OÙ L'ON EN EST, et il n'a qu'un état à la fois.
@@ -431,12 +367,6 @@ export function rafraichirTicket() {
   // Les pastilles de présence suivent le mode : celles des tables changent avec lui.
   majFiles(dernieresFiles);
   majBarre();
-}
-
-function pastille(n) {
-  const u = document.createElement('u');
-  u.textContent = String(n);
-  return u;
 }
 
 // ---------- la vitrine des personnages ----------
@@ -882,12 +812,15 @@ export function buildPortefeuille(onChangement) {
     depot: 'Deposit', mise: 'Stake', gain: 'Payout', mise_rendue: 'Stake returned',
     retrait: 'Withdrawal', retrait_echoue: 'Withdrawal refunded',
   };
+  // Une icône par nature de mouvement : l'œil trie le grand livre avant de le lire.
+  const GLYPHES = { depot: '↓', mise: '−', gain: '★', mise_rendue: '↩', retrait: '↑', retrait_echoue: '↺' };
 
   async function peindre() {
     const p = caisse.profil;
     if (!p) { dire('Sign in first.'); return; }
-    el('wallet-solde').textContent = `${montant(portefeuille.solde)} USDC available`
-      + (p.retraitsEnAttente ? ` · ${montant(p.retraitsEnAttente)} USDC withdrawing` : '');
+    el('wallet-solde-val').innerHTML = `${montant(portefeuille.solde)}<small>USDC</small>`;
+    el('wallet-solde').textContent = 'Available to play'
+      + (p.retraitsEnAttente ? ` · ${montant(p.retraitsEnAttente)} USDC on its way out` : '');
     el('wallet-adresse').textContent = p.adresseDepot ?? '—';
     el('wallet-adresse').href = p.adresseDepot ? explorateur(p.adresseDepot) : '#';
     el('wallet-depot-note').textContent =
@@ -922,9 +855,11 @@ export function buildPortefeuille(onChangement) {
       h.innerHTML = lignes.length ? lignes.slice(0, 25).map((l) => {
         const signe = l.montant > 0 ? '+' : '';
         const quoi = GENRES[l.genre] ?? l.genre;
-        const detail = l.partie ? ` · ${l.mode ?? ''}${l.issue ? ` ${l.issue}` : ''}` : '';
-        const preuve = l.lien ? `<a target="_blank" rel="noopener" href="${l.lien}">tx ↗</a>` : '<i>pending</i>';
-        return `<div class="wallet-ligne-h ${l.montant > 0 ? 'plus' : 'moins'}"><span>${quoi}${detail}</span><b>${signe}${montant(l.montant)}</b>${preuve}</div>`;
+        const detail = l.partie ? `<em>${l.mode ?? ''}${l.issue ? ` · ${l.issue}` : ''}</em>` : '';
+        const preuve = l.lien ? `<a class="wl-tx" target="_blank" rel="noopener" href="${l.lien}">TX ↗</a>` : '<i>PENDING</i>';
+        return `<div class="wallet-ligne-h ${l.montant > 0 ? 'plus' : 'moins'}">`
+          + `<i class="wl-ico">${GLYPHES[l.genre] ?? '·'}</i><span class="wl-quoi">${quoi}${detail}</span>`
+          + `<b>${signe}${montant(l.montant)}</b>${preuve}</div>`;
       }).join('') : '<div class="wallet-note">No movement yet.</div>';
     } catch { h.innerHTML = '<div class="wallet-note">History unavailable.</div>'; }
   }
