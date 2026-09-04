@@ -168,6 +168,8 @@ export function buildPorte() {
 
   choisir('entrer');
   surSession((s) => { sessionOuverte = Boolean(s); evaluerPorte(); });
+  // La caisse a constaté l'absence de session (`caisse.rafraichir`) : la porte se rouvre.
+  document.addEventListener('tumble-session', (e) => { sessionOuverte = Boolean(e.detail?.ouverte); evaluerPorte(); });
   // L'état initial, lu UNE fois, hors de tout auditeur.
   session().then((s) => { sessionOuverte = Boolean(s); evaluerPorte(); });
   evaluerPorte();

@@ -79,15 +79,22 @@ export const caisse = {
     if (!(await session())) {
       enLigne = false; profil = null;
       /*
-       * PAS DE SESSION = DÉCONNECTÉ, et on le DIT à tout le monde. Quand un
-       * rafraîchissement de jeton échoue, supabase-js rend `null` ici sans toujours
-       * prévenir ses auditeurs : la porte, qui tient son état de l'auditeur, restait
-       * fermée sur un lobby que le backend refusait, et l'ancien panneau montrait le
-       * formulaire sans SIGN OUT — « je ne vois aucun bouton pour me déconnecter »
-       * (directeur produit, 4 septembre 2026). Une fermeture locale explicite émet
-       * l'événement ; la porte se rouvre.
+       * PAS DE SESSION = DÉCONNECTÉ, et on le DIT à la porte. Quand un rafraîchissement
+       * de jeton échoue, supabase-js rend `null` ici sans toujours prévenir ses
+       * auditeurs : la porte, qui tient son état de l'auditeur, restait fermée sur un
+       * lobby que le backend refusait, et l'ancien panneau montrait le formulaire sans
+       * SIGN OUT — « je ne vois aucun bouton pour me déconnecter » (directeur produit,
+       * 4 septembre 2026).
+       *
+       * PAS PAR `deconnecter()` : `signOut` émet SIGNED_OUT, `main.js` relit la caisse
+       * à chaque événement de session, et la caisse sans session se déconnectait à
+       * nouveau — une boucle sans fin qui plantait la page de tout visiteur SANS
+       * session, dix minutes durant sur le site publié. Un événement à part, que seule
+       * la porte écoute, et que rien ne renvoie ici.
        */
-      await deconnecter();
+      if (typeof document !== 'undefined') {
+        document.dispatchEvent(new CustomEvent('tumble-session', { detail: { ouverte: false } }));
+      }
       prevenir();
       return null;
     }
