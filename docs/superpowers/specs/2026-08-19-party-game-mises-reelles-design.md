@@ -29,6 +29,11 @@
 >   Wallet…), et le lobby propose **DEPOSIT FROM WALLET** : un transfert signé dans le
 >   wallet du joueur, réseau ajouté d'office.
 >
+> **5 septembre 2026 — LA BOUTIQUE VEND DES SKINS, ET TOUT PART AU BRÛLAGE.** On commence
+> avec Pepe ; BabyTrump se gagne par un post ; BabyMusk (15 USDC), BabyNetan (12) et
+> CyberLeek (10) s'achètent depuis le wallet de jeu, le prix va au wallet des frais et
+> brûle du BG au tour suivant. La boutique l'écrit et renvoie au suivi en direct.
+>
 > Les mentions de Solana, de devnet et de Phantom dans les amendements plus bas décrivent
 > l'état d'avant cette date. Les données d'essai de l'ancienne chaîne sont effacées
 > (`backend/outils/purger.mjs`) : on ne migre pas de l'argent qui ne vaut rien.

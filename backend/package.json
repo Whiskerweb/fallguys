@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "test": "node test/tout.mjs && node test/retraits.mjs && node test/adresses.mjs && node test/chaine.mjs",
+    "test": "node test/tout.mjs && node test/retraits.mjs && node test/adresses.mjs && node test/chaine.mjs && node test/boutique.mjs",
     "tresorerie": "node outils/tresorerie.mjs --ecrire",
     "contrats": "node outils/contrats.mjs",
     "contrats:compiler": "node outils/contrats.mjs --compiler --etat",

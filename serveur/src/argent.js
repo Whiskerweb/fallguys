@@ -31,7 +31,7 @@ export class RefusBackend extends Error {
 }
 
 /**
- * @returns {null | {engager: Function, regler: Function, annuler: Function, soldes: Function, ping: Function, url: string}}
+ * @returns {null | {engager: Function, regler: Function, annuler: Function, soldes: Function, possessions: Function, ping: Function, url: string}}
  */
 export function creerPont({ url = URL_BACKEND, cle = CLE, fetchFn = fetch } = {}) {
   if (!url) return null;
@@ -61,6 +61,8 @@ export function creerPont({ url = URL_BACKEND, cle = CLE, fetchFn = fetch } = {}
     /** Verifie au demarrage que la cle du serveur est bien celle que le backend attend. */
     ping: () => appeler('/interne/ping', { quoi: 'ping' }, { delai: 8000 }),
     soldes: (userIds) => appeler('/interne/soldes', { quoi: 'soldes', userIds }, { delai: 8000 }),
+    /** Les skins qu'un joueur a PAYES : un skin payant ne se relaie qu'a qui l'a achete. */
+    possessions: (userId) => appeler('/interne/possessions', { quoi: 'possessions', userId }, { delai: 8000 }),
     /**
      * @param {{partie: string, mode: string, mise: number, joueurs: Array<{userId: string, nom: string}>}} p
      * @returns {Promise<{annulee: boolean, engages: string[], refuses: Array<{userId: string, nom: string, raison: string}>}>}

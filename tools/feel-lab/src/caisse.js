@@ -32,6 +32,7 @@
 
 import { MICROS, PALIERS, MODES, prevenir, lireEntier, table, tableEffectif, tirerIssue } from './economie.js';
 import { CONFIGURE, appeler, session, deconnecter } from './compte.js';
+import { poserServeur } from './boutique.js';
 
 const CLE_SOLDE = 'tumble-solde-banc';
 
@@ -64,6 +65,9 @@ export const caisse = {
   definirServeur({ compte = null, argent = false, identite = 'requise' } = {}) {
     serveur = { compte, argent: Boolean(argent), identite };
     banc = !argent && identite === 'facultative';
+    // La boutique doit savoir s'il y a de l'argent : un skin payant ne se porte sur la
+    // foi de la mémoire locale que sur un banc.
+    poserServeur({ argent: Boolean(argent) });
     prevenir();
   },
 
@@ -102,6 +106,8 @@ export const caisse = {
       profil = await appeler('/moi');
       soldeDistant = profil.solde;
       enLigne = true;
+      // Ce qu'on possède vient du backend, jamais du navigateur.
+      poserServeur({ possessions: profil.possessions ?? [] });
     } catch (e) {
       enLigne = false;
       /*
@@ -160,6 +166,18 @@ export const caisse = {
   async retirer(montant) {
     const r = await appeler('/retrait', { montant });
     soldeDistant = r.solde;
+    prevenir();
+    return r;
+  },
+
+  /**
+   * Achète un skin. Le navigateur dit l'ARTICLE ; le prix est celui du backend, qui
+   * débite le wallet de jeu vers les frais (donc vers le brûlage) et dit ce qu'on possède.
+   */
+  async acheter(article) {
+    const r = await appeler('/boutique/acheter', { article });
+    soldeDistant = r.solde;
+    poserServeur({ possessions: r.possessions ?? [] });
     prevenir();
     return r;
   },

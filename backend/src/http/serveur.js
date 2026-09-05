@@ -39,6 +39,7 @@ import { lienExplorateur, lienAdresse, ChaineEchouee, ChaineIncertaine } from '.
 import { verifierChaine } from '../robinhood/reconciliation.js';
 import { RESEAUX } from '../robinhood/reseaux.js';
 import { tresorerie } from '../robinhood/tresorerie.js';
+import { acheter, possessions, catalogue, LIEN_SUIVI } from '../boutique.js';
 import { ouvrir } from '../signature.js';
 import { statistiques, invaliderStats, poserVerification } from '../stats.js';
 import { publier, souscrire } from '../evenements.js';
@@ -157,6 +158,8 @@ export function creerServeur(db, { chaine = null } = {}) {
         adresseDepot: p.adresse_depot,
         solde: await solde(db, compte.joueur(userId)),
         retraitsEnAttente: Number(enAttente),
+        // Les skins achetes : c'est le backend qui dit ce qu'on possede, jamais le navigateur.
+        possessions: await possessions(db, userId),
         reseau: config.reseau,
         /*
          * La CHAINE, telle que le navigateur doit la connaitre : de quoi ajouter le reseau
@@ -252,6 +255,36 @@ export function creerServeur(db, { chaine = null } = {}) {
       }
     },
 
+    /** Le catalogue de la boutique, sans jeton : les prix se lisent avant de se connecter. */
+    'GET /boutique': async () => ({ articles: catalogue(), suivi: LIEN_SUIVI, destination: 'burn' }),
+
+    /**
+     * Achete un skin. Le navigateur dit UN ARTICLE, jamais un prix : le prix est ici.
+     * L'argent va du wallet de jeu du joueur au wallet des FRAIS, et brule du BG au tour
+     * suivant — c'est la promesse de la boutique, tenue par la destination du virement.
+     */
+    'POST /boutique/acheter': async (req) => {
+      const userId = await joueurDe(req);
+      const { article } = await corps(req);
+      if (typeof article !== 'string' || !/^[a-z0-9-]{1,40}$/.test(article)) throw refus(400, 'ARTICLE_INVALIDE', 'identifiant d\'article attendu');
+      let r;
+      try { r = await acheter(db, chaine, { userId, article }); }
+      catch (e) {
+        if (e.code === 'ARTICLE_INCONNU') throw refus(404, e.code, e.message);
+        if (e.code === 'SOLDE_INSUFFISANT' || e.code === 'CHAINE_REFUS') throw refus(402, e.code, e.message);
+        throw e;
+      }
+      publier('boutique', { article, prix: r.prix, statut: r.statut });
+      invaliderStats();
+      return { ...r, possessions: await possessions(db, userId), lien: r.signature ? lienExplorateur(r.signature) : null };
+    },
+
+    /** Ce qu'un joueur possede, pour le serveur de jeu : un skin paye se porte, les autres non. */
+    'POST /interne/possessions': interne('possessions', async ({ userId }) => {
+      if (!uuid.test(userId ?? '')) throw refus(400, 'ID_INVALIDE', 'identifiant de joueur invalide');
+      return { possessions: await possessions(db, userId) };
+    }),
+
     /** Releve les depots arrives. Appele par le lobby quand le joueur regarde. */
     'POST /depots/relever': async (req) => {
       const userId = await joueurDe(req);
@@ -299,18 +332,18 @@ export function creerServeur(db, { chaine = null } = {}) {
         `select objet, ref, signature, statut from public.chain_tx where user_id = $1 and signature is not null`, [userId],
       )).rows;
       const parCle = new Map(chaine_.map((c) => [`${c.objet}:${c.ref}`, c]));
-      const OBJET = { mise: 'mise', gain: 'gain', mise_rendue: 'annulation', retrait: 'retrait' };
+      const OBJET = { mise: 'mise', gain: 'gain', mise_rendue: 'annulation', retrait: 'retrait', achat: 'achat' };
       const lignes = r.rows.map((l) => {
         let signature = null;
         if (l.genre === 'depot' && !l.ref?.startsWith('test:')) signature = l.ref;
         else if (OBJET[l.genre]) {
-          const ref = l.genre === 'retrait' ? l.ref : `${l.metadata?.matchId}:${userId}`;
+          const ref = l.genre === 'retrait' || l.genre === 'achat' ? l.ref : `${l.metadata?.matchId}:${userId}`;
           const c = parCle.get(`${OBJET[l.genre]}:${ref}`);
           if (c?.statut === 'confirme') signature = c.signature;
         }
         return {
           cree_le: l.cree_le, genre: l.genre, montant: Number(l.montant),
-          partie: l.metadata?.matchId ?? null, mode: l.metadata?.mode ?? null, issue: l.metadata?.issue ?? null,
+          partie: l.metadata?.matchId ?? null, mode: l.metadata?.mode ?? null, issue: l.metadata?.issue ?? null, article: l.metadata?.article ?? null,
           signature, lien: signature ? lienExplorateur(signature) : null,
         };
       });

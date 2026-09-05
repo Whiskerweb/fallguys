@@ -16,8 +16,8 @@ import {
 import { apercu } from './roue.js';
 import { portefeuille, caisse } from './caisse.js';
 import {
-  ARTICLES, JEU, apercuDuPost, lienDePost, marquerEnvoi,
-  estDebloque, enAttente, attenteRestante, reclamer, verrouilles,
+  ARTICLES, JEU, NOTE_REVENUS, LIEN_SUIVI, apercuDuPost, lienDePost, marquerEnvoi,
+  estDebloque, enAttente, attenteRestante, reclamer, verrouilles, surChangement as surBoutique,
 } from './boutique.js';
 import { CONFIGURE, API, session, connecter, creerCompte, deconnecter, messageErreur, lierWallet, deposerDepuisWallet, adresseWallet, adresseCourte } from './compte.js';
 
@@ -523,68 +523,129 @@ export function wireEcrans(onEcran, onChangePerso) {
 // ---------- la boutique ----------
 
 /**
- * Un seul article, donc UNE carte et pas une grille.
+ * Une carte par article, sur une grille — quatre depuis le 5 septembre 2026.
  *
  * `boutique.js` tient la règle et l'état ; ce bloc ne fait que peindre ce qu'elle dit et
- * lui renvoyer les deux gestes du joueur — partir publier, réclamer. Le nom, la rareté et
- * le portrait viennent du catalogue de `cosmetics.js` : la boutique ne redécrit jamais un
- * personnage, sinon la fiche de la garde-robe et celle de la boutique finiraient par ne
- * plus parler du même.
+ * lui renvoyer les gestes du joueur — partir publier, réclamer, acheter, équiper. Le nom,
+ * la rareté et le portrait viennent du catalogue de `cosmetics.js` : la boutique ne
+ * redécrit jamais un personnage, sinon la fiche de la garde-robe et celle de la boutique
+ * finiraient par ne plus parler du même.
+ *
+ * Deux conditions, deux boutons. Le POST ouvre X, attend, réclame (déclaratif, aucun
+ * centime). L'ACHAT demande une confirmation — le premier clic arme le bouton, le second
+ * paie — puis appelle le backend, qui débite le wallet de jeu vers les frais : chaque
+ * USDC dépensé ici brûle du BG, et le pied de l'écran renvoie au suivi en direct.
  */
-const ARTICLE = ARTICLES[0] ?? null;
 
-/** Le compte à rebours de la réclamation. Un seul, réarmé à chaque rendu. */
+/** Le compte à rebours de la réclamation, et l'armement d'un achat : un seul chrono, réarmé à chaque rendu. */
 let horlogeBoutique = null;
+/** L'article dont le bouton BUY est armé (« CONFIRM »), et jusqu'à quand. */
+let armement = null;
 
 /** Où aller quand une tuile cadenassée est cliquée. Posé par `wireEcrans`. */
 let allerA = null;
 
-/** Construit la carte une fois pour toutes. Seul l'état change ensuite. */
+const carteDe = (id) => el('shop-grille')?.querySelector(`[data-article="${id}"]`);
+
+/** Construit les cartes une fois pour toutes. Seul l'état change ensuite. */
 export function buildBoutique(onChange) {
-  if (!ARTICLE) return;   // pas de campagne en cours : la carte reste telle quelle
-  const m = MODELS.find((x) => x.id === ARTICLE.id);
-  const r = RARITY[m?.rarity] ?? RARITY.common;
-
-  const img = el('shop-port-img');
-  img.src = `/icons/port-${ARTICLE.id}.png`;
-  img.alt = m?.name ?? ARTICLE.id;
-  img.onerror = () => { img.style.visibility = 'hidden'; };
-
-  el('shop-carte').style.setProperty('--rar', couleurRarete(m));
-  el('shop-rarity').textContent = r.label;
-  el('shop-rarity').style.background = r.color;
-  el('shop-prix').textContent = ARTICLE.prix;
-  el('shop-nom').textContent = m?.name ?? ARTICLE.id;
-  el('shop-accroche').textContent = ARTICLE.accroche;
-  el('shop-detail').textContent = ARTICLE.detail;
-  // Le post est montré AVANT le clic, mot pour mot. On demande à quelqu'un de publier
-  // sous son propre nom : lui cacher le texte est la meilleure façon qu'il ne publie rien.
-  el('shop-post').textContent = apercuDuPost(ARTICLE, JEU);
-
-  el('shop-action').addEventListener('click', () => agirBoutique(onChange));
+  const grille = el('shop-grille');
+  if (!grille) return;
+  grille.innerHTML = '';
+  for (const article of ARTICLES) {
+    const m = MODELS.find((x) => x.id === article.id);
+    const r = RARITY[m?.rarity] ?? RARITY.common;
+    const carte = document.createElement('div');
+    carte.className = 'shop-carte';
+    carte.dataset.article = article.id;
+    carte.style.setProperty('--rar', couleurRarete(m));
+    carte.innerHTML = `
+      <div class="shop-port"><img alt=""></div>
+      <div class="shop-corps">
+        <span class="shop-rarity"></span><span class="shop-prix"></span>
+        <div class="shop-nom"></div>
+        <div class="shop-accroche"></div>
+        <div class="shop-detail"></div>
+        <div class="shop-post hidden"></div>
+        <button class="shop-action">—</button>
+        <div class="shop-note"></div>
+        <a class="shop-lien hidden" target="_blank" rel="noopener noreferrer">Open X manually →</a>
+      </div>`;
+    const img = carte.querySelector('img');
+    img.src = `/icons/port-${article.id}.png`;
+    img.alt = m?.name ?? article.id;
+    img.onerror = () => { img.style.visibility = 'hidden'; };
+    carte.querySelector('.shop-rarity').textContent = r.label;
+    carte.querySelector('.shop-rarity').style.background = r.color;
+    carte.querySelector('.shop-prix').textContent = article.prix;
+    carte.querySelector('.shop-nom').textContent = m?.name ?? article.id;
+    carte.querySelector('.shop-accroche').textContent = article.accroche;
+    carte.querySelector('.shop-detail').textContent = article.detail;
+    if (article.condition === 'post') {
+      // Le post est montré AVANT le clic, mot pour mot. On demande à quelqu'un de publier
+      // sous son propre nom : lui cacher le texte est la meilleure façon qu'il ne publie rien.
+      const post = carte.querySelector('.shop-post');
+      post.textContent = apercuDuPost(article, JEU);
+      post.classList.remove('hidden');
+    }
+    carte.querySelector('.shop-action').addEventListener('click', () => agirBoutique(article, onChange));
+    grille.appendChild(carte);
+  }
+  el('shop-revenus-txt').textContent = NOTE_REVENUS;
+  el('shop-suivi').href = LIEN_SUIVI;
+  // Quand le backend dit ce qu'on possède (ou que le serveur dit qu'il y a de l'argent),
+  // les cartes se repeignent : un skin acheté sur une autre machine apparaît EQUIPPABLE ici.
+  surBoutique(() => majBoutique(onChange));
   majBoutique(onChange);
 }
 
-/** Le bouton unique de la carte. Il change de rôle avec l'état, jamais de place. */
-function agirBoutique(onChange) {
-  if (!ARTICLE) return;
+/** Le bouton d'une carte. Il change de rôle avec l'état, jamais de place. */
+async function agirBoutique(article, onChange) {
+  const id = article.id;
 
-  if (estDebloque(ARTICLE.id)) {
-    if (!cosmetics.setModel(ARTICLE.id)) return;
+  if (estDebloque(id)) {
+    if (!cosmetics.setModel(id)) return;
     sfx.click();
-  } else if (enAttente(ARTICLE.id) && attenteRestante(ARTICLE.id) === 0) {
-    const verdict = reclamer(ARTICLE.id);
+  } else if (article.condition === 'achat') {
+    /*
+     * ACHETER, EN DEUX CLICS. Le premier arme le bouton (« CONFIRM 15 USDC ») pendant six
+     * secondes ; le second paie. De l'argent réel part sur un clic : un seul clic, c'est
+     * un clic de trop. Le backend débite et dit ce qu'on possède ; on équipe aussitôt —
+     * la récompense, c'est le personnage sur le plateau, pas un message.
+     */
+    if (armement?.id !== id || armement.jusqua < Date.now()) {
+      armement = { id, jusqua: Date.now() + 6000 };
+      sfx.click();
+      majBoutique(onChange);
+      return;
+    }
+    armement = null;
+    majBoutique(onChange, { enCours: id });
+    try {
+      await caisse.acheter(id);
+      cosmetics.setModel(id);
+      sfx.jackpot();
+    } catch (e) {
+      const RAISONS = {
+        NON_AUTHENTIFIE: 'Sign in first — the skin is paid from your game wallet.',
+        SOLDE_INSUFFISANT: `Not enough USDC in your game wallet for ${article.prix}. Deposit first.`,
+        CHAINE_REFUS: 'The payment was refused on-chain. Nothing was charged — try again in a moment.',
+        ARTICLE_INCONNU: 'This skin is not for sale.',
+      };
+      majBoutique(onChange, { erreur: { id, texte: RAISONS[e?.code] ?? (e?.message || 'Purchase failed.') } });
+      return;
+    }
+  } else if (enAttente(id) && attenteRestante(id) === 0) {
+    const verdict = reclamer(id);
     if (!verdict.ok) { majBoutique(onChange); return; }
     /*
      * Le paiement du geste, et il est immédiat : on équipe. Le modèle 3D du lobby, à
      * gauche, DEVIENT BabyTrump sous les yeux du joueur — c'est la récompense elle-même.
-     * Le renvoyer dans la garde-robe pour un clic de plus étalerait sur deux écrans le
-     * seul moment que cette campagne avait à offrir.
      */
-    cosmetics.setModel(ARTICLE.id);
+    cosmetics.setModel(id);
     sfx.jackpot();
   } else {
-    partirPublier(onChange);
+    partirPublier(article, onChange);
     return;
   }
 
@@ -595,7 +656,7 @@ function agirBoutique(onChange) {
 }
 
 /** Ouvre X, post déjà écrit, et note le départ. */
-function partirPublier(onChange) {
+function partirPublier(article, onChange) {
   /*
    * `window.open` DOIT rester dans le gestionnaire de clic — appelée un tick plus tard,
    * elle passe pour une fenêtre non sollicitée et le navigateur la bloque.
@@ -605,66 +666,97 @@ function partirPublier(onChange) {
    * — or c'est exactement ce qu'on a besoin de savoir pour proposer le lien de secours.
    * On coupe donc le lien vers l'ouvreur à la main, juste après.
    */
-  const fenetre = window.open(lienDePost(ARTICLE, JEU), '_blank');
+  const fenetre = window.open(lienDePost(article, JEU), '_blank');
   if (fenetre) fenetre.opener = null;
   // Marqué dans les deux cas : bloquée ou non, le joueur a exprimé le geste, et le lien
   // de secours le mènera au même endroit. Un bloqueur de pop-ups ne doit pas fermer à
-  // jamais le seul chemin d'acquisition du jeu.
-  marquerEnvoi(ARTICLE.id);
+  // jamais ce chemin d'acquisition.
+  marquerEnvoi(article.id);
   sfx.click();
-  majBoutique(onChange, { bloquee: !fenetre });
+  majBoutique(onChange, { bloquee: article.id });
 }
 
 /**
- * Repeint la carte selon l'état. Trois états, trois boutons, trois phrases.
+ * Repeint chaque carte selon son état.
  *
- * Le compte à rebours se réarme lui-même tant qu'il court : c'est la seule chose animée
- * de l'écran, et sans elle le bouton resterait grisé sans dire jusqu'à quand.
+ * Le compte à rebours (réclamation, armement) se réarme lui-même tant qu'il court : c'est
+ * la seule chose animée de l'écran, et sans lui un bouton resterait grisé sans dire
+ * jusqu'à quand.
  */
-export function majBoutique(onChange, { bloquee = false } = {}) {
+export function majBoutique(onChange, { bloquee = null, enCours = null, erreur = null } = {}) {
   clearTimeout(horlogeBoutique);
-  if (!ARTICLE) return;
+  let relance = Infinity;
 
-  const bouton = el('shop-action');
-  const note = el('shop-note');
-  const lien = el('shop-lien');
-  if (!bouton) return;
-
-  bouton.classList.remove('reclamer', 'porte');
-  note.classList.remove('ok', 'alerte');
-  lien.href = lienDePost(ARTICLE, JEU);
-
-  if (estDebloque(ARTICLE.id)) {
-    const porte = ARTICLE.id === cosmetics.model;
-    bouton.classList.add('porte');
-    bouton.disabled = porte;
-    bouton.textContent = porte ? 'EQUIPPED' : 'EQUIP';
-    note.classList.add('ok');
-    note.textContent = 'Unlocked for good. Thanks for the post — see you on the course.';
+  for (const article of ARTICLES) {
+    const carte = carteDe(article.id);
+    if (!carte) continue;
+    const id = article.id;
+    const bouton = carte.querySelector('.shop-action');
+    const note = carte.querySelector('.shop-note');
+    const lien = carte.querySelector('.shop-lien');
+    bouton.classList.remove('reclamer', 'porte', 'acheter', 'confirmer');
+    note.classList.remove('ok', 'alerte');
     lien.classList.add('hidden');
-  } else if (enAttente(ARTICLE.id)) {
-    const reste = attenteRestante(ARTICLE.id);
-    bouton.classList.add('reclamer');
-    bouton.disabled = reste > 0;
-    bouton.textContent = reste > 0
-      ? `I POSTED IT — ${Math.ceil(reste / 1000)}s`
-      : 'I POSTED IT — UNLOCK';
-    if (bloquee) note.classList.add('alerte');
-    note.textContent = bloquee
-      ? 'Your browser blocked the window. Use the link below, publish, then come back here.'
-      : 'X is open in another tab. Publish the post, come back, and claim your skin.';
-    lien.textContent = 'Open X again →';
-    lien.classList.remove('hidden');
-    // Le lien de secours compte lui aussi comme un départ : c'est le même geste.
-    lien.onclick = () => { marquerEnvoi(ARTICLE.id); majBoutique(onChange); };
-    if (reste > 0) horlogeBoutique = setTimeout(() => majBoutique(onChange), Math.min(reste, 200));
-  } else {
-    bouton.disabled = false;
-    bouton.textContent = 'UNLOCK WITH A POST';
-    note.textContent = 'Costs nothing. We open X with the post already written.';
-    lien.classList.add('hidden');
+    carte.classList.toggle('possede', estDebloque(id));
+
+    if (estDebloque(id)) {
+      const porte = id === cosmetics.model;
+      bouton.classList.add('porte');
+      bouton.disabled = porte;
+      bouton.textContent = porte ? 'EQUIPPED' : 'EQUIP';
+      note.classList.add('ok');
+      note.textContent = article.condition === 'post'
+        ? 'Unlocked for good. Thanks for the post — see you on the course.'
+        : 'Yours for good. Your USDC went to the fee wallet and burns BG.';
+      continue;
+    }
+
+    if (article.condition === 'achat') {
+      bouton.classList.add('acheter');
+      if (enCours === id) {
+        bouton.disabled = true;
+        bouton.textContent = 'PAYING…';
+        note.textContent = 'Signing the transfer from your game wallet…';
+      } else if (armement?.id === id && armement.jusqua > Date.now()) {
+        bouton.classList.add('confirmer');
+        bouton.disabled = false;
+        bouton.textContent = `CONFIRM ${article.prix}`;
+        note.classList.add('alerte');
+        note.textContent = `${article.prix} leaves your game wallet now. Click again to confirm.`;
+        relance = Math.min(relance, 250);
+      } else {
+        bouton.disabled = false;
+        bouton.textContent = `BUY · ${article.prix}`;
+        if (erreur?.id === id) { note.classList.add('alerte'); note.textContent = erreur.texte; }
+        else note.textContent = 'Paid from your game wallet. 100% goes to buying and burning BG.';
+      }
+      continue;
+    }
+
+    // Le post.
+    lien.href = lienDePost(article, JEU);
+    if (enAttente(id)) {
+      const reste = attenteRestante(id);
+      bouton.classList.add('reclamer');
+      bouton.disabled = reste > 0;
+      bouton.textContent = reste > 0 ? `I POSTED IT — ${Math.ceil(reste / 1000)}s` : 'I POSTED IT — UNLOCK';
+      if (bloquee === id) note.classList.add('alerte');
+      note.textContent = bloquee === id
+        ? 'Your browser blocked the window. Use the link below, publish, then come back here.'
+        : 'X is open in another tab. Publish the post, come back, and claim your skin.';
+      lien.textContent = 'Open X again →';
+      lien.classList.remove('hidden');
+      // Le lien de secours compte lui aussi comme un départ : c'est le même geste.
+      lien.onclick = () => { marquerEnvoi(id); majBoutique(onChange); };
+      if (reste > 0) relance = Math.min(relance, Math.min(reste, 200));
+    } else {
+      bouton.disabled = false;
+      bouton.textContent = 'UNLOCK WITH A POST';
+      note.textContent = 'Costs nothing. We open X with the post already written.';
+    }
   }
 
+  if (Number.isFinite(relance)) horlogeBoutique = setTimeout(() => majBoutique(onChange), relance);
   majBadgeBoutique();
 }
 

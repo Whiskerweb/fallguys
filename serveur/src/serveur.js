@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { preparer } from './monde.js';
 import { creerMatchmaking } from './matchmaking.js';
+import { PAYANTS } from './boutique.js';
 import { POLITIQUES } from './politique.js';
 import { typeDe, decoderEntree, TYPE } from './reseau.js';
 import { verifierJeton, IDENTITE_CONFIGUREE } from './identite.js';
@@ -294,12 +295,29 @@ export async function demarrerServeur({
           const mode = typeof msg.mode === 'string' && /^[a-z]{1,16}$/.test(msg.mode)
             ? msg.mode
             : 'arena';
-          const r = mm.rejoindre(
-            { nom, modele, compte, faire: () => pilotageAutomatique() },
-            Number(msg.mise ?? 0),
-            mode,
-          );
-          if (!r.accepte) envoyer(nom, { type: 'refus', raison: r.raison });
+          const entrer = (m) => {
+            const r = mm.rejoindre(
+              { nom, modele: m, compte, faire: () => pilotageAutomatique() },
+              Number(msg.mise ?? 0),
+              mode,
+            );
+            if (!r.accepte) envoyer(nom, { type: 'refus', raison: r.raison });
+          };
+          /*
+           * UN SKIN PAYANT NE SE RELAIE QU'À QUI L'A PAYÉ. L'étiquette vient du client,
+           * et un client peut écrire ce qu'il veut dans sa mémoire locale : s'il annonce
+           * un personnage de la boutique payante et qu'il y a de l'argent derrière ce
+           * serveur, on demande au backend s'il le possède. Sinon, il joue sans — le
+           * client, lui, verra son propre choix retomber dès `bienvenue`. Un backend
+           * muet ne bloque pas l'entrée en file : le skin tombe, la partie non.
+           */
+          if (modele && pont && compte && PAYANTS.includes(modele)) {
+            pont.possessions(compte)
+              .then((p) => entrer(p?.possessions?.includes(modele) ? modele : null))
+              .catch(() => entrer(null));
+          } else {
+            entrer(modele);
+          }
           break;
         }
 

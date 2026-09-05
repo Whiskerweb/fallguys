@@ -432,6 +432,10 @@ export async function rattraperChaine(db, chaine) {
         const { annulerRachat } = await import('../robinhood/brulage.js');
         await annulerRachat(db, l.ref.split(':')[0], 'transaction jamais passee');
       }
+      if (l.objet === 'achat') {
+        const { annulerAchat } = await import('../boutique.js');
+        await annulerAchat(db, { ref: l.ref, raison: 'transaction jamais passee' });
+      }
     },
     confirme: async (l) => {
       if (l.objet === 'mise') {
@@ -446,6 +450,10 @@ export async function rattraperChaine(db, chaine) {
       if (l.objet === 'rachat') {
         const { consignerRachat } = await import('../robinhood/brulage.js');
         await consignerRachat(db, chaine, l.ref.split(':')[0], l.signature);
+      }
+      if (l.objet === 'achat') {
+        const { confirmerAchat } = await import('../boutique.js');
+        await confirmerAchat(db, { ref: l.ref, signature: l.signature });
       }
     },
   });

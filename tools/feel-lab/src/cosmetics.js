@@ -4,7 +4,7 @@
  * limitée, et (selon le spec) la réduction de rake attachée aux cosmétiques premium.
  * Le personnage du lobby et celui de la course lisent la même source.
  */
-import { estDebloque } from './boutique.js';
+import { estDebloque, surChangement } from './boutique.js';
 
 export const SKINS = [
   // Le premier est le skin par defaut : il doit trancher sur un sol bleu.
@@ -34,14 +34,21 @@ export const SKINS = [
  */
 export const MODELS = [
   /*
-   * BabyTrump n'est plus donne : il est EN BOUTIQUE, et il s'y gagne en publiant un post
-   * sur X (`boutique.js`). Il reste en tete du catalogue parce qu'il est la tete de
-   * gondole de la campagne — la premiere vignette de la garde-robe porte donc un cadenas,
-   * et c'est exactement ce qu'on veut qu'on voie en ouvrant la garde-robe.
+   * PEPE OUVRE LE CATALOGUE, et il est le seul qu'on a en arrivant (decision produit du
+   * 5 septembre 2026 : « on commence de base avec Pepe »). Tous les autres sont EN
+   * BOUTIQUE : BabyTrump se gagne en publiant un post sur X, les trois suivants
+   * s'achetent en USDC (`boutique.js`). La garde-robe montre donc un personnage porte
+   * et quatre cadenas — et c'est exactement ce qu'on veut qu'on voie en l'ouvrant.
    *
-   * La CONDITION n'est pas ecrite ici : `boutique.js` la detient, ce fichier ne decrit
-   * que le personnage. Deux endroits pour la meme regle, et l'un des deux finit faux.
+   * La CONDITION et le PRIX ne sont pas ecrits ici : `boutique.js` les detient, ce
+   * fichier ne decrit que le personnage. Deux endroits pour la meme regle, et l'un des
+   * deux finit faux.
    */
+  {
+    id: 'char-grenouille', name: 'Pepe', rigged: true, rarity: 'legendary', accent: 0x4f9e3f,
+    desc: 'Grin from ear to ear, spotless diaper. He runs and he walks.',
+    season: 'Starter',
+  },
   {
     id: 'char-babytrump', name: 'BabyTrump', rigged: true, rarity: 'epic', accent: 0xf5a623,
     desc: 'Small format, big temper. He runs, he walks and he waits with his own animations.',
@@ -53,17 +60,12 @@ export const MODELS = [
     season: 'Limited edition',
   },
   {
-    id: 'char-grenouille', name: 'Pepe', rigged: true, rarity: 'legendary', accent: 0x4f9e3f,
-    desc: 'Grin from ear to ear, spotless diaper. He runs and he walks.',
-    season: 'Limited edition',
-  },
-  {
     id: 'char-diplomate', name: 'BabyNetan', rigged: true, rarity: 'common', accent: 0x8ede6d,
     desc: 'Dark suit, diaper, furrowed brows. He negotiates at a sprint.',
     season: 'Limited edition',
   },
   {
-    id: 'char-captainleeky', name: 'Captain Leeky', rigged: true, rarity: 'common', accent: 0x1f6ad4,
+    id: 'char-captainleeky', name: 'CyberLeek', rigged: true, rarity: 'common', accent: 0x1f6ad4,
     desc: 'Three leaves for hair, blue jersey, determined brows. He runs and he walks.',
     season: 'Limited edition',
   },
@@ -124,3 +126,18 @@ export const cosmetics = {
   },
   onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
 };
+
+/*
+ * QUAND LE SERVEUR PARLE, ON REVERIFIE CE QU'ON PORTE. Un skin payant porte au chargement
+ * sur la foi de la memoire locale (un banc, ou une memoire bricolee) doit tomber des que
+ * le serveur de production dit qu'il y a de l'argent et que le backend ne le liste pas
+ * dans les possessions. On retombe alors sur le premier portable, sans un mot : le lobby
+ * se repeint par `onChange`.
+ */
+surChangement(() => {
+  if (estDebloque(cosmetics.model)) return;
+  const repli = (MODELS.find((m) => estDebloque(m.id)) ?? MODELS[0]).id;
+  cosmetics.model = repli;
+  localStorage.setItem(MODEL_KEY, repli);
+  for (const fn of listeners) fn(cosmetics.hex);
+});

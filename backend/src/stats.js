@@ -15,6 +15,7 @@ import { tresorerie } from './robinhood/tresorerie.js';
 import { etatMarche, bilanBrulage } from './robinhood/brulage.js';
 import { lienExplorateur, lienAdresse } from './robinhood/chaine.js';
 import { RESEAUX } from './robinhood/reseaux.js';
+import { bilanBoutique } from './boutique.js';
 
 let cache = null;
 let cacheA = 0;
@@ -75,6 +76,7 @@ export async function statistiques(db, chaine) {
   let marche = null;
   try { marche = await etatMarche(chaine); } catch (e) { marche = { erreur: e.message }; }
   const brulage = await bilanBrulage(db);
+  const boutique = await bilanBoutique(db);
 
   const adresses = tresorerie.adresses();
   cache = {
@@ -112,6 +114,8 @@ export async function statistiques(db, chaine) {
       derniers: brulage.derniers.map((b) => ({ ...b, lien: lienExplorateur(b.signature) })),
     },
     marche,
+    /* Les skins vendus : chaque USDC est parti aux frais, donc au brulage. */
+    boutique,
     dernieresParties: dernieresParties.map((p) => ({ ...p, lienPot: p.adresse_pot && lienAdresse(p.adresse_pot) })),
     verification: derniereVerification,
   };

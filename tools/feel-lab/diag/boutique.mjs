@@ -1,20 +1,22 @@
 /**
- * Verdict sur la BOUTIQUE — le second diagnostic du dossier qui n'ouvre pas de navigateur,
- * parce qu'il ne juge pas une image mais une règle de possession.
+ * Verdict sur la BOUTIQUE — le diagnostic du dossier qui n'ouvre pas de navigateur, parce
+ * qu'il ne juge pas une image mais une règle de possession.
  *
  * Ce qu'il tient, et pourquoi chacun compte :
  *
- *   - la boutique n'a QU'UN article, et c'est BabyTrump. Une deuxième ligne apparue par
- *     erreur mettrait un cadenas sur un personnage que personne n'a demandé à retirer ;
- *   - un personnage HORS boutique reste portable. Le verrou retient, il n'autorise pas :
- *     le jour où il autoriserait, tout le catalogue se fermerait d'un coup ;
- *   - le post part avec le texte, les hashtags, et RIEN d'autre tant que le DNS n'existe
- *     pas. Un `url=` vide dans l'intention enverrait les curieux sur une page morte ;
+ *   - la boutique a QUATRE articles : BabyTrump contre un post, trois skins contre des
+ *     USDC entre 10 et 15. Pepe, le personnage de départ, n'y est pas : on l'a en arrivant ;
+ *   - les PRIX du navigateur sont ceux du backend, mot pour mot. Le backend encaisse, le
+ *     navigateur affiche : deux catalogues qui divergent feraient payer un prix et en
+ *     annoncer un autre ;
+ *   - un personnage HORS boutique reste portable. Le verrou retient, il n'autorise pas ;
+ *   - un skin PAYANT ne se porte que si le BACKEND le dit — sauf sur un banc, où la
+ *     mémoire locale suffit pour que les harnais s'habillent. Une mémoire bricolée sur le
+ *     serveur de production ne vaut rien ;
+ *   - le post part avec le texte, les hashtags et le lien publié du jeu ;
  *   - la réclamation refuse pour TROIS raisons distinctes, et une seule se répare en
- *     attendant. Un « non » unique ne dirait pas au joueur laquelle ;
- *   - le catalogue ne peut pas équiper un personnage non possédé, et son DÉFAUT n'est
- *     jamais celui-là. C'est le point qui casse le plus silencieusement : `MODELS[0]` est
- *     BabyTrump, et un défaut posé dessus aurait affiché « EQUIPPED » sous un cadenas ;
+ *     attendant ;
+ *   - le catalogue ne peut pas équiper un personnage non possédé, et son DÉFAUT est Pepe ;
  *   - le dossier de banc rouvre la porte aux harnais, sinon les deux navigateurs de
  *     `duel.mjs` porteraient le même personnage sans que rien ne le signale.
  *
@@ -24,12 +26,9 @@
  * Usage : node diag/boutique.mjs
  */
 import { pathToFileURL } from 'node:url';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-// `boutique.js` et `cosmetics.js` lisent la memoire du navigateur des leur chargement.
-// Sous Node elle n'existe pas : on leur en donne une, plutot que d'eclater les modules
-// en deux pour les besoins du test. Elle est VIDE au depart — c'est l'etat d'un joueur
-// qui ouvre le jeu pour la premiere fois, et c'est celui qu'on veut juger.
 const memoire = new Map();
 globalThis.localStorage = {
   getItem: (k) => (memoire.has(k) ? memoire.get(k) : null),
@@ -40,8 +39,7 @@ globalThis.localStorage = {
 const src = (f) => pathToFileURL(path.resolve('src', f)).href;
 const B = await import(src('boutique.js'));
 // IMPORTE APRES, et volontairement : le catalogue calcule son defaut au chargement, donc
-// il doit le calculer alors que BabyTrump est encore verrouille. L'importer avant aurait
-// mesure une situation qui n'arrive jamais chez un joueur.
+// il doit le calculer alors que tout est encore verrouille.
 const { cosmetics, MODELS } = await import(src('cosmetics.js'));
 
 let echecs = 0;
@@ -51,101 +49,100 @@ const dit = (ok, texte) => {
 };
 
 console.log('\n\x1b[1mLe catalogue de la boutique\x1b[0m');
-dit(B.ARTICLES.length === 1, `un seul article en vente : ${B.ARTICLES.length}`);
-dit(B.ARTICLES[0].id === 'char-babytrump', `et c'est ${B.ARTICLES[0].id}`);
-dit(B.ARTICLES[0].prix === 'FREE', 'il ne coute pas d\'argent — il coute un post');
-dit(B.articleDe('char-babytrump') !== null && B.articleDe('char-techtitan') === null,
-  'BabyTrump est en boutique, BabyMusk non');
-dit(MODELS[0].id === 'char-babytrump',
-  'BabyTrump reste en tete du catalogue : c\'est la tete de gondole, cadenas compris');
+dit(B.ARTICLES.length === 4, `quatre articles : ${B.ARTICLES.map((a) => a.id).join(', ')}`);
+dit(B.ARTICLES[0].id === 'char-babytrump' && B.ARTICLES[0].condition === 'post' && B.ARTICLES[0].prix === 'FREE',
+  'BabyTrump en tete, contre un post, sans prix');
+const payants = B.ARTICLES.filter((a) => a.condition === 'achat');
+dit(payants.length === 3 && payants.every((a) => a.prixMicros >= 10_000_000 && a.prixMicros <= 15_000_000),
+  `trois skins payants entre 10 et 15 USDC : ${payants.map((a) => `${a.id} ${a.prix}`).join(', ')}`);
+dit(String(B.PAYANTS) === 'char-techtitan,char-diplomate,char-captainleeky', `les payants, pour le serveur : ${B.PAYANTS.join(', ')}`);
+dit(B.articleDe('char-grenouille') === null, 'Pepe n\'est pas en boutique : on l\'a en arrivant');
+dit(MODELS[0].id === 'char-grenouille' && MODELS[0].name === 'Pepe', 'Pepe ouvre le catalogue');
+dit(MODELS.find((m) => m.id === 'char-captainleeky')?.name === 'CyberLeek', 'Captain Leeky s\'appelle desormais CyberLeek');
+dit(B.LIEN_SUIVI === 'https://play.babyguy.dev/api/suivi', `le lien du suivi en direct : ${B.LIEN_SUIVI}`);
+dit(/buys and burns BG/.test(B.NOTE_REVENUS), `la promesse est ecrite : « ${B.NOTE_REVENUS} »`);
+
+console.log('\n\x1b[1mLes prix sont ceux du backend\x1b[0m');
+{
+  // Le backend est la source ; on lit son fichier tel quel plutot que de l'importer, parce
+  // que son import charge la configuration et la chaine.
+  const source = readFileSync(path.resolve('..', '..', 'backend', 'src', 'boutique.js'), 'utf8');
+  for (const a of payants) {
+    const m = new RegExp(`'${a.id}':\\s*\\{\\s*prix:\\s*(\\d+)\\s*\\*\\s*MICROS`).exec(source);
+    dit(m && Number(m[1]) * 1_000_000 === a.prixMicros, `${a.id} : ${a.prix} des deux cotes`);
+  }
+}
 
 console.log('\n\x1b[1mLe verrou retient, il n\'autorise pas\x1b[0m');
 dit(B.estDebloque('char-babytrump') === false, 'BabyTrump : verrouille au premier lancement');
-for (const id of ['char-techtitan', 'char-grenouille', 'char-diplomate', 'char-captainleeky']) {
-  dit(B.estDebloque(id) === true, `${id} : libre, il n'a jamais ete en boutique`);
-}
+for (const id of B.PAYANTS) dit(B.estDebloque(id) === false, `${id} : verrouille, il coute des USDC`);
+dit(B.estDebloque('char-grenouille') === true, 'Pepe : libre, il n\'a jamais ete en boutique');
 dit(B.estDebloque('char-inconnu-relaye-par-le-serveur') === true,
   'un identifiant inconnu passe : le verrou porte sur ce que J\'EQUIPE, pas sur ce qu\'un adversaire affiche');
-dit(String(B.verrouilles()) === 'char-babytrump', `il reste 1 article a prendre : ${B.verrouilles().join(', ')}`);
+dit(B.verrouilles().length === 4, `il reste 4 articles a prendre : ${B.verrouilles().join(', ')}`);
 
-console.log('\n\x1b[1mLe defaut du catalogue evite le cadenas\x1b[0m');
-dit(cosmetics.model === 'char-techtitan',
-  `sans choix memorise, on porte ${cosmetics.model} — le premier PORTABLE, pas le premier tout court`);
-dit(cosmetics.setModel('char-babytrump') === false, 'equiper un personnage non possede : refuse');
-dit(cosmetics.model === 'char-techtitan', 'et le refus ne change rien a ce qu\'on porte');
-dit(cosmetics.setModel('char-grenouille') === true && cosmetics.model === 'char-grenouille',
-  'equiper un personnage libre : accepte');
+console.log('\n\x1b[1mLe defaut du catalogue est Pepe\x1b[0m');
+dit(cosmetics.model === 'char-grenouille', `sans choix memorise, on porte ${cosmetics.model}`);
+dit(cosmetics.setModel('char-babytrump') === false && cosmetics.setModel('char-techtitan') === false, 'equiper un personnage non possede : refuse');
+dit(cosmetics.model === 'char-grenouille', 'et le refus ne change rien a ce qu\'on porte');
+
+console.log('\n\x1b[1mUn skin payant : le backend dit, le banc tolere\x1b[0m');
+{
+  B.poserServeur({ argent: true, possessions: [] });
+  dit(B.estDebloque('char-techtitan') === false, 'avec de l\'argent derriere le serveur et rien d\'achete : verrouille');
+  B.poserServeur({ possessions: ['char-techtitan'] });
+  dit(B.estDebloque('char-techtitan') === true && B.estDebloque('char-diplomate') === false,
+    'le backend dit « BabyMusk possede » : lui seul s\'ouvre');
+  dit(cosmetics.setModel('char-techtitan') === true && cosmetics.model === 'char-techtitan', 'et il s\'equipe');
+  B.poserServeur({ possessions: [] });
+  dit(cosmetics.model === 'char-grenouille', 'si le backend le retire, ce qu\'on porte retombe sur Pepe tout seul');
+  // Le banc : un dossier local, et un serveur sans argent.
+  B.reinitialiser();
+  localStorage.setItem(B.dossierDeBanc().cle, B.dossierDeBanc().valeur);
+  const B2 = await import(src('boutique.js') + '?banc');
+  dit(B2.estDebloque('char-techtitan') === true && B2.estDebloque('char-babytrump') === true,
+    'sur un banc (serveur muet sur l\'argent), le dossier local habille tout');
+  B2.poserServeur({ argent: true });
+  dit(B2.estDebloque('char-techtitan') === false && B2.estDebloque('char-babytrump') === true,
+    'des que le serveur dit qu\'il y a de l\'argent, le dossier local ne vaut plus pour un skin payant — le post, si');
+  B.reinitialiser();
+}
 
 console.log('\n\x1b[1mLe post\x1b[0m');
 {
   const lien = new URL(B.lienDePost());
   const p = lien.searchParams;
-  dit(lien.origin + lien.pathname === 'https://x.com/intent/post',
-    `intention : ${lien.origin}${lien.pathname}`);
-  dit(p.get('text').includes('Baby Guys'), 'le texte nomme le jeu tel qu\'il est peint sur le logo');
-  dit(p.get('text').includes('BabyTrump'), 'et dit ce que la personne vient de debloquer');
+  dit(lien.origin + lien.pathname === 'https://x.com/intent/post', `intention : ${lien.origin}${lien.pathname}`);
+  dit(p.get('text').includes('Baby Guys') && p.get('text').includes('BabyTrump'), 'le texte nomme le jeu et le skin');
   dit(p.get('hashtags') === 'BabyGuys,BabyTrump', `hashtags : ${p.get('hashtags')}`);
-  // Le domaine existe depuis le 4 septembre 2026 : le post porte le lien du jeu, et
-  // seulement lui — aucun compte X n'est ouvert, donc pas de `via=`.
-  dit(p.get('url') === 'https://play.babyguy.dev' && B.LIEN === p.get('url'),
-    `le post porte le lien PUBLIE du jeu : ${p.get('url')}`);
-  dit(!p.has('via') && B.COMPTE_X === '',
-    'et aucun compte X tant qu\'il n\'en existe pas — a renseigner dans COMPTE_X le jour venu');
+  dit(p.get('url') === 'https://play.babyguy.dev' && !p.has('via'), `le post porte le lien PUBLIE du jeu, sans compte X : ${p.get('url')}`);
   dit(p.get('text').length < 280, `le texte tient dans un post : ${p.get('text').length} caracteres`);
-  dit(B.apercuDuPost().includes('#BabyGuys'),
-    'l\'apercu montre les hashtags, que l\'intention transporte a part');
 }
 
 console.log('\n\x1b[1mLa reclamation, et ses trois refus\x1b[0m');
 {
-  const T = 1_000_000;   // un instant arbitraire : le module ne lit jamais l'horloge lui-meme
-  dit(B.reclamer('char-techtitan', T).raison === 'inconnu',
-    'reclamer un personnage qui n\'est pas en boutique : inconnu');
-  dit(B.reclamer('char-babytrump', T).raison === 'jamais-envoye',
-    'reclamer sans etre passe par X : jamais-envoye');
-  dit(B.attenteRestante('char-babytrump', T) === B.DELAI_MS,
-    `avant tout depart, l'attente vaut le delai entier : ${B.DELAI_MS} ms`);
-  dit(B.enAttente('char-babytrump') === false, 'et rien n\'est en attente');
-
-  dit(B.marquerEnvoi('char-babytrump', T) === true, 'depart vers X note');
-  dit(B.enAttente('char-babytrump') === true, 'l\'article passe en attente de reclamation');
+  const T = 1_000_000;
+  dit(B.reclamer('char-techtitan', T).raison === 'inconnu', 'reclamer un skin PAYANT par le chemin du post : inconnu');
+  dit(B.marquerEnvoi('char-techtitan', T) === false, 'et partir sur X pour un skin payant est sans objet');
+  dit(B.reclamer('char-babytrump', T).raison === 'jamais-envoye', 'reclamer sans etre passe par X : jamais-envoye');
+  dit(B.marquerEnvoi('char-babytrump', T) === true && B.enAttente('char-babytrump') === true, 'depart vers X note');
   const tot = B.reclamer('char-babytrump', T + 3000);
-  dit(tot.ok === false && tot.raison === 'trop-tot' && tot.reste === 5000,
-    `reclamer 3 s apres : trop-tot, encore ${tot.reste} ms — le seul refus qui se repare en attendant`);
-  dit(B.estDebloque('char-babytrump') === false, 'et le refus n\'a rien debloque');
-
-  dit(B.attenteRestante('char-babytrump', T + 8000) === 0, 'a 8 s pile, l\'attente est finie');
+  dit(tot.ok === false && tot.raison === 'trop-tot' && tot.reste === 5000, `reclamer 3 s apres : trop-tot, encore ${tot.reste} ms`);
   const ok = B.reclamer('char-babytrump', T + 8000);
-  dit(ok.ok === true && !ok.deja, 'reclamer a 8 s : accepte');
-  dit(B.estDebloque('char-babytrump') === true, 'BabyTrump est debloque');
-  dit(B.enAttente('char-babytrump') === false, 'et il n\'est plus en attente : le depart est consomme');
-  dit(B.reclamer('char-babytrump', T + 9000).deja === true,
-    'reclamer une seconde fois : deja possede, et ce n\'est pas une erreur');
-  dit(String(B.verrouilles()) === '', 'plus rien a prendre : la pastille du bouton SHOP s\'efface');
+  dit(ok.ok === true && B.estDebloque('char-babytrump') === true, 'reclamer a 8 s : accepte, BabyTrump debloque');
+  dit(B.reclamer('char-babytrump', T + 9000).deja === true, 'reclamer une seconde fois : deja possede');
+  dit(B.verrouilles().length === 3, `il reste les trois skins payants : ${B.verrouilles().join(', ')}`);
+  dit(cosmetics.setModel('char-babytrump') === true && cosmetics.model === 'char-babytrump', 'le catalogue accepte maintenant de l\'equiper');
 }
-
-console.log('\n\x1b[1mCe qui change une fois possede\x1b[0m');
-dit(cosmetics.setModel('char-babytrump') === true && cosmetics.model === 'char-babytrump',
-  'le catalogue accepte maintenant de l\'equiper');
-dit(B.marquerEnvoi('char-babytrump') === false,
-  'et un nouveau depart vers X est sans objet : on ne repaie pas ce qu\'on a');
 
 console.log('\n\x1b[1mLa memoire, et le banc\x1b[0m');
 {
-  const ecrit = JSON.parse(localStorage.getItem('tumble-boutique'));
-  dit(String(ecrit.debloques) === 'char-babytrump' && Object.keys(ecrit.envois).length === 0,
-    'la possession est ecrite en memoire locale, le depart consomme n\'y est plus');
-
   const d = B.dossierDeBanc();
-  dit(d.cle === 'tumble-boutique', `le banc ecrit sous la meme cle : ${d.cle}`);
-  dit(String(JSON.parse(d.valeur).debloques) === 'char-babytrump',
-    'et son dossier possede tout le catalogue de la boutique');
-
+  dit(d.cle === 'tumble-boutique' && JSON.parse(d.valeur).debloques.length === 4, 'le dossier de banc possede les quatre articles');
   B.reinitialiser();
-  dit(B.estDebloque('char-babytrump') === false, 'reinitialiser : la campagne se rejoue');
-  dit(localStorage.getItem('tumble-boutique') === '{"debloques":[],"envois":{}}',
-    'et la memoire locale le dit aussi');
+  dit(B.estDebloque('char-babytrump') === false && localStorage.getItem('tumble-boutique') === '{"debloques":[],"envois":{}}',
+    'reinitialiser : la campagne se rejoue, la memoire locale le dit');
 }
 
-console.log(`\n--- ${echecs === 0 ? 'la boutique ne donne que ce qui a ete gagne' : `${echecs} ecart(s)`} ---`);
+console.log(`\n--- ${echecs === 0 ? 'la boutique ne donne que ce qui a ete gagne ou paye' : `${echecs} ecart(s)`} ---`);
 process.exit(echecs === 0 ? 0 : 1);

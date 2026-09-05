@@ -6,9 +6,9 @@
  * transaction se confirme. On calcule donc, pour chaque compte, ce que la chaine DEVRAIT
  * montrer compte tenu de ce qui est en transit, et on compare a ce qu'elle montre.
  *
- *   joueur : solde du livre + sorties en transit (mise, retrait pas encore confirmes)
+ *   joueur : solde du livre + sorties en transit (mise, retrait, achat pas encore confirmes)
  *                            − entrees en transit (gain, annulation pas encore confirmes)
- *   frais  : treasury:rake  + rake en transit − rachats en transit
+ *   frais  : treasury:rake  + rake et achats en transit − rachats en transit
  *   pot    : engagee → les mises confirmees ; reglee ou annulee → zero une fois payee
  *
  * Un ecart n'est pas forcement une fraude : c'est d'abord une transaction en suspens que
@@ -53,7 +53,7 @@ export async function verifierChaine(db, chaine, { joueursMax = 200 } = {}) {
     const demandes = Number((await db.query(
       `select coalesce(sum(amount_micros), 0)::text as t from public.withdrawals where user_id = $1 and statut = 'demande'`, [j.id],
     )).rows[0].t);
-    const attendu = livre + demandes + (t.mise ?? 0) + (t.retrait ?? 0) - (t.gain ?? 0) - (t.annulation ?? 0);
+    const attendu = livre + demandes + (t.mise ?? 0) + (t.retrait ?? 0) + (t.achat ?? 0) - (t.gain ?? 0) - (t.annulation ?? 0);
     const surChaine = await chaine.solde(j.adresse_depot, 'usdc');
     verifies++;
     if (surChaine !== attendu) {
@@ -64,8 +64,8 @@ export async function verifierChaine(db, chaine, { joueursMax = 200 } = {}) {
   // ---- les frais ----
   {
     const livre = await solde(db, compte.rake);
-    const t = await transit(db, `objet in ('rake', 'rachat') and (mint = 'usdc' or mint is null)`, []);
-    const attendu = livre - (t.rake ?? 0) + (t.rachat ?? 0);
+    const t = await transit(db, `objet in ('rake', 'rachat', 'achat') and (mint = 'usdc' or mint is null)`, []);
+    const attendu = livre - (t.rake ?? 0) - (t.achat ?? 0) + (t.rachat ?? 0);
     const adresse = tresorerie.frais().address;
     const surChaine = await chaine.solde(adresse, 'usdc');
     verifies++;

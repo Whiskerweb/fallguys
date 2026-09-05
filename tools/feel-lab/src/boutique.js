@@ -1,30 +1,31 @@
 /**
- * LA BOUTIQUE — un seul article, et il ne coûte pas d'argent : il coûte un post.
+ * LA BOUTIQUE — quatre skins, deux façons de les obtenir, et chaque USDC part au brûlage.
  *
- * Décision produit du 2 septembre 2026 : le premier objet cosmétique du jeu ne s'achète
- * pas, il se GAGNE en parlant du jeu. BabyTrump sort du catalogue de départ et entre dans
- * la boutique ; pour le porter, le joueur publie un post sur X. C'est le seul canal
- * d'acquisition prévu pour l'instant — d'où « nul autre personnage que BabyTrump » : la
- * boutique n'a qu'une ligne, et une boutique qui montre des cases vides promet ce qu'elle
- * n'a pas.
+ * Décision produit du 5 septembre 2026, qui agrandit celle du 2 : on commence avec PEPE,
+ * gratuit ; BabyTrump se GAGNE toujours en publiant un post sur X ; BabyMusk (Elon),
+ * BabyNetan (Netanyahou) et CyberLeek s'ACHÈTENT, entre 10 et 15 USDC. « Tous les revenus
+ * liés serviront à buy and burn le token » : le prix va du wallet de jeu du joueur au
+ * wallet des FRAIS, le même que le rake, et le brûlage l'y trouve. La page de suivi en
+ * direct (`LIEN_SUIVI`) le montre, et la boutique y renvoie.
  *
  * CE MODULE NE TOUCHE NI AU DOM NI AU RÉSEAU. Il tient l'état (qui possède quoi, qui a
- * ouvert X et quand), fabrique le lien d'intention, et tranche la réclamation. Le dessin
- * est dans `lobbyui.js`, exactement comme `economie.js` ne dessine pas le ticket. C'est
- * aussi ce qui permet à `diag/boutique.mjs` de le juger sans navigateur.
+ * ouvert X et quand), fabrique le lien d'intention, et tranche la réclamation du post.
+ * Le dessin est dans `lobbyui.js`, exactement comme `economie.js` ne dessine pas le
+ * ticket. C'est aussi ce qui permet à `diag/boutique.mjs` de le juger sans navigateur.
  *
- * ── CE QUI EST DÉCLARATIF, ET POURQUOI ON L'ASSUME ────────────────────────────────
+ * ── DEUX RÈGLES DE POSSESSION, ET ELLES NE SE RESSEMBLENT PAS ────────────────────
  *
- * Rien ici ne PROUVE que le post existe. Le joueur ouvre X, revient, et affirme l'avoir
- * publié. Une vraie vérification demande l'API X (OAuth 2.0, portée `tweet.read`, puis
- * recherche des posts récents de l'auteur), donc un compte X applicatif, un domaine de
- * redirection — et le DNS n'existe pas encore. Elle devra vivre dans `backend/`, pas ici :
- * un client qui se déclare propriétaire de quelque chose n'est jamais une preuve.
+ * Le POST est déclaratif : rien ici ne PROUVE qu'il existe. Le joueur ouvre X, revient,
+ * et affirme l'avoir publié. Une vraie vérification demande l'API X, donc un compte X
+ * applicatif — elle devra vivre dans `backend/`. Ce qui rend l'attente tenable, c'est
+ * l'ENJEU : un cosmétique, aucun centime.
  *
- * Ce qui rend l'attente tenable, c'est l'ENJEU : un cosmétique, aucun centime. Rien de ce
- * fichier ne touche au grand livre, à la mise ni au gain. Le jour où un objet de boutique
- * vaudra de l'argent, cette porte devra être fermée AVANT — et ce jour-là c'est
- * `reclamer()` qui appellera le backend, sans que le reste du jeu bouge.
+ * L'ACHAT, lui, vaut de l'argent, et la porte est fermée AVANT : le navigateur ne dit
+ * jamais un prix, il dit un article ; le backend le fait payer (`POST /boutique/
+ * acheter`), et c'est LUI qui dit ce qu'on possède (`/moi` → `possessions`, posé ici par
+ * `poserServeur`). La mémoire locale ne fait foi pour un skin payant QUE sur un banc —
+ * un serveur sans argent derrière lui — pour que les harnais puissent l'habiller. Sur le
+ * serveur de production, elle ne vaut rien.
  */
 
 /**
@@ -63,8 +64,17 @@ export const COMPTE_X = '';
  */
 export const DELAI_MS = 8000;
 
+/** Où l'on voit les revenus partir au brûlage, en direct. Demande du directeur produit. */
+export const LIEN_SUIVI = 'https://play.babyguy.dev/api/suivi';
+
+/** Ce que la boutique dit de l'argent, sous chaque prix. */
+export const NOTE_REVENUS = '100% of skin revenue buys and burns BG, the Baby Guy token.';
+
+/** 1 USDC en micros — la même échelle que le backend, sans importer `economie.js`. */
+const MICROS = 1_000_000;
+
 /**
- * Les articles. UN SEUL, et c'est le sujet de la campagne.
+ * Les articles, dans l'ordre de la vitrine.
  *
  * `id` est celui du catalogue de `cosmetics.js` : la boutique ne redécrit pas le
  * personnage (nom, rareté, portrait, description vivent là-bas et nulle part ailleurs),
@@ -72,6 +82,10 @@ export const DELAI_MS = 8000;
  * n'importe PAS `cosmetics.js` : le catalogue lit la boutique pour savoir ce qui est
  * verrouillé, et deux modules qui s'importent l'un l'autre finissent par se charger dans
  * le mauvais ordre.
+ *
+ * Les PRIX sont ceux de `backend/src/boutique.js`, recopiés pour l'affichage ; c'est le
+ * backend qui fait foi et qui encaisse. `diag/boutique.mjs` vérifie que les deux disent
+ * la même chose.
  */
 export const ARTICLES = [
   {
@@ -99,7 +113,25 @@ export const ARTICLES = [
     ].join('\n'),
     tags: ['BabyGuys', 'BabyTrump'],
   },
+  {
+    id: 'char-techtitan', condition: 'achat', prixMicros: 15 * MICROS, prix: '15 USDC',
+    accroche: 'Orbital ambitions, matching diaper.',
+    detail: 'Paid from your game wallet. Every USDC goes to the fee wallet and burns BG.',
+  },
+  {
+    id: 'char-diplomate', condition: 'achat', prixMicros: 12 * MICROS, prix: '12 USDC',
+    accroche: 'He negotiates at a sprint.',
+    detail: 'Paid from your game wallet. Every USDC goes to the fee wallet and burns BG.',
+  },
+  {
+    id: 'char-captainleeky', condition: 'achat', prixMicros: 10 * MICROS, prix: '10 USDC',
+    accroche: 'Three leaves, one mission.',
+    detail: 'Paid from your game wallet. Every USDC goes to the fee wallet and burns BG.',
+  },
 ];
+
+/** Les articles qui coûtent des USDC — ceux que le backend encaisse et dont il dit la possession. */
+export const PAYANTS = ARTICLES.filter((a) => a.condition === 'achat').map((a) => a.id);
 
 /** L'article correspondant à un personnage, ou `null` s'il n'est pas en boutique. */
 export const articleDe = (id) => ARTICLES.find((a) => a.id === id) ?? null;
@@ -138,6 +170,21 @@ function charger() {
 let etat = charger();
 const auditeurs = new Set();
 
+/*
+ * CE QUE LE SERVEUR DIT. `argent` : y a-t-il de l'argent derrière le serveur de jeu ? Tant
+ * qu'il n'a rien dit — ou qu'il dit non, un banc —, la mémoire locale vaut pour les skins
+ * payants aussi : c'est ce qui laisse les harnais s'habiller. Dès qu'il dit oui,
+ * `possessions` (le backend, par `/moi`) est la seule vérité pour un achat.
+ */
+let serveur = { argent: false, possessions: [] };
+
+/** Posé par la caisse : à `bienvenue` (argent), et à chaque relecture du profil (possessions). */
+export function poserServeur({ argent, possessions } = {}) {
+  if (argent !== undefined) serveur.argent = Boolean(argent);
+  if (Array.isArray(possessions)) serveur.possessions = possessions.filter((x) => typeof x === 'string');
+  for (const fn of auditeurs) fn(etat);
+}
+
 function enregistrer() {
   try { localStorage.setItem(CLE, JSON.stringify(etat)); } catch { /* rien à faire de plus */ }
   for (const fn of auditeurs) fn(etat);
@@ -157,7 +204,12 @@ export function surChangement(fn) { auditeurs.add(fn); return () => auditeurs.de
  * BabyTrump chez tout le monde.
  */
 export function estDebloque(id) {
-  if (!articleDe(id)) return true;
+  const a = articleDe(id);
+  if (!a) return true;
+  if (a.condition === 'achat') {
+    if (serveur.possessions.includes(id)) return true;
+    return !serveur.argent && etat.debloques.includes(id);
+  }
   return etat.debloques.includes(id);
 }
 
@@ -198,7 +250,7 @@ export function apercuDuPost(article = ARTICLES[0], jeu = JEU) {
  * retrouver devant un bouton de réclamation qui refuse à jamais.
  */
 export function marquerEnvoi(id, maintenant = Date.now()) {
-  if (!articleDe(id) || estDebloque(id)) return false;
+  if (articleDe(id)?.condition !== 'post' || estDebloque(id)) return false;
   etat.envois[id] = maintenant;
   enregistrer();
   return true;
@@ -223,7 +275,7 @@ export const enAttente = (id) => Boolean(etat.envois[id]) && !estDebloque(id);
  */
 export function reclamer(id, maintenant = Date.now()) {
   const article = articleDe(id);
-  if (!article) return { ok: false, raison: 'inconnu' };
+  if (!article || article.condition !== 'post') return { ok: false, raison: 'inconnu' };
   if (estDebloque(id)) return { ok: true, deja: true };
   if (!etat.envois[id]) return { ok: false, raison: 'jamais-envoye' };
   const reste = attenteRestante(id, maintenant);
@@ -262,5 +314,6 @@ export function dossierDeBanc(ids = ARTICLES.map((a) => a.id)) {
  */
 export function reinitialiser() {
   etat = { debloques: [], envois: {} };
+  serveur = { argent: false, possessions: [] };
   enregistrer();
 }

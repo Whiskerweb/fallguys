@@ -171,16 +171,38 @@ a été retiré : il vient de gagner ou de perdre de l'argent réel, et lui repr
 était une décision qu'on prenait à sa place. Les harnais font donc les deux gestes —
 `passerLaRoue()` dans `diag/partie.mjs`, la section 9 de `diag/duel.mjs`.
 
-**BabyTrump n'est plus donné : il est EN BOUTIQUE, et il se gagne en publiant un post sur
-X.** Décision produit du 2 septembre 2026 — le premier objet cosmétique du jeu ne s'achète
-pas, il s'obtient en parlant du jeu. La boutique n'a **qu'une ligne**, et c'est voulu : une
-grille de cases « SOON » promettrait un catalogue qui n'existe pas. `boutique.js` tient la
-règle et l'état, `lobbyui.js` le dessin, `cosmetics.js` refuse d'équiper ce qui n'est pas
-possédé — le garde est dans le catalogue et pas seulement dans l'écran, parce qu'une
-garantie qui ne tient qu'à l'interface tient à un clic ajouté. Le défaut du catalogue est
-le premier personnage **portable**, jamais `MODELS[0]` : BabyTrump est en tête de la
-vitrine, cadenas compris, et un défaut posé dessus l'aurait affiché EQUIPPED sous son
-propre verrou.
+**LA BOUTIQUE A QUATRE ARTICLES, ET TROIS COÛTENT DES USDC (5 septembre 2026).** On
+commence avec **Pepe** (`char-grenouille`, en tête du catalogue, gratuit). BabyTrump se
+gagne toujours en publiant un post sur X (décision du 2 septembre). BabyMusk (Elon,
+15 USDC), BabyNetan (Netanyahou, 12) et CyberLeek (ex-Captain Leeky, 10) **s'achètent**,
+et **« tous les revenus liés serviront à buy and burn le token »** : le prix va du wallet
+de jeu du joueur au wallet FRAIS — le même que le rake — et le brûlage l'y trouve. La
+boutique l'écrit sous chaque prix et renvoie au suivi en direct,
+`https://play.babyguy.dev/api/suivi` (`LIEN_SUIVI`). `boutique.js` tient la règle et
+l'état, `lobbyui.js` le dessin (une grille de cartes, un bouton par état), `cosmetics.js`
+refuse d'équiper ce qui n'est pas possédé — le garde est dans le catalogue et pas
+seulement dans l'écran. Le défaut du catalogue est le premier personnage **portable**.
+
+**Un achat est un chemin d'ARGENT, donc il vit au backend et nulle part ailleurs.** Le
+navigateur dit un ARTICLE, jamais un prix : `POST /boutique/acheter` fait payer au prix de
+`backend/src/boutique.js` (la source ; le prix du navigateur est une copie que
+`diag/boutique.mjs` compare mot pour mot), livre d'abord (genre `achat`, joueur → rake),
+chaîne ensuite (virement wallet du joueur → FRAIS, objet `achat`), et rend la POSSESSION
+(`/moi` → `possessions`). **Une tentative, une clé** : un achat refusé par la chaîne est
+remboursé, et le retenter avec la même ref retrouvait le mouvement déjà posé sans
+débiter, la chaîne payant quand même — `test/boutique.mjs` l'a attrapé ; la ref porte
+l'identifiant de la tentative (`purchases.ref`). Le premier clic ARME le bouton
+(« CONFIRM 15 USDC »), le second paie : de l'argent réel part sur un clic, un seul clic
+est un clic de trop.
+
+**Un skin payant ne se porte que si le BACKEND le dit — sauf sur un banc.** Tant que le
+serveur de jeu n'a pas dit qu'il y a de l'argent derrière lui (`bienvenue.argent`), la
+mémoire locale vaut aussi pour les skins payants : c'est ce qui laisse les harnais
+s'habiller (`dossierDeBanc`, `duel.mjs` porte BabyMusk sur machine-2). Dès que le serveur
+dit oui, seules les `possessions` du backend comptent, et `cosmetics.js` fait retomber ce
+qu'on porte si ce n'est plus permis. Et le SERVEUR DE JEU ne relaie un skin payant qu'à
+qui l'a payé : à `rejoindre`, avec un pont, il demande `/interne/possessions` — une
+mémoire locale bricolée ne fait pas porter BabyMusk aux yeux des autres.
 
 **Le post porte le lien PUBLIÉ du jeu, `https://play.babyguy.dev`, et rien d'autre.**
 `LIEN` est renseigné dans `boutique.js` depuis que le domaine pointe sur le jeu
@@ -655,7 +677,7 @@ saut, dans le plongeon même épuisé (7,29 m). À 2,00 m la marge tombait à 36
 
 ```bash
 dotnet test                                   # 120 — modes, dix issues, roue par rang (PATH=$HOME/.dotnet)
-cd backend            && npm test             # 168 — grand livre, RLS, retraits, tirage, et la CHAÎNE (factice) : mises en lot, annulation, reprise, brûlage, robinet
+cd backend            && npm test             # 190 — grand livre, RLS, retraits, tirage, la CHAÎNE (factice) : mises en lot, annulation, reprise, brûlage, robinet, et la BOUTIQUE
 cd backend            && npm run cycle:local  # le cycle COMPLET sur anvil (lancé par le script) : contrats, dépôt, mise, gain, brûlage, retrait — EIP-3009 réel
 cd tools/test-harness && npm test             # 309 — serveur, files, graine de roue, réseau, entrées, tampon, GIGUE, mises, DALLES
 cd tools/test-harness && node dalles.mjs      #   7 — les trois règles des Dalles et les deux exploits fermés, sans navigateur
@@ -663,8 +685,8 @@ cd tools/test-harness && node marche.mjs rondin 7 # un RAPPORT : un personnage c
 cd tools/test-harness && node gigue.mjs       #   8 — le netcode à 240 ms d'aller-retour et une coupure de 300 ms toutes les 2 s
 cd tools/feel-lab     && node diag/economie.mjs #  87 — les dix lignes, les roues, l'espérance, sans navigateur
 cd tools/feel-lab     && node diag/duel.mjs   #  53 — DEUX navigateurs, un duel payant
-cd tools/feel-lab     && node diag/boutique.mjs #  45 — la boutique, le post, la possession, sans navigateur
-cd tools/feel-lab     && node diag/boutique-ecran.mjs # 25 — le deblocage CLIQUE, la fenetre vers X interceptee
+cd tools/feel-lab     && node diag/boutique.mjs #  la boutique : quatre articles, prix = backend, possession, le post, sans navigateur
+cd tools/feel-lab     && node diag/boutique-ecran.mjs # le deblocage CLIQUE, l'achat ARME puis refuse sans compte, la fenetre vers X interceptee
 cd tools/feel-lab     && node diag/bascule.mjs #  DEUX navigateurs : présence, suggestion, SWITCH
 cd tools/feel-lab     && node diag/partie.mjs #  le BANC solo (hors produit), trois manches
 cd tools/feel-lab     && node diag/franchir-rondin.mjs # 37 — un VRAI franchissement vu par le serveur, deux navigateurs

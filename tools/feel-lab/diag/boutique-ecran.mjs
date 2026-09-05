@@ -51,32 +51,46 @@ const texte = (sel) => page.textContent(sel).then((t) => (t ?? '').trim());
 const visible = (sel) => page.isVisible(sel);
 
 console.log('\n\x1b[1mAu premier lancement\x1b[0m');
-dit(await page.evaluate(() => localStorage.getItem('tumble-model')) === null
-  || await page.evaluate(() => localStorage.getItem('tumble-model')) !== 'char-babytrump',
+dit(await page.evaluate(() => window.__probeGame?.().modele ?? localStorage.getItem('tumble-model')) !== 'char-babytrump',
   'on ne demarre pas avec BabyTrump equipe');
 dit(await visible('#btn-boutique'), 'le bouton SHOP est dans la colonne de gauche');
-dit(await texte('#shop-neuf') === '1', `la pastille annonce 1 article a prendre : ${await texte('#shop-neuf')}`);
+dit(await texte('#shop-neuf') === '4', `la pastille annonce 4 articles a prendre : ${await texte('#shop-neuf')}`);
 
 console.log('\n\x1b[1mLa garde-robe mene a la boutique\x1b[0m');
 await page.click('#btn-perso');
 await page.waitForTimeout(200);
-const tuile = page.locator('#skins-grid .tile').first();
+dit(await page.locator('#skins-grid .tile').first().locator('.porte').textContent() === 'EQUIPPED',
+  'la premiere vignette est Pepe, EQUIPPED : on commence avec lui');
+const tuile = page.locator('#skins-grid .tile').nth(1);
 dit(await tuile.locator('.lock').textContent() === 'SHOP',
-  'la premiere vignette porte SHOP, pas SOON : ce n\'est pas un asset manquant');
+  'la deuxieme vignette (BabyTrump) porte SHOP, pas SOON : ce n\'est pas un asset manquant');
 await tuile.click();
 await page.waitForTimeout(250);
 dit(await page.locator('#screen-boutique.on').count() === 1,
   'cliquer la vignette cadenassee ouvre la BOUTIQUE');
-dit(await texte('#shop-nom') === 'BabyTrump', `l'article montre : ${await texte('#shop-nom')}`);
-dit(await texte('#shop-prix') === 'FREE', 'et son prix : FREE');
-dit((await texte('#shop-post')).includes('Baby Guys'),
+const CARTE = '#shop-grille [data-article="char-babytrump"]';
+dit(await page.locator('#shop-grille .shop-carte').count() === 4, 'la boutique montre quatre cartes');
+dit(await texte(`${CARTE} .shop-nom`) === 'BabyTrump', `la premiere : ${await texte(`${CARTE} .shop-nom`)}`);
+dit(await texte(`${CARTE} .shop-prix`) === 'FREE', 'et son prix : FREE');
+dit((await texte(`${CARTE} .shop-post`)).includes('Baby Guys'),
   'le post est montre AVANT le clic, en toutes lettres');
-dit(await texte('#shop-action') === 'UNLOCK WITH A POST', `le bouton dit : ${await texte('#shop-action')}`);
+dit(await texte(`${CARTE} .shop-action`) === 'UNLOCK WITH A POST', `le bouton dit : ${await texte(`${CARTE} .shop-action`)}`);
+const PAYANT = '#shop-grille [data-article="char-techtitan"]';
+dit(await texte(`${PAYANT} .shop-prix`) === '15 USDC' && await texte(`${PAYANT} .shop-action`) === 'BUY · 15 USDC',
+  `BabyMusk se vend : ${await texte(`${PAYANT} .shop-prix`)}, bouton « ${await texte(`${PAYANT} .shop-action`)} »`);
+await page.click(`${PAYANT} .shop-action`);
+await page.waitForTimeout(150);
+dit(await texte(`${PAYANT} .shop-action`) === 'CONFIRM 15 USDC', 'un premier clic ARME l\'achat, il ne paie pas');
+await page.click(`${PAYANT} .shop-action`);
+await page.waitForFunction((sel) => /Sign in first|BUY/.test(document.querySelector(sel + ' .shop-action')?.textContent ?? '') && !/PAYING/.test(document.querySelector(sel + ' .shop-action')?.textContent ?? ''), PAYANT, { timeout: 15000 });
+dit(/Sign in first/.test(await texte(`${PAYANT} .shop-note`)), `sans compte, le second clic est refuse en clair : « ${await texte(`${PAYANT} .shop-note`)} »`);
+dit((await texte('#shop-revenus')).includes('100%') && (await page.getAttribute('#shop-suivi', 'href')) === 'https://play.babyguy.dev/api/suivi',
+  'le pied dit ou va l\'argent, et renvoie au suivi en direct');
 
 console.log('\n\x1b[1mLe depart vers X\x1b[0m');
 const [ongletX] = await Promise.all([
   page.waitForEvent('popup', { timeout: 15000 }),
-  page.click('#shop-action'),
+  page.click(`${CARTE} .shop-action`),
 ]);
 const urlX = ongletX.url();
 // On referme AVANT que x.com ne charge : le banc ne depend d'aucun site tiers.
@@ -91,34 +105,34 @@ dit(urlX.startsWith('https://x.com/intent/post?'), `un onglet part vers : ${urlX
 
 console.log('\n\x1b[1mL\'attente, puis la reclamation\x1b[0m');
 await page.waitForTimeout(300);
-dit((await texte('#shop-action')).startsWith('I POSTED IT'),
-  `le bouton a change de role : ${await texte('#shop-action')}`);
-dit(await page.isDisabled('#shop-action'), 'et il refuse le clic tant que le decompte court');
-dit(await visible('#shop-lien'), 'le lien de secours apparait : un pop-up bloque ne ferme pas la porte');
+dit((await texte(`${CARTE} .shop-action`)).startsWith('I POSTED IT'),
+  `le bouton a change de role : ${await texte(`${CARTE} .shop-action`)}`);
+dit(await page.isDisabled(`${CARTE} .shop-action`), 'et il refuse le clic tant que le decompte court');
+dit(await visible(`${CARTE} .shop-lien`), 'le lien de secours apparait : un pop-up bloque ne ferme pas la porte');
 dit((await page.evaluate(() => localStorage.getItem('tumble-boutique')) ?? '').includes('envois'),
   'le depart est ecrit en memoire : fermer le jeu ne le perd pas');
 
-await page.waitForSelector('#shop-action:not([disabled])', { timeout: 20000 });
-dit(await texte('#shop-action') === 'I POSTED IT — UNLOCK',
-  `le decompte fini, le bouton s'ouvre : ${await texte('#shop-action')}`);
-await page.click('#shop-action');
+await page.waitForSelector(`${CARTE} .shop-action:not([disabled])`, { timeout: 20000 });
+dit(await texte(`${CARTE} .shop-action`) === 'I POSTED IT — UNLOCK',
+  `le decompte fini, le bouton s'ouvre : ${await texte(`${CARTE} .shop-action`)}`);
+await page.click(`${CARTE} .shop-action`);
 await page.waitForTimeout(400);
 
 console.log('\n\x1b[1mCe que le joueur obtient\x1b[0m');
-dit(await texte('#shop-action') === 'EQUIPPED', `le bouton dit : ${await texte('#shop-action')}`);
-dit(await page.isDisabled('#shop-action'), 'et il ne propose plus rien : c\'est fait');
+dit(await texte(`${CARTE} .shop-action`) === 'EQUIPPED', `le bouton dit : ${await texte(`${CARTE} .shop-action`)}`);
+dit(await page.isDisabled(`${CARTE} .shop-action`), 'et il ne propose plus rien : c\'est fait');
 dit(await page.evaluate(() => localStorage.getItem('tumble-model')) === 'char-babytrump',
   'BabyTrump est PORTE, sans un clic de plus');
-dit(!(await visible('#shop-neuf')), 'la pastille du bouton SHOP s\'efface : il ne reste rien a prendre');
+dit(await texte('#shop-neuf') === '3', 'la pastille du bouton SHOP passe a 3 : les skins payants restent a prendre');
 dit(await page.evaluate(() => JSON.parse(localStorage.getItem('tumble-boutique')).debloques[0]) === 'char-babytrump',
   'la possession est ecrite : elle survivra au rechargement');
 
 await page.click('#btn-retour-boutique');
 await page.click('#btn-perso');
 await page.waitForTimeout(250);
-dit(await page.locator('#skins-grid .tile').first().locator('.lock').count() === 0,
-  'la vignette de la garde-robe a perdu son cadenas');
-dit(await page.locator('#skins-grid .tile').first().locator('.porte').textContent() === 'EQUIPPED',
+dit(await page.locator('#skins-grid .tile').nth(1).locator('.lock').count() === 0,
+  'la vignette de BabyTrump a perdu son cadenas');
+dit(await page.locator('#skins-grid .tile').nth(1).locator('.porte').textContent() === 'EQUIPPED',
   'et porte le bandeau EQUIPPED');
 
 await page.screenshot({ path: 'shots/boutique-obtenue.png' });

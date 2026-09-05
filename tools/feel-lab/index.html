@@ -652,46 +652,52 @@
 
   /* La carte de l'article. Le cadre prend la couleur de RARETÉ, comme les vignettes de la
      garde-robe : c'est le même objet des deux côtés de l'écran. */
-  #shop-carte {
-    max-width:660px; border-radius:24px; overflow:hidden; display:flex; gap:20px;
+  #shop-grille { display:grid; grid-template-columns:repeat(auto-fill, minmax(330px, 1fr)); gap:14px; }
+  #shop-revenus { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:18px 0 0; color:rgba(255,255,255,.62); font-weight:800; font-size:12.5px; }
+  #shop-revenus a { color:var(--cyan); font-weight:900; }
+  .shop-action.acheter { background:linear-gradient(180deg, #ffdc72, #ffc93c); color:#2a1c00; box-shadow:0 6px 0 #a67c00, 0 12px 22px rgba(0,0,0,.34), inset 0 0 0 3px rgba(255,255,255,.3); }
+  .shop-action.acheter:hover:not(:disabled) { box-shadow:0 9px 0 #a67c00, 0 16px 26px rgba(0,0,0,.4), inset 0 0 0 3px rgba(255,255,255,.36); }
+  .shop-action.confirmer { background:linear-gradient(180deg, #ff5c9e, var(--pink)); color:#fff; box-shadow:0 6px 0 var(--pink-dark), 0 12px 22px rgba(0,0,0,.34), inset 0 0 0 3px rgba(255,255,255,.22); }
+  .shop-carte {
+    border-radius:24px; overflow:hidden; display:flex; gap:20px;
     padding:20px; align-items:flex-start;
     background:linear-gradient(168deg, rgba(34,18,64,.96), rgba(14,7,30,.97));
     box-shadow:inset 0 0 0 3px var(--rar, rgba(255,255,255,.16)), 0 16px 34px rgba(0,0,0,.4);
   }
-  #shop-port {
-    position:relative; flex:none; width:190px; aspect-ratio:1; border-radius:20px; overflow:hidden;
+  .shop-port {
+    position:relative; flex:none; width:150px; aspect-ratio:1; border-radius:20px; overflow:hidden;
     background:
       radial-gradient(circle at 50% 118%, color-mix(in srgb, var(--rar, #7f8fa6) 60%, transparent), transparent 64%),
       linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.32));
     box-shadow:inset 0 0 0 3px var(--rar, rgba(255,255,255,.18));
   }
-  #shop-port img { width:100%; height:100%; object-fit:contain; padding:8px; display:block; }
-  #shop-corps { flex:1; min-width:0; }
-  #shop-rarity {
+  .shop-port img { width:100%; height:100%; object-fit:contain; padding:8px; display:block; }
+  .shop-corps { flex:1; min-width:0; }
+  .shop-rarity {
     display:inline-block; padding:4px 12px; border-radius:8px;
     font-size:11.5px; font-weight:900; letter-spacing:2px; color:#fff;
   }
-  #shop-prix {
+  .shop-prix {
     display:inline-block; margin-left:8px; padding:4px 12px; border-radius:8px;
     background:#2ecc71; color:#06331a; font-size:11.5px; font-weight:900; letter-spacing:1.6px;
   }
-  #shop-nom {
+  .shop-nom {
     color:#fff; font-size:38px; font-weight:900; letter-spacing:1px; line-height:1; margin-top:12px;
     text-shadow:0 4px 0 rgba(0,0,0,.35);
   }
-  #shop-accroche { color:rgba(255,255,255,.85); font-weight:800; font-size:15px; margin-top:10px; }
-  #shop-detail { color:rgba(255,255,255,.55); font-weight:700; font-size:13px; margin-top:8px; line-height:1.5; }
+  .shop-accroche { color:rgba(255,255,255,.85); font-weight:800; font-size:15px; margin-top:10px; }
+  .shop-detail { color:rgba(255,255,255,.55); font-weight:700; font-size:13px; margin-top:8px; line-height:1.5; }
 
   /* Le post, tel qu'il partira. On le MONTRE avant le clic : demander à quelqu'un de
      publier sous son nom sans lui dire quoi est la meilleure façon de ne rien publier. */
-  #shop-post {
+  .shop-post {
     margin-top:16px; padding:13px 15px; border-radius:15px; white-space:pre-wrap;
     background:rgba(255,255,255,.06); box-shadow:inset 0 0 0 2px rgba(255,255,255,.09);
     color:rgba(255,255,255,.82); font-weight:700; font-size:12.5px; line-height:1.55;
     max-height:190px; overflow-y:auto;
   }
 
-  #shop-action {
+  .shop-action {
     margin-top:18px; width:100%; height:60px; cursor:pointer; font-family:inherit;
     border:none; border-radius:18px; color:#fff; font-size:19px; font-weight:900; letter-spacing:1.4px;
     text-shadow:0 2px 0 rgba(0,0,0,.3);
@@ -699,22 +705,22 @@
     box-shadow:0 6px 0 #000, 0 12px 22px rgba(0,0,0,.36), inset 0 0 0 3px rgba(255,255,255,.16);
     transition:transform .09s, box-shadow .09s, filter .09s;
   }
-  #shop-action:hover:not(:disabled) { transform:translateY(-3px); box-shadow:0 9px 0 #000, 0 16px 26px rgba(0,0,0,.4), inset 0 0 0 3px rgba(255,255,255,.24); }
-  #shop-action:active:not(:disabled) { transform:translateY(4px); box-shadow:0 2px 0 #000, inset 0 0 0 3px rgba(255,255,255,.18); }
-  #shop-action:disabled { filter:grayscale(.6) brightness(.7); cursor:default; }
+  .shop-action:hover:not(:disabled) { transform:translateY(-3px); box-shadow:0 9px 0 #000, 0 16px 26px rgba(0,0,0,.4), inset 0 0 0 3px rgba(255,255,255,.24); }
+  .shop-action:active:not(:disabled) { transform:translateY(4px); box-shadow:0 2px 0 #000, inset 0 0 0 3px rgba(255,255,255,.18); }
+  .shop-action:disabled { filter:grayscale(.6) brightness(.7); cursor:default; }
   /* L'étape de réclamation quitte le noir de X pour le vert : ce n'est plus le même
      geste, et deux boutons identiques à la suite se cliquent sans être lus. */
-  #shop-action.reclamer { background:linear-gradient(180deg, #46e08a, #1fa85e); box-shadow:0 6px 0 #0e7040, 0 12px 22px rgba(0,0,0,.34), inset 0 0 0 3px rgba(255,255,255,.22); }
-  #shop-action.reclamer:hover:not(:disabled) { box-shadow:0 9px 0 #0e7040, 0 16px 26px rgba(0,0,0,.4), inset 0 0 0 3px rgba(255,255,255,.3); }
-  #shop-action.porte { background:linear-gradient(180deg, #58dcf0, var(--cyan)); box-shadow:0 6px 0 var(--cyan-dark), 0 12px 22px rgba(0,0,0,.3), inset 0 0 0 3px rgba(255,255,255,.22); }
+  .shop-action.reclamer { background:linear-gradient(180deg, #46e08a, #1fa85e); box-shadow:0 6px 0 #0e7040, 0 12px 22px rgba(0,0,0,.34), inset 0 0 0 3px rgba(255,255,255,.22); }
+  .shop-action.reclamer:hover:not(:disabled) { box-shadow:0 9px 0 #0e7040, 0 16px 26px rgba(0,0,0,.4), inset 0 0 0 3px rgba(255,255,255,.3); }
+  .shop-action.porte { background:linear-gradient(180deg, #58dcf0, var(--cyan)); box-shadow:0 6px 0 var(--cyan-dark), 0 12px 22px rgba(0,0,0,.3), inset 0 0 0 3px rgba(255,255,255,.22); }
 
-  #shop-note { margin-top:11px; color:rgba(255,255,255,.6); font-weight:800; font-size:12.5px; line-height:1.5; }
-  #shop-note.ok { color:#7ff0b0; }
-  #shop-note.alerte { color:#ffb37a; }
+  .shop-note { margin-top:11px; color:rgba(255,255,255,.6); font-weight:800; font-size:12.5px; line-height:1.5; }
+  .shop-note.ok { color:#7ff0b0; }
+  .shop-note.alerte { color:#ffb37a; }
   /* Le lien de secours. Il n'apparaît que si le navigateur a bloqué la fenêtre : sinon il
      offrirait deux chemins pour le même clic, et le joueur choisirait le mauvais. */
-  #shop-lien { display:block; margin-top:9px; color:var(--cyan); font-weight:900; font-size:12.5px; }
-  #shop-lien.hidden { display:none; }
+  .shop-lien { display:block; margin-top:9px; color:var(--cyan); font-weight:900; font-size:12.5px; }
+  .shop-lien.hidden { display:none; }
 
   /* ---------- menu de pause ---------- */
   #pause {
@@ -1619,25 +1625,16 @@
     <div class="head">
       <div>
         <h1>SHOP</h1>
-        <div class="sub" id="shop-sub">One skin. No price tag — tell the world about the game instead.</div>
+        <div class="sub" id="shop-sub">Start with Pepe. Earn BabyTrump with a post, buy the others from 10 USDC.</div>
       </div>
       <div class="spacer"></div>
       <button id="btn-retour-boutique">BACK</button>
     </div>
 
-    <div id="shop-carte">
-      <div id="shop-port"><img id="shop-port-img" alt=""></div>
-      <div id="shop-corps">
-        <span id="shop-rarity">—</span><span id="shop-prix">—</span>
-        <div id="shop-nom">—</div>
-        <div id="shop-accroche"></div>
-        <div id="shop-detail"></div>
-        <div id="shop-post"></div>
-        <button id="shop-action">—</button>
-        <div id="shop-note"></div>
-        <a id="shop-lien" class="hidden" target="_blank" rel="noopener noreferrer">Open X manually →</a>
-      </div>
-    </div>
+    <!-- Une carte par article, fabriquee par `buildBoutique` a partir de `ARTICLES`. -->
+    <div id="shop-grille"></div>
+    <!-- Ou va l'argent, et ou le voir partir : c'est la promesse de la boutique. -->
+    <p id="shop-revenus"><span class="rh-badge"><img src="/icons/robinhood-plume.png" alt="">100% BUY &amp; BURN</span><span id="shop-revenus-txt"></span><a id="shop-suivi" target="_blank" rel="noopener">Watch the burn live ↗</a></p>
   </div>
 
   <div id="skin-info" class="hidden">

@@ -25,6 +25,7 @@ vivent dans `src/robinhood/reseaux.js`, et partent tels quels vers le navigateur
 | **Dépôts** | un guetteur lit les événements `Transfer` du contrat USDC et crédite. On ne balaie pas : le wallet du joueur EST son compte. Depuis le lobby, DEPOSIT FROM WALLET fait signer le transfert dans le wallet du joueur |
 | **Robinet** | testnet seulement : `POST /robinet` frappe des USDC d'essai sur le wallet de jeu (un par heure et par joueur) |
 | **Parties** | le serveur de jeu fait **engager** les mises (wallets → pot de la partie, **une transaction, tout ou rien**) avant le départ, et **régler** à la fin (pot → gagnants + frais, une transaction), le tout signé |
+| **Boutique** | trois skins entre 10 et 15 USDC (`src/boutique.js` fait foi) ; le prix va du wallet de jeu au wallet FRAIS, donc au brûlage. La possession vient d'ici (`/moi`) |
 | **Retraits** | depuis le wallet de jeu, vers le wallet lié **uniquement** ; minimum 25 USDC, 24 h avant le premier |
 | **Frais** | 10 % du pot en moyenne, sur le wallet FRAIS, sur la chaîne |
 | **Brûlage** | dès que les frais atteignent 1 USDC, ils **achètent des BG et les brûlent**, dans une transaction atomique |
@@ -44,7 +45,7 @@ npm start                   # lit le .env de la racine tout seul
 ```
 
 ```bash
-npm test              # 154 verdicts, aucun réseau : grand livre, RLS, retraits, tirage, chaîne factice
+npm test              # 190 verdicts, aucun réseau : grand livre, RLS, retraits, tirage, chaîne factice, boutique
 npm run cycle:local   # le cycle COMPLET sur anvil (Foundry), lancé par le script : dépôt, mise, gain, brûlage, retrait
 npm run cycle         # le même sur le testnet — la caisse doit avoir de l'ETH ; l'USDC, on le frappe
 npm run contrats:compiler   # recompile les contrats (forge build) et recopie ABI + bytecode dans src/robinhood/artefacts.js
@@ -240,9 +241,9 @@ derrière un autoscaler.
 
 | | |
 |---|---|
-| `GET /moi` · `POST /wallet/lier` · `POST /depots/relever` · `POST /robinet` (testnet) · `POST /retrait` · `GET /retraits` · `GET /historique` | le joueur, par jeton Supabase |
-| `POST /interne/ping` · `/interne/soldes` · `/interne/partie/engager` · `/interne/partie/regler` · `/interne/partie/annuler` | le serveur de jeu, par signature |
-| `GET /bareme` · `GET /stats` · `GET /stats/flux` (SSE) · `GET /suivi` · `GET /verification` · `GET /sante` | public |
+| `GET /moi` · `POST /wallet/lier` · `POST /depots/relever` · `POST /robinet` (testnet) · `POST /boutique/acheter` · `POST /retrait` · `GET /retraits` · `GET /historique` | le joueur, par jeton Supabase |
+| `POST /interne/ping` · `/interne/soldes` · `/interne/possessions` · `/interne/partie/engager` · `/interne/partie/regler` · `/interne/partie/annuler` | le serveur de jeu, par signature |
+| `GET /bareme` · `GET /boutique` · `GET /stats` · `GET /stats/flux` (SSE) · `GET /suivi` · `GET /verification` · `GET /sante` | public |
 
 Le serveur de jeu relaie `/api/…` vers ce service : le navigateur ne connaît qu'une adresse.
 `GET /moi` rend la CHAÎNE (nom, chainId, RPC, explorateur, contrat USDC) : c'est avec elle
