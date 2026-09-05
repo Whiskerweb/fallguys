@@ -21,7 +21,9 @@ ORG="${FLY_ORG:-personal}"
 # faux pour tout joueur venu du site.
 DOMAINE="${DOMAINE_JEU:-play.babyguy.dev}"
 
-creer() { fly apps list 2>/dev/null | grep -q "^$1\b" || fly apps create "$1" --org "$ORG"; }
+# `fly apps list` indente ses lignes : sans le `\s*`, une app existante passait pour absente,
+# `fly apps create` repondait « Name has already been taken », et `set -e` arretait tout.
+creer() { fly apps list 2>/dev/null | grep -qE "^\s*$1\b" || fly apps create "$1" --org "$ORG"; }
 creer "$BACKEND"
 creer "$JEU"
 
