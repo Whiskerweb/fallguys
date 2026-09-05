@@ -21,6 +21,8 @@ import { creerRoue } from './roue.js';
 import { caisse } from './caisse.js';
 import { surSession } from './compte.js';
 import { buildPorte } from './porte.js';
+import { buildCadeau } from './cadeau.js';
+import { buildDepot, ouvrirDepot } from './depot.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -1852,9 +1854,10 @@ async function boot() {
   wireSettings();
   await applyIcons();
   buildSkinsScreen(onCosmeticChange);
-  // La boutique. Un seul article — BabyTrump — et il se gagne en publiant un post sur X ;
-  // toute la regle est dans `boutique.js`, tout le dessin dans `lobbyui.js`.
-  buildBoutique(onCosmeticChange);
+  // La boutique : quatre articles, un post ou des USDC ; toute la regle est dans
+  // `boutique.js`, tout le dessin dans `lobbyui.js`. Le second crochet PREVISUALISE un
+  // skin sur le personnage du plateau — `null` remet celui qu'on porte.
+  buildBoutique(onCosmeticChange, (id) => game?.lobby?.rebuildAvatar?.(id ?? cosmetics.model));
   const ecrans = wireEcrans((nom) => {
     // La vitrine ET la boutique recadrent la camera sur le buste ; le plateau la remet en
     // vue d'accueil. La boutique montre le personnage qu'on porte pendant qu'on regarde
@@ -1880,6 +1883,21 @@ async function boot() {
   buildCompte();
   // Le portefeuille : déposer, retirer, relire l'historique on-chain. Connecté seulement.
   buildPortefeuille(() => majBarre());
+  /*
+   * L'ARRIVÉE (5 septembre 2026) : la porte se ferme sur une session → le CADEAU (une
+   * boîte, un clic, BabyVlad équipé) → sans clic, le GUIDE DE DÉPÔT. Le guide ne s'ouvre
+   * de lui-même que si la table est vide (`portefeuille.bloque`) : un joueur qui revient
+   * avec un solde n'a rien à déposer. `?cadeau` force les deux, pour les harnais.
+   */
+  buildDepot(() => majBarre());
+  buildCadeau({
+    peutMontrer: () => game?.mode === 'lobby',
+    onEquipe: onCosmeticChange,
+    onFin: () => {
+      const force = new URLSearchParams(location.search).has('cadeau');
+      if (force || (caisse.enLigne && portefeuille.bloque)) ouvrirDepot({ raison: 'bienvenue' });
+    },
+  });
   // La porte : connexion plein page, avant le lobby, dès que le serveur dit qu'il y a de
   // l'argent derrière lui et qu'aucune session n'existe (porte.js).
   buildPorte();

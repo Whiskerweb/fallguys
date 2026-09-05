@@ -652,7 +652,41 @@
 
   /* La carte de l'article. Le cadre prend la couleur de RARETÉ, comme les vignettes de la
      garde-robe : c'est le même objet des deux côtés de l'écran. */
-  #shop-grille { display:grid; grid-template-columns:repeat(auto-fill, minmax(330px, 1fr)); gap:14px; }
+  /* Les sections : un titre a gauche, un mot a droite, un trait dessous — comme Fall Guys. */
+  .shop-section { display:flex; align-items:baseline; gap:12px; margin:6px 0 12px; padding-bottom:8px; border-bottom:3px solid rgba(255,255,255,.14); }
+  .shop-section h3 { color:#fff; font-size:17px; font-weight:900; letter-spacing:2px; text-shadow:0 2px 0 rgba(0,0,0,.3); }
+  .shop-section span { margin-left:auto; padding:4px 10px; border-radius:9px; background:rgba(0,0,0,.35); color:#ffdc72; font-size:9.5px; font-weight:900; letter-spacing:1.6px; }
+  /* Les vignettes : bandeau de rarete, portrait, pied avec le prix. */
+  .shop-tuiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:14px; margin-bottom:20px; }
+  .shop-tuile {
+    position:relative; border-radius:18px; overflow:hidden; cursor:pointer; text-align:center;
+    background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(0,0,0,.28));
+    box-shadow:inset 0 0 0 3px rgba(255,255,255,.16), 0 8px 0 rgba(0,0,0,.28);
+    transition:transform .11s, box-shadow .11s;
+  }
+  .shop-tuile:hover { transform:translateY(-4px); box-shadow:inset 0 0 0 3px rgba(255,255,255,.3), 0 12px 0 rgba(0,0,0,.28), 0 14px 26px rgba(0,0,0,.35); }
+  /* La vignette CHOISIE : le cadre or, comme l'article selectionne chez Fall Guys. */
+  .shop-tuile.on { transform:translateY(-4px); box-shadow:inset 0 0 0 4px #ffdc72, 0 0 0 3px rgba(255,220,114,.45), 0 12px 0 rgba(0,0,0,.28), 0 14px 26px rgba(0,0,0,.4); }
+  .shop-tuile .bande { padding:7px 8px 6px; background:var(--rar, #7f8fa6); color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.25); }
+  .shop-tuile .bande small { display:block; font-size:8.5px; font-weight:900; letter-spacing:1.8px; opacity:.85; }
+  .shop-tuile .bande b { display:block; font-size:14px; font-weight:900; letter-spacing:.4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .shop-tuile .portrait { aspect-ratio:1; margin:10px 12px 0; border-radius:14px; overflow:hidden;
+    background:radial-gradient(circle at 50% 118%, color-mix(in srgb, var(--rar, #7f8fa6) 55%, transparent), transparent 64%), rgba(0,0,0,.3);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.14); }
+  .shop-tuile .portrait img { width:100%; height:100%; object-fit:contain; padding:8px; display:block; }
+  .shop-tuile.possede .portrait img { filter:saturate(.9); }
+  .shop-tuile .pied { display:flex; align-items:center; justify-content:center; gap:6px; padding:9px 8px 11px; color:#ffdc72; font-size:14px; font-weight:900; letter-spacing:.6px; font-variant-numeric:tabular-nums; }
+  .shop-tuile .pied img { width:16px; height:16px; }
+  .shop-tuile .pied.owned { color:#8ff0bb; font-size:12px; letter-spacing:1.2px; }
+  .shop-tuile .pied.porte { color:#fff; background:#2ecc71; font-size:11px; letter-spacing:1.4px; }
+  .shop-tuile .pied.free { color:#7ff0b0; }
+  /* Le panneau de detail de la vignette choisie. */
+  #shop-detail { border-radius:22px; padding:18px 20px 20px; background:linear-gradient(168deg, rgba(34,18,64,.96), rgba(14,7,30,.97));
+    box-shadow:inset 0 0 0 3px var(--rar, rgba(255,255,255,.16)), 0 16px 34px rgba(0,0,0,.4); }
+  .shop-detail-tete { margin-bottom:4px; }
+  .shop-detail-txt { color:rgba(255,255,255,.55); font-weight:700; font-size:13px; margin-top:8px; line-height:1.5; }
+  .shop-apercu { display:inline-flex; align-items:center; gap:7px; margin-top:12px; padding:5px 10px; border-radius:9px; background:rgba(49,199,240,.14); color:var(--cyan); font-size:10.5px; font-weight:900; letter-spacing:1.2px; }
+  .shop-apercu::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--cyan); box-shadow:0 0 8px var(--cyan); }
   #shop-revenus { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:18px 0 0; color:rgba(255,255,255,.62); font-weight:800; font-size:12.5px; }
   #shop-revenus a { color:var(--cyan); font-weight:900; }
   .shop-action.acheter { background:linear-gradient(180deg, #ffdc72, #ffc93c); color:#2a1c00; box-shadow:0 6px 0 #a67c00, 0 12px 22px rgba(0,0,0,.34), inset 0 0 0 3px rgba(255,255,255,.3); }
@@ -1384,6 +1418,241 @@
 
   #loading { position:fixed; inset:0; display:grid; place-items:center; background:#f5a623;
     color:#fff; font-size:23px; font-weight:900; z-index:20; text-shadow:0 3px 0 rgba(0,0,0,.2); }
+
+  /* ═══ LE CADEAU DE BIENVENUE (cadeau.js) ═══════════════════════════════════════
+     Plein écran, au-dessus du lobby flouté, sous les panneaux. Une boîte rose — la
+     couleur du seul geste qui engage, ici le premier geste du joueur — au ruban d'or,
+     sous un cône de rayons qui tourne. Tout est dessiné en CSS : pas d'image à charger
+     avant le premier clic. L'ouverture est une SÉQUENCE : secousse, couvercle qui part,
+     lumière, éclats, révélation du personnage, puis la barre qui annonce la suite. */
+  #cadeau { position:fixed; inset:0; z-index:44; display:grid; place-items:center; overflow:hidden; --rar:#a855f7;
+    background:radial-gradient(900px 600px at 50% 112%, rgba(49,199,240,.30), transparent 62%),
+               radial-gradient(760px 520px at 12% 8%, rgba(255,61,139,.24), transparent 60%),
+               linear-gradient(170deg, #1b1030 0%, #221345 55%, #0e0820 100%);
+    animation:cd-entree .4s ease-out; }
+  #cadeau.hidden { display:none; }
+  #cadeau.sortie { animation:cd-sortie .38s ease-in forwards; }
+  body.cadeau-ouvert #lobby-ui { filter:blur(6px) saturate(.75); }
+  @keyframes cd-entree { from { opacity:0; } to { opacity:1; } }
+  @keyframes cd-sortie { to { opacity:0; transform:scale(1.04); } }
+  #cadeau .cd-rayons { position:absolute; left:50%; top:52%; width:170vmax; height:170vmax; transform:translate(-50%,-50%); pointer-events:none; opacity:.32;
+    background:repeating-conic-gradient(from 0deg, rgba(255,255,255,.10) 0deg 5deg, transparent 5deg 16deg);
+    -webkit-mask-image:radial-gradient(circle, #000 0, transparent 52%); mask-image:radial-gradient(circle, #000 0, transparent 52%);
+    animation:cd-tourne 46s linear infinite; transition:opacity .7s; }
+  #cadeau.ouvert .cd-rayons { opacity:.9; animation-duration:14s; }
+  @keyframes cd-tourne { to { transform:translate(-50%,-50%) rotate(360deg); } }
+  .cd-scene { position:relative; display:grid; justify-items:center; width:min(94vw, 600px); padding:10px 0 20px; }
+  .cd-titre { font-size:clamp(28px, 5vw, 50px); font-weight:900; letter-spacing:3px; color:#fff; text-align:center;
+    text-shadow:0 4px 0 rgba(0,0,0,.35), 0 0 34px rgba(255,61,139,.35); transition:opacity .3s, transform .3s; }
+  .cd-sous { margin-top:6px; font-size:15px; font-weight:800; color:rgba(255,246,230,.72); text-align:center; transition:opacity .3s; }
+  #cadeau.revele .cd-titre, #cadeau.revele .cd-sous { opacity:0; transform:translateY(-10px); pointer-events:none; }
+
+  /* La boîte. Un bouton, pour qu'Entrée et Espace l'ouvrent aussi. */
+  .cd-boite { position:relative; width:300px; height:300px; margin:26px 0 0; border:none; background:none; cursor:pointer; outline:none;
+    display:block; animation:cd-bob 2.8s ease-in-out infinite; transform-origin:50% 90%; transition:transform .15s; }
+  .cd-boite:hover { transform:scale(1.04); }
+  .cd-boite:focus-visible .cd-corps { box-shadow:inset 0 0 0 4px rgba(255,255,255,.55), 0 30px 40px rgba(0,0,0,.45); }
+  @keyframes cd-bob { 0%,100% { translate:0 0; rotate:-1.2deg; } 50% { translate:0 -10px; rotate:1.2deg; } }
+  .cd-halo { position:absolute; left:50%; top:58%; width:340px; height:340px; transform:translate(-50%,-50%); border-radius:50%; pointer-events:none;
+    background:radial-gradient(circle, rgba(49,199,240,.45), rgba(49,199,240,.12) 45%, transparent 70%); animation:cd-pulse 2.8s ease-in-out infinite; }
+  @keyframes cd-pulse { 0%,100% { opacity:.65; scale:1; } 50% { opacity:1; scale:1.12; } }
+  .cd-ombre { position:absolute; left:50%; bottom:6px; width:190px; height:34px; transform:translateX(-50%); border-radius:50%; pointer-events:none;
+    background:radial-gradient(ellipse, rgba(0,0,0,.5), transparent 70%); animation:cd-ombre 2.8s ease-in-out infinite; }
+  @keyframes cd-ombre { 0%,100% { scale:1; opacity:.9; } 50% { scale:.86; opacity:.6; } }
+  .cd-corps { position:absolute; left:50%; bottom:28px; width:210px; height:158px; transform:translateX(-50%); border-radius:16px;
+    background:linear-gradient(180deg, #ff6aa8 0%, #ff3d8b 45%, #d4246e 100%);
+    box-shadow:inset 0 -14px 0 rgba(0,0,0,.14), inset 0 0 0 3px rgba(255,255,255,.28), 0 26px 36px rgba(0,0,0,.45); }
+  .cd-corps::before { content:""; position:absolute; inset:0 auto 0 0; width:38px; border-radius:16px 0 0 16px; background:rgba(255,255,255,.10); }
+  .cd-ruban-v { position:absolute; left:50%; top:0; bottom:0; width:40px; transform:translateX(-50%);
+    background:linear-gradient(90deg, #d99a12, #ffd94a 35%, #ffe98a 50%, #ffd94a 65%, #d99a12); box-shadow:inset 0 0 0 2px rgba(0,0,0,.08); }
+  .cd-ruban-h { position:absolute; left:0; right:0; top:52px; height:36px;
+    background:linear-gradient(180deg, #d99a12, #ffd94a 35%, #ffe98a 50%, #ffd94a 65%, #d99a12); box-shadow:inset 0 0 0 2px rgba(0,0,0,.08); }
+  .cd-lumiere { position:absolute; left:50%; bottom:170px; width:180px; height:40px; transform:translateX(-50%) scaleY(.2); border-radius:50%; opacity:0; pointer-events:none;
+    background:radial-gradient(ellipse, #fff 0%, #fff6b3 30%, rgba(255,220,114,0) 70%); filter:blur(4px); }
+  .cd-couvercle { position:absolute; left:50%; bottom:178px; width:236px; height:58px; transform:translateX(-50%); border-radius:14px; transform-origin:30% 100%;
+    background:linear-gradient(180deg, #ff8dbd 0%, #ff5c9e 60%, #ff3d8b 100%);
+    box-shadow:inset 0 -8px 0 rgba(0,0,0,.14), inset 0 0 0 3px rgba(255,255,255,.32), 0 12px 18px rgba(0,0,0,.28); transition:translate .15s; }
+  .cd-boite:hover .cd-couvercle { translate:0 -5px; }
+  .cd-couvercle .cd-ruban-v { width:40px; }
+  /* Le nœud : deux boucles et un cœur, en or. */
+  .cd-noeud { position:absolute; left:50%; top:-30px; width:28px; height:28px; transform:translateX(-50%); border-radius:50%; z-index:2;
+    background:radial-gradient(circle at 35% 35%, #ffe98a, #e0a615); box-shadow:0 3px 0 rgba(0,0,0,.18); }
+  .cd-noeud::before, .cd-noeud::after { content:""; position:absolute; top:-6px; width:52px; height:38px; border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
+    background:linear-gradient(180deg, #ffe98a, #ffd94a 60%, #d99a12); box-shadow:inset 0 0 0 3px rgba(0,0,0,.08), 0 4px 0 rgba(0,0,0,.14); z-index:-1; }
+  .cd-noeud::before { right:14px; transform:rotate(-24deg); }
+  .cd-noeud::after { left:14px; transform:rotate(24deg); }
+
+  /* Les étoiles qui scintillent autour de la boîte fermée. Positions fixes. */
+  .cd-etoiles { position:absolute; inset:0; pointer-events:none; }
+  .cd-etoiles i { position:absolute; width:14px; height:14px; color:#fff; font-style:normal; font-size:14px; line-height:1; opacity:0; animation:cd-scintille 2.4s ease-in-out infinite; text-shadow:0 0 8px #fff; }
+  .cd-etoiles i:nth-child(1) { left:18%; top:26%; animation-delay:0s; }
+  .cd-etoiles i:nth-child(2) { left:78%; top:22%; animation-delay:.5s; font-size:18px; }
+  .cd-etoiles i:nth-child(3) { left:12%; top:62%; animation-delay:1.1s; }
+  .cd-etoiles i:nth-child(4) { left:84%; top:58%; animation-delay:1.6s; font-size:11px; }
+  .cd-etoiles i:nth-child(5) { left:30%; top:12%; animation-delay:.8s; font-size:11px; }
+  .cd-etoiles i:nth-child(6) { left:66%; top:10%; animation-delay:1.9s; }
+  .cd-etoiles i:nth-child(7) { left:6%; top:44%; animation-delay:1.4s; font-size:18px; color:#ffd94a; }
+  .cd-etoiles i:nth-child(8) { left:90%; top:40%; animation-delay:.3s; color:#8fe9ff; }
+  @keyframes cd-scintille { 0%,100% { opacity:0; scale:.4; } 50% { opacity:1; scale:1; } }
+  #cadeau.ouvert .cd-etoiles { display:none; }
+
+  /* L'OUVERTURE. */
+  #cadeau.ouvert .cd-boite { animation:cd-secoue .5s ease-in-out 1; cursor:default; }
+  @keyframes cd-secoue { 0%,100% { rotate:0deg; } 15% { rotate:-5deg; } 30% { rotate:5deg; } 45% { rotate:-4deg; } 60% { rotate:4deg; } 75% { rotate:-2deg; } }
+  #cadeau.ouvert .cd-couvercle { animation:cd-couvercle 1s cubic-bezier(.3,.7,.3,1) .4s forwards; }
+  @keyframes cd-couvercle { 0% { transform:translateX(-50%); } 25% { transform:translateX(-50%) translateY(-46px) rotate(-8deg); }
+    100% { transform:translateX(-50%) translate(220px, -520px) rotate(48deg); opacity:0; } }
+  #cadeau.ouvert .cd-lumiere { animation:cd-lumiere 1.2s ease-out .55s forwards; }
+  @keyframes cd-lumiere { 0% { opacity:0; transform:translateX(-50%) scaleY(.2); } 40% { opacity:1; transform:translateX(-50%) scale(1.4, 1.2); } 100% { opacity:0; transform:translateX(-50%) scale(3, 6); } }
+  #cadeau.ouvert .cd-halo { animation:cd-halo-ouvre .9s ease-out .5s forwards; }
+  @keyframes cd-halo-ouvre { to { scale:2.2; opacity:0; } }
+  #cadeau.ouvert .cd-corps { animation:cd-corps-ouvre .8s ease-out .5s forwards; }
+  @keyframes cd-corps-ouvre { 30% { filter:brightness(1.5); } 100% { filter:brightness(1); } }
+  /* Les éclats : chacun part de la boîte selon SON angle (var(--a)) et SA portée (var(--d)) — rotate puis translateY, aucune trigonométrie. */
+  .cd-eclats { position:absolute; left:50%; top:52%; width:0; height:0; pointer-events:none; }
+  .cd-eclats i { position:absolute; left:-6px; top:-9px; width:12px; height:18px; border-radius:3px; background:var(--c); opacity:0; }
+  .cd-eclats i.rond { width:12px; height:12px; border-radius:50%; }
+  #cadeau.ouvert .cd-eclats i { animation:cd-eclat 1.5s cubic-bezier(.15,.85,.35,1) var(--t) forwards; animation-delay:calc(.55s + var(--t)); }
+  @keyframes cd-eclat { 0% { opacity:0; transform:rotate(var(--a)) translateY(-20px) rotate(0deg) scale(.4); }
+    10% { opacity:1; } 100% { opacity:0; transform:rotate(var(--a)) translateY(calc(-1 * var(--d))) rotate(var(--r)) scale(1); } }
+
+  /* LA RÉVÉLATION : le personnage monte de la boîte, dans un anneau à la couleur de sa rareté. */
+  .cd-reveal { position:absolute; left:50%; top:50%; width:min(92vw, 420px); transform:translate(-50%,-50%) translateY(90px) scale(.3); opacity:0; pointer-events:none;
+    display:grid; justify-items:center; text-align:center; }
+  #cadeau.revele .cd-reveal { animation:cd-reveal .75s cubic-bezier(.2,1.35,.4,1) forwards; pointer-events:auto; }
+  @keyframes cd-reveal { to { transform:translate(-50%,-50%) translateY(-30px) scale(1); opacity:1; } }
+  #cadeau.revele .cd-boite { animation:cd-boite-part .5s ease-in forwards; }
+  @keyframes cd-boite-part { to { opacity:0; scale:.7; translate:0 80px; } }
+  .cd-anneau { position:relative; width:230px; height:230px; border-radius:50%; display:grid; place-items:center;
+    background:radial-gradient(circle at 50% 40%, rgba(255,255,255,.18), rgba(0,0,0,.3) 70%);
+    box-shadow:inset 0 0 0 6px var(--rar), 0 0 0 14px color-mix(in srgb, var(--rar) 28%, transparent), 0 0 70px color-mix(in srgb, var(--rar) 70%, transparent), 0 24px 40px rgba(0,0,0,.5); }
+  .cd-anneau::before { content:""; position:absolute; inset:-60px; border-radius:50%; z-index:-1;
+    background:repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--rar) 40%, transparent) 0deg 9deg, transparent 9deg 24deg);
+    -webkit-mask-image:radial-gradient(circle, transparent 38%, #000 40%, transparent 70%); mask-image:radial-gradient(circle, transparent 38%, #000 40%, transparent 70%);
+    animation:cd-tourne 18s linear infinite; }
+  .cd-anneau img { width:200px; height:200px; object-fit:contain; filter:drop-shadow(0 12px 16px rgba(0,0,0,.5)); }
+  .cd-stamp { position:absolute; right:-22px; top:14px; padding:7px 12px; border:4px solid #fff; border-radius:10px; color:#fff; rotate:-12deg;
+    font-size:14px; font-weight:900; letter-spacing:3px; background:rgba(70,224,138,.9); box-shadow:0 6px 14px rgba(0,0,0,.4); opacity:0; }
+  #cadeau.revele .cd-stamp { animation:cd-stamp .35s cubic-bezier(.2,1.6,.4,1) .55s forwards; }
+  @keyframes cd-stamp { from { opacity:0; scale:2.4; } to { opacity:1; scale:1; } }
+  .cd-rarity { display:inline-block; margin-top:20px; padding:5px 14px; border-radius:9px; color:#fff; font-size:12px; font-weight:900; letter-spacing:2.4px; }
+  .cd-nom { margin-top:8px; font-size:clamp(34px, 6vw, 54px); font-weight:900; letter-spacing:2px; color:#fff; line-height:1; text-shadow:0 5px 0 rgba(0,0,0,.35); }
+  .cd-etat { margin-top:10px; font-size:13px; font-weight:900; letter-spacing:2px; color:#8ff0bb; }
+  /* La suite s'annonce : la barre se remplit pendant DUREE_REVELATION_MS, puis le guide s'ouvre. */
+  .cd-suite { margin-top:22px; width:280px; display:grid; gap:7px; justify-items:center; }
+  .cd-suite.hidden { display:none; }
+  .cd-suite span { font-size:11.5px; font-weight:900; letter-spacing:1.6px; color:rgba(255,255,255,.62); }
+  .cd-suite i { display:block; width:100%; height:6px; border-radius:3px; background:rgba(255,255,255,.14); overflow:hidden; }
+  .cd-suite i::after { content:""; display:block; height:100%; width:0; background:linear-gradient(90deg, var(--cyan), #9df2ff); animation:cd-remplir 2.6s linear forwards; }
+  @keyframes cd-remplir { to { width:100%; } }
+  #cadeau-plus-tard { margin-top:14px; border:none; background:none; color:rgba(255,255,255,.42); cursor:pointer; font-family:inherit; font-weight:800; font-size:12px; letter-spacing:.8px; }
+  #cadeau-plus-tard:hover { color:#fff; }
+  #cadeau.ouvert #cadeau-plus-tard { visibility:hidden; }
+
+  /* ═══ LE GUIDE DE DÉPÔT — ADD FUNDS (depot.js) ══════════════════════════════════
+     Le même cadre que le portefeuille, mais UN chemin : ce qu'on paie avec, combien, le
+     bouton. Cyan pour l'action, or pour les montants, rose pour PLAY à la fin — la
+     grammaire du ticket. Trois étapes en tête, pour qu'on voie où l'on en est. */
+  #depot { position:fixed; inset:0; z-index:62; display:grid; place-items:center; padding:20px;
+    background:rgba(6,4,20,.72); backdrop-filter:blur(8px) saturate(.8); }
+  #depot.hidden { display:none; }
+  #depot-boite { position:relative; width:min(96vw, 600px); max-height:92vh; overflow-y:auto; scrollbar-width:none; padding:22px 24px 20px; border-radius:26px; color:#fff6e6;
+    background:linear-gradient(168deg, rgba(34,18,64,.98), rgba(14,7,30,.99));
+    box-shadow:0 12px 0 rgba(0,0,0,.28), 0 30px 60px rgba(0,0,0,.55), inset 0 0 0 3px rgba(255,255,255,.12); animation:cd-entree .25s ease-out; }
+  #depot-boite::-webkit-scrollbar { display:none; }
+  #depot-boite #depot-fermer { position:absolute; top:12px; right:12px; width:34px; height:34px; padding:0; border:none; border-radius:10px; cursor:pointer;
+    background:rgba(255,255,255,.08); color:#fff; font-size:20px; font-family:inherit; }
+  #depot-etapes { display:flex; gap:6px; margin-bottom:14px; }
+  .dp-etape { flex:1; padding:6px 0; text-align:center; border-radius:8px; font-size:9.5px; font-weight:900; letter-spacing:2px; color:rgba(255,255,255,.35);
+    background:rgba(255,255,255,.06); box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.08); }
+  .dp-etape.on { color:#06213a; background:linear-gradient(180deg, #5fdcff, var(--cyan)); box-shadow:0 2px 0 var(--cyan-dark); }
+  .dp-tete { display:flex; align-items:center; gap:14px; padding:2px 2px 14px; }
+  .dp-tete img { width:54px; height:54px; flex:none; filter:drop-shadow(0 6px 10px rgba(0,0,0,.4)); }
+  .dp-tete .tk-label { margin-bottom:3px; display:flex; align-items:center; gap:10px; }
+  .dp-tete .rh-badge { padding:4px 8px 4px 7px; font-size:9px; letter-spacing:1.5px; }
+  .dp-tete .rh-badge img { width:10px; height:auto; filter:none; }
+  .dp-tete h2 { margin:0; font-size:24px; font-weight:900; letter-spacing:.3px; line-height:1.1; }
+  .dp-tete p { margin:5px 0 0; color:rgba(255,255,255,.55); font-size:12.5px; font-weight:700; line-height:1.45; }
+  .dp-label { display:flex; align-items:baseline; gap:10px; margin:12px 0 7px; font-size:10px; font-weight:900; letter-spacing:2.4px; color:rgba(255,255,255,.5); }
+  .dp-label span { font-weight:700; letter-spacing:.2px; color:rgba(255,255,255,.4); font-size:11px; text-transform:none; }
+  /* Le testnet en tête : c'est LE chemin quand on y est, et personne n'y a d'USDC dans MetaMask. */
+  #depot-testnet { margin:0 0 6px; padding:12px 14px; border-radius:16px; background:rgba(204,255,0,.07); box-shadow:inset 0 0 0 2px rgba(204,255,0,.22); display:grid; gap:8px; }
+  #depot-testnet.hidden { display:none; }
+  #depot-testnet p { margin:0; font-size:11.5px; font-weight:700; color:rgba(255,255,255,.62); line-height:1.45; }
+  #depot-testnet p b { color:#ccff00; letter-spacing:1.2px; font-size:10px; }
+  #depot-jetons { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+  #depot-jetons.hidden { display:none; }
+  .dp-jeton { display:grid; justify-items:start; gap:3px; padding:11px 12px 10px; border:none; border-radius:15px; cursor:pointer; font-family:inherit; text-align:left; color:#fff;
+    background:rgba(255,255,255,.06); box-shadow:inset 0 0 0 2px rgba(255,255,255,.1); transition:transform .09s, box-shadow .09s; }
+  .dp-jeton b { font-size:18px; font-weight:900; letter-spacing:1px; }
+  .dp-jeton .dp-jeton-solde { font-size:11px; font-weight:800; color:#ffdc72; }
+  .dp-jeton small { font-size:10px; font-weight:700; color:rgba(255,255,255,.45); line-height:1.3; }
+  .dp-jeton:hover:not(:disabled) { transform:translateY(-2px); box-shadow:inset 0 0 0 2px rgba(255,255,255,.22); }
+  .dp-jeton.on { background:rgba(49,199,240,.14); box-shadow:inset 0 0 0 3px var(--cyan), 0 6px 18px rgba(49,199,240,.18); }
+  .dp-jeton:disabled { opacity:.42; cursor:default; }
+  .dp-jeton:disabled .dp-jeton-solde { color:rgba(255,255,255,.55); font-size:10px; }
+  #depot-montants { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+  .dp-montant { display:grid; justify-items:center; gap:1px; height:54px; border:none; border-radius:14px; cursor:pointer; font-family:inherit; color:#fff;
+    background:rgba(255,255,255,.06); box-shadow:inset 0 0 0 2px rgba(255,255,255,.1); transition:transform .09s; }
+  .dp-montant b { font-size:22px; font-weight:900; font-variant-numeric:tabular-nums; }
+  .dp-montant small { font-size:9px; font-weight:900; letter-spacing:1.6px; color:rgba(255,255,255,.45); }
+  .dp-montant:hover { transform:translateY(-2px); }
+  .dp-montant.on { color:#3a2600; background:linear-gradient(180deg, #ffdc72, #ffc93c); box-shadow:0 4px 0 var(--or-dark), inset 0 0 0 2.5px rgba(255,255,255,.5); }
+  .dp-montant.on small { color:rgba(58,38,0,.6); }
+  #depot-montants label { position:relative; display:flex; align-items:center; height:54px; border-radius:14px; background:rgba(0,0,0,.3); box-shadow:inset 0 0 0 2px rgba(255,255,255,.1); }
+  #depot-montants label:focus-within { box-shadow:inset 0 0 0 2.5px var(--cyan); }
+  #depot-montants input { width:100%; height:100%; padding:0 46px 0 12px; border:none; background:none; color:#fff; font-family:inherit; font-size:18px; font-weight:900; outline:none; -moz-appearance:textfield; }
+  #depot-montants input::-webkit-outer-spin-button, #depot-montants input::-webkit-inner-spin-button { -webkit-appearance:none; }
+  #depot-montants input::placeholder { color:rgba(255,255,255,.3); font-weight:800; font-size:13px; }
+  #depot-montants label span { position:absolute; right:10px; font-size:9px; font-weight:900; letter-spacing:1.6px; color:rgba(255,255,255,.45); }
+  #depot-recu { margin:12px 2px 0; min-height:16px; font-size:12.5px; font-weight:800; color:rgba(255,255,255,.72); line-height:1.45; }
+  .dp-primaire { display:block; width:100%; height:60px; margin-top:12px; border:none; border-radius:18px; cursor:pointer; font-family:inherit;
+    color:#06213a; font-size:17px; font-weight:900; letter-spacing:1.2px; text-shadow:0 1px 0 rgba(255,255,255,.3);
+    background:linear-gradient(180deg, #5fdcff, var(--cyan)); box-shadow:0 6px 0 var(--cyan-dark), 0 12px 22px rgba(0,0,0,.34), inset 0 0 0 3px rgba(255,255,255,.35);
+    transition:transform .09s, box-shadow .09s, filter .09s; }
+  .dp-primaire:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 0 var(--cyan-dark), 0 16px 26px rgba(0,0,0,.4), inset 0 0 0 3px rgba(255,255,255,.4); }
+  .dp-primaire:active:not(:disabled) { transform:translateY(4px); box-shadow:0 2px 0 var(--cyan-dark), inset 0 0 0 3px rgba(255,255,255,.35); }
+  .dp-primaire:disabled { filter:grayscale(.5) brightness(.7); cursor:default; }
+  .dp-primaire.hidden { display:none; }
+  .dp-primaire.rose { color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.3); background:linear-gradient(180deg, #ff5c9e, var(--pink)); box-shadow:0 6px 0 var(--pink-dark), 0 12px 22px rgba(0,0,0,.34), inset 0 0 0 3px rgba(255,255,255,.25); }
+  .dp-primaire.rose:hover:not(:disabled) { box-shadow:0 8px 0 var(--pink-dark), 0 16px 26px rgba(0,0,0,.4), inset 0 0 0 3px rgba(255,255,255,.3); }
+  .dp-primaire.rose:active:not(:disabled) { box-shadow:0 2px 0 var(--pink-dark), inset 0 0 0 3px rgba(255,255,255,.25); }
+  .dp-primaire.vert { color:#06301a; background:linear-gradient(180deg, #7ff0b0, #46e08a); box-shadow:0 6px 0 #1a8d4f, 0 12px 22px rgba(0,0,0,.34), inset 0 0 0 3px rgba(255,255,255,.35); margin-top:0; height:54px; }
+  .dp-primaire.vert:hover:not(:disabled) { box-shadow:0 8px 0 #1a8d4f, 0 16px 26px rgba(0,0,0,.4), inset 0 0 0 3px rgba(255,255,255,.4); }
+  .dp-primaire.vert:active:not(:disabled) { box-shadow:0 2px 0 #1a8d4f, inset 0 0 0 3px rgba(255,255,255,.35); }
+  #depot-note { margin:10px 2px 0; min-height:16px; font-size:12px; font-weight:800; color:rgba(255,255,255,.55); line-height:1.45; }
+  #depot-note.alerte { color:#ffb37a; }
+  #depot-autres { display:flex; justify-content:center; margin-top:12px; }
+  .dp-lien { border:none; background:none; color:rgba(255,255,255,.5); cursor:pointer; font-family:inherit; font-weight:800; font-size:12px; text-decoration:underline; text-underline-offset:3px; }
+  .dp-lien:hover { color:#fff; }
+  #depot-adresse-bloc { margin-top:10px; padding:12px; border-radius:14px; background:rgba(0,0,0,.3); display:grid; gap:8px; }
+  #depot-adresse-bloc.hidden { display:none; }
+  #depot-adresse { display:block; padding:9px 10px; border-radius:10px; background:rgba(0,0,0,.35); color:#8fe9ff; font-family:ui-monospace, Menlo, monospace; font-size:11.5px; word-break:break-all; text-decoration:none; }
+  #depot-adresse-bloc p { margin:0; font-size:11px; font-weight:700; color:rgba(255,255,255,.5); line-height:1.45; }
+  #depot-copier { height:34px; border:none; border-radius:10px; cursor:pointer; font-family:inherit; font-weight:900; font-size:10.5px; letter-spacing:1.2px; color:#fff; background:rgba(255,255,255,.1); box-shadow:inset 0 0 0 2px rgba(255,255,255,.14); }
+  #depot-sans-compte { display:grid; gap:12px; justify-items:center; padding:16px 0 6px; text-align:center; color:rgba(255,255,255,.7); font-weight:800; font-size:13.5px; }
+  #depot-sans-compte.hidden, #depot-formulaire.hidden, #depot-1.hidden, #depot-2.hidden, #depot-3.hidden { display:none; }
+  #depot-sans-compte .dp-primaire { width:auto; padding:0 26px; margin:0; }
+  /* Étape 2 : on attend avec lui, et on lui dit ce qu'on attend. */
+  .dp-attente { display:flex; align-items:center; gap:16px; padding:8px 2px 10px; }
+  .dp-spin { width:44px; height:44px; flex:none; border-radius:50%; border:5px solid rgba(255,255,255,.12); border-top-color:var(--cyan); animation:cd-tourne 1s linear infinite; }
+  .dp-attente b { display:block; font-size:19px; font-weight:900; }
+  .dp-attente span { display:block; margin-top:4px; font-size:12.5px; font-weight:700; color:rgba(255,255,255,.6); line-height:1.45; }
+  #depot-2-liste { margin:8px 0 0; padding:0 0 0 22px; display:grid; gap:6px; font-size:12.5px; font-weight:800; color:rgba(255,255,255,.4); }
+  #depot-2-liste li.on { color:#fff; }
+  #depot-2-liste li::marker { font-weight:900; }
+  #depot-2-retour { display:block; margin:16px auto 0; }
+  /* Étape 3 : la coche, le montant, PLAY. */
+  .dp-fini { display:grid; justify-items:center; gap:6px; padding:10px 0 4px; text-align:center; }
+  .dp-coche { width:64px; height:64px; border-radius:50%; display:grid; place-items:center; font-size:34px; font-weight:900; color:#06301a;
+    background:linear-gradient(180deg, #7ff0b0, #46e08a); box-shadow:0 6px 0 #1a8d4f, 0 0 40px rgba(70,224,138,.5); animation:cd-stamp .4s cubic-bezier(.2,1.6,.4,1); }
+  .dp-fini b { margin-top:8px; font-size:22px; font-weight:900; letter-spacing:.5px; }
+  #depot-3-montant { font-size:44px; font-weight:900; line-height:1; letter-spacing:-1px; color:#ffdc72; text-shadow:0 4px 0 rgba(0,0,0,.35); font-variant-numeric:tabular-nums; }
+  #depot-3-montant small { font-size:14px; letter-spacing:1.5px; margin-left:8px; opacity:.72; }
+  .dp-fini span { font-size:12.5px; font-weight:700; color:rgba(255,255,255,.6); line-height:1.45; max-width:380px; }
+  #depot-msg { min-height:16px; margin:12px 0 0; text-align:center; font-size:12.5px; font-weight:800; color:var(--yellow); }
+  #depot-msg.ok { color:#8ff0bb; }
+  @media (max-width:560px) { #depot-jetons { grid-template-columns:1fr; } #depot-montants { grid-template-columns:repeat(2, 1fr); } .cd-boite { scale:.8; } }
 </style>
 </head>
 <body>
@@ -1511,6 +1780,9 @@
       <div id="wallet-grille">
         <section class="wallet-carte" id="wallet-depot">
           <div class="wallet-carte-tete"><i class="wallet-ico">↓</i><h4>DEPOSIT USDC</h4></div>
+          <!-- Le chemin guidé (depot.js) : USDC, USDG ou ETH, en trois étapes. Le reste de
+               la carte est le chemin expert, qui ne bouge pas. -->
+          <div class="wallet-ligne"><button id="wallet-guide" class="primaire">ADD FUNDS · USDC / USDG / ETH</button></div>
           <a id="wallet-adresse" target="_blank" rel="noopener">—</a>
           <div class="wallet-ligne"><button id="wallet-copier">COPY ADDRESS</button><button id="wallet-relever">CHECK DEPOSITS</button></div>
           <!-- Le chemin court : un transfert signe dans le wallet du joueur, reseau ajoute
@@ -1631,8 +1903,31 @@
       <button id="btn-retour-boutique">BACK</button>
     </div>
 
-    <!-- Une carte par article, fabriquee par `buildBoutique` a partir de `ARTICLES`. -->
-    <div id="shop-grille"></div>
+    <!--
+      LA VITRINE, sur le modele de Fall Guys (demande du directeur produit, 5 septembre
+      2026) : des VIGNETTES en grille — bandeau de rarete et nom en haut, portrait, prix ou
+      « Owned » en bas —, un article a la une, et un PANNEAU DE DETAIL pour la vignette
+      choisie. Choisir une vignette PREVISUALISE le skin sur le personnage du plateau, a
+      gauche, qu'on le possede ou non : c'est la que le joueur juge ce qu'il achete. Tout
+      est fabrique par `buildBoutique` a partir de `ARTICLES` et du catalogue.
+    -->
+    <div class="shop-section"><h3>FEATURED ITEM</h3><span id="shop-section-une">FREE WITH A POST</span></div>
+    <div id="shop-tuiles-une" class="shop-tuiles"></div>
+    <div class="shop-section"><h3>SKINS</h3><span>FROM 10 USDC · 100% BUY &amp; BURN</span></div>
+    <div id="shop-tuiles" class="shop-tuiles"></div>
+    <div id="shop-detail">
+      <div class="shop-detail-tete">
+        <span class="shop-rarity"></span><span class="shop-prix"></span>
+        <div class="shop-nom"></div>
+      </div>
+      <div class="shop-accroche"></div>
+      <div class="shop-detail-txt"></div>
+      <div class="shop-post hidden"></div>
+      <div class="shop-apercu">Previewing on your Baby, on the left.</div>
+      <button class="shop-action">—</button>
+      <div class="shop-note"></div>
+      <a class="shop-lien hidden" target="_blank" rel="noopener noreferrer">Open X manually →</a>
+    </div>
     <!-- Ou va l'argent, et ou le voir partir : c'est la promesse de la boutique. -->
     <p id="shop-revenus"><span class="rh-badge"><img src="/icons/robinhood-plume.png" alt="">100% BUY &amp; BURN</span><span id="shop-revenus-txt"></span><a id="shop-suivi" target="_blank" rel="noopener">Watch the burn live ↗</a></p>
   </div>
@@ -1765,6 +2060,97 @@
       <button id="fin-rejouer" class="finbtn primaire">PLAY AGAIN</button>
     </div>
   </div>
+
+<!-- ═══ LE CADEAU DE BIENVENUE (cadeau.js) ═══════════════════════════════════════
+     Plein écran à la première arrivée : une boîte, un clic, BabyVlad. Puis, sans clic,
+     le guide de dépôt. Tout le texte variable est posé par `cadeau.js` — rien d'écrit en
+     dur ici qui pourrait survivre à une panne. -->
+<div id="cadeau" class="hidden" tabindex="-1">
+  <div class="cd-rayons"></div>
+  <div class="cd-scene">
+    <div class="cd-titre">A GIFT FOR YOU</div>
+    <div class="cd-sous">Welcome to Baby Guys. Tap the box to open it.</div>
+    <button class="cd-boite" id="cadeau-boite" type="button" aria-label="Open your gift">
+      <span class="cd-halo"></span>
+      <span class="cd-ombre"></span>
+      <span class="cd-lumiere"></span>
+      <span class="cd-corps"><span class="cd-ruban-h"></span><span class="cd-ruban-v"></span></span>
+      <span class="cd-couvercle"><span class="cd-ruban-v"></span><span class="cd-noeud"></span></span>
+      <span class="cd-etoiles"><i>✦</i><i>✦</i><i>✦</i><i>✦</i><i>✦</i><i>✦</i><i>✦</i><i>✦</i></span>
+    </button>
+    <div class="cd-eclats" id="cadeau-eclats"></div>
+    <div class="cd-reveal" id="cadeau-reveal">
+      <div class="cd-anneau"><img id="cadeau-port" alt=""><span class="cd-stamp">UNLOCKED</span></div>
+      <div class="cd-rarity" id="cadeau-rarity">—</div>
+      <div class="cd-nom" id="cadeau-nom">—</div>
+      <div class="cd-etat" id="cadeau-etat">—</div>
+      <div class="cd-suite hidden" id="cadeau-suite"><span>NEXT · FUND YOUR WALLET</span><i></i></div>
+    </div>
+    <button id="cadeau-plus-tard" type="button">Open later</button>
+  </div>
+</div>
+
+<!-- ═══ LE GUIDE DE DÉPÔT — ADD FUNDS (depot.js) ══════════════════════════════════
+     Un chemin, trois étapes : ce qu'on paie avec, combien, confirmer, jouer. Les jetons
+     et les montants sont construits par `depot.js` ; les adresses viennent de `/moi`. -->
+<div id="depot" class="hidden" tabindex="-1">
+  <div id="depot-boite">
+    <button id="depot-fermer" type="button" title="Close">×</button>
+    <div id="depot-etapes"><span class="dp-etape on" data-n="1">1 · CHOOSE</span><span class="dp-etape" data-n="2">2 · CONFIRM</span><span class="dp-etape" data-n="3">3 · PLAY</span></div>
+    <header class="dp-tete">
+      <img src="/icons/icon-usdc.png" alt="">
+      <div>
+        <div class="tk-label">ADD FUNDS <span class="rh-badge"><img src="/icons/robinhood-plume.png" alt="">ROBINHOOD CHAIN</span></div>
+        <h2 id="depot-titre">Fund your game wallet</h2>
+        <p id="depot-sous"></p>
+      </div>
+    </header>
+
+    <div id="depot-sans-compte" class="hidden">
+      <div>Sign in first — your game wallet is tied to your account.</div>
+      <button id="depot-connexion" class="dp-primaire" type="button">SIGN IN</button>
+    </div>
+
+    <div id="depot-formulaire">
+      <section id="depot-1">
+        <div id="depot-testnet" class="hidden">
+          <p><b>TESTNET</b> · Nobody has test USDC in their wallet yet. Grab free ones here — USDG and ETH open on mainnet.</p>
+          <button id="depot-robinet" class="dp-primaire vert" type="button">GET TEST USDC · FREE</button>
+        </div>
+        <div class="dp-label">PAY WITH <span id="depot-wallet-etat"></span></div>
+        <div id="depot-jetons"></div>
+        <div class="dp-label">HOW MUCH</div>
+        <div id="depot-montants"><label><input id="depot-montant" type="number" min="0" step="0.01" placeholder="Other"><span>USDC</span></label></div>
+        <div id="depot-recu"></div>
+        <button id="depot-go" class="dp-primaire" type="button">DEPOSIT</button>
+        <p id="depot-note"></p>
+        <div id="depot-autres"><button id="depot-adresse-btn" class="dp-lien" type="button">Send from an exchange or another wallet instead</button></div>
+        <div id="depot-adresse-bloc" class="hidden">
+          <a id="depot-adresse" target="_blank" rel="noopener">—</a>
+          <button id="depot-copier" type="button">COPY ADDRESS</button>
+          <p id="depot-adresse-note"></p>
+        </div>
+      </section>
+
+      <section id="depot-2" class="hidden">
+        <div class="dp-attente"><i class="dp-spin"></i><div><b id="depot-2-titre">Confirm in your wallet</b><span id="depot-2-sous"></span></div></div>
+        <ol id="depot-2-liste"></ol>
+        <button id="depot-2-retour" class="dp-lien" type="button">Cancel</button>
+      </section>
+
+      <section id="depot-3" class="hidden">
+        <div class="dp-fini">
+          <div class="dp-coche">✓</div>
+          <b id="depot-3-titre">Credited!</b>
+          <div id="depot-3-montant">—</div>
+          <span id="depot-3-sous"></span>
+        </div>
+        <button id="depot-jouer" class="dp-primaire rose" type="button">PLAY</button>
+      </section>
+    </div>
+    <div id="depot-msg"></div>
+  </div>
+</div>
 
 <!-- ===== Carrousel « Prochaine épreuve » ===== -->
 <div id="nextup" class="hidden">

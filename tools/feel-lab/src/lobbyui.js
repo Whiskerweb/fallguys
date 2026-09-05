@@ -491,10 +491,12 @@ export function wireEcrans(onEcran, onChangePerso) {
   function montrer(nom) {
     el('screen-skins').classList.toggle('on', nom === 'skins');
     el('screen-boutique').classList.toggle('on', nom === 'boutique');
-    // La fiche du personnage est posée SOUS le modèle 3D, à gauche : elle appartient à la
-    // vitrine seule, et la laisser sous la boutique décrirait un personnage qu'on ne
-    // regarde plus.
-    el('skin-info').classList.toggle('hidden', nom !== 'skins');
+    // La fiche du personnage est posée SOUS le modèle 3D, à gauche : la vitrine ET la
+    // boutique la montrent — dans les deux cas, c'est le personnage qu'on regarde qu'elle
+    // décrit. Le plateau, lui, n'en a pas besoin.
+    el('skin-info').classList.toggle('hidden', nom === 'play');
+    // Quitter la boutique remet sur le plateau le personnage qu'on porte vraiment.
+    if (nom !== 'boutique') quitterBoutique();
     for (const id of ['playzone', 'leftpanel']) {
       el(id).style.display = nom === 'play' ? '' : 'none';
     }
@@ -512,8 +514,8 @@ export function wireEcrans(onEcran, onChangePerso) {
 
   el('btn-boutique').addEventListener('click', () => {
     sfx.click();
-    majBoutique(onChangePerso);
     montrer('boutique');
+    entrerBoutique(onChangePerso);
   });
   el('btn-retour-boutique').addEventListener('click', () => { sfx.click(); montrer('play'); });
 
@@ -523,84 +525,100 @@ export function wireEcrans(onEcran, onChangePerso) {
 // ---------- la boutique ----------
 
 /**
- * Une carte par article, sur une grille — quatre depuis le 5 septembre 2026.
+ * La vitrine, sur le modèle de Fall Guys (demande du directeur produit, 5 septembre 2026).
+ *
+ * Des VIGNETTES — bandeau de rareté et nom, portrait, prix ou « Owned » —, un article à
+ * la une (BabyTrump, contre un post), une grille de skins, et un PANNEAU DE DÉTAIL pour
+ * la vignette choisie. Choisir une vignette PRÉVISUALISE le skin sur le personnage du
+ * plateau, à gauche, qu'on le possède ou non : c'est là que le joueur juge ce qu'il
+ * achète, pas sur une icône de 140 pixels. Quitter la boutique remet ce qu'on porte.
  *
  * `boutique.js` tient la règle et l'état ; ce bloc ne fait que peindre ce qu'elle dit et
- * lui renvoyer les gestes du joueur — partir publier, réclamer, acheter, équiper. Le nom,
- * la rareté et le portrait viennent du catalogue de `cosmetics.js` : la boutique ne
- * redécrit jamais un personnage, sinon la fiche de la garde-robe et celle de la boutique
- * finiraient par ne plus parler du même.
+ * lui renvoyer les gestes du joueur — choisir, partir publier, réclamer, acheter, équiper.
+ * Le nom, la rareté, la description et le portrait viennent du catalogue de
+ * `cosmetics.js` : la boutique ne redécrit jamais un personnage.
  *
- * Deux conditions, deux boutons. Le POST ouvre X, attend, réclame (déclaratif, aucun
- * centime). L'ACHAT demande une confirmation — le premier clic arme le bouton, le second
- * paie — puis appelle le backend, qui débite le wallet de jeu vers les frais : chaque
- * USDC dépensé ici brûle du BG, et le pied de l'écran renvoie au suivi en direct.
+ * L'ACHAT demande une confirmation — le premier clic arme le bouton, le second paie — puis
+ * appelle le backend, qui débite le wallet de jeu vers les frais : chaque USDC dépensé ici
+ * brûle du BG, et le pied de l'écran renvoie au suivi en direct.
  */
 
-/** Le compte à rebours de la réclamation, et l'armement d'un achat : un seul chrono, réarmé à chaque rendu. */
+/** Le compte à rebours de la réclamation et l'armement d'un achat : un seul chrono, réarmé à chaque rendu. */
 let horlogeBoutique = null;
 /** L'article dont le bouton BUY est armé (« CONFIRM »), et jusqu'à quand. */
 let armement = null;
+/** La vignette choisie — celle que le panneau décrit et que le plateau prévisualise. */
+let selection = ARTICLES[0]?.id ?? null;
+/** Le crochet de prévisualisation, posé par `buildBoutique` : `id` ou `null` (ce qu'on porte). */
+let apercuPerso = null;
 
 /** Où aller quand une tuile cadenassée est cliquée. Posé par `wireEcrans`. */
 let allerA = null;
 
-const carteDe = (id) => el('shop-grille')?.querySelector(`[data-article="${id}"]`);
+const tuileDe = (id) => el('screen-boutique')?.querySelector(`.shop-tuile[data-article="${id}"]`);
 
-/** Construit les cartes une fois pour toutes. Seul l'état change ensuite. */
-export function buildBoutique(onChange) {
-  const grille = el('shop-grille');
-  if (!grille) return;
+/** Construit les vignettes une fois pour toutes. Seul l'état change ensuite. */
+export function buildBoutique(onChange, onApercu = null) {
+  const une = el('shop-tuiles-une');
+  const grille = el('shop-tuiles');
+  if (!une || !grille) return;
+  apercuPerso = onApercu;
+  une.innerHTML = '';
   grille.innerHTML = '';
   for (const article of ARTICLES) {
     const m = MODELS.find((x) => x.id === article.id);
     const r = RARITY[m?.rarity] ?? RARITY.common;
-    const carte = document.createElement('div');
-    carte.className = 'shop-carte';
-    carte.dataset.article = article.id;
-    carte.style.setProperty('--rar', couleurRarete(m));
-    carte.innerHTML = `
-      <div class="shop-port"><img alt=""></div>
-      <div class="shop-corps">
-        <span class="shop-rarity"></span><span class="shop-prix"></span>
-        <div class="shop-nom"></div>
-        <div class="shop-accroche"></div>
-        <div class="shop-detail"></div>
-        <div class="shop-post hidden"></div>
-        <button class="shop-action">—</button>
-        <div class="shop-note"></div>
-        <a class="shop-lien hidden" target="_blank" rel="noopener noreferrer">Open X manually →</a>
-      </div>`;
-    const img = carte.querySelector('img');
+    const tuile = document.createElement('div');
+    tuile.className = 'shop-tuile';
+    tuile.dataset.article = article.id;
+    tuile.style.setProperty('--rar', r.color);
+    tuile.innerHTML = `
+      <div class="bande"><small></small><b></b></div>
+      <div class="portrait"><img alt=""></div>
+      <div class="pied"></div>`;
+    tuile.querySelector('.bande small').textContent = r.label;
+    tuile.querySelector('.bande b').textContent = m?.name ?? article.id;
+    const img = tuile.querySelector('img');
     img.src = `/icons/port-${article.id}.png`;
     img.alt = m?.name ?? article.id;
     img.onerror = () => { img.style.visibility = 'hidden'; };
-    carte.querySelector('.shop-rarity').textContent = r.label;
-    carte.querySelector('.shop-rarity').style.background = r.color;
-    carte.querySelector('.shop-prix').textContent = article.prix;
-    carte.querySelector('.shop-nom').textContent = m?.name ?? article.id;
-    carte.querySelector('.shop-accroche').textContent = article.accroche;
-    carte.querySelector('.shop-detail').textContent = article.detail;
-    if (article.condition === 'post') {
-      // Le post est montré AVANT le clic, mot pour mot. On demande à quelqu'un de publier
-      // sous son propre nom : lui cacher le texte est la meilleure façon qu'il ne publie rien.
-      const post = carte.querySelector('.shop-post');
-      post.textContent = apercuDuPost(article, JEU);
-      post.classList.remove('hidden');
-    }
-    carte.querySelector('.shop-action').addEventListener('click', () => agirBoutique(article, onChange));
-    grille.appendChild(carte);
+    tuile.addEventListener('click', () => { sfx.click(); choisirArticle(article.id, onChange); });
+    (article.condition === 'post' ? une : grille).appendChild(tuile);
   }
+  el('shop-detail').querySelector('.shop-action').addEventListener('click', () => agirBoutique(onChange));
   el('shop-revenus-txt').textContent = NOTE_REVENUS;
   el('shop-suivi').href = LIEN_SUIVI;
   // Quand le backend dit ce qu'on possède (ou que le serveur dit qu'il y a de l'argent),
-  // les cartes se repeignent : un skin acheté sur une autre machine apparaît EQUIPPABLE ici.
+  // tout se repeint : un skin acheté sur une autre machine apparaît EQUIPPABLE ici.
   surBoutique(() => majBoutique(onChange));
   majBoutique(onChange);
 }
 
-/** Le bouton d'une carte. Il change de rôle avec l'état, jamais de place. */
-async function agirBoutique(article, onChange) {
+/** Choisir une vignette : le panneau la décrit, le plateau la montre. */
+function choisirArticle(id, onChange) {
+  selection = id;
+  armement = null;
+  apercuPerso?.(id);
+  const m = MODELS.find((x) => x.id === id);
+  if (m) showInfo(m, assets.has(id));
+  majBoutique(onChange);
+}
+
+/** Ouvrir la boutique : on prévisualise la sélection ; la quitter : on remet ce qu'on porte. */
+export function entrerBoutique(onChange) {
+  if (selection && !ARTICLES.some((a) => a.id === selection)) selection = ARTICLES[0]?.id ?? null;
+  if (selection) choisirArticle(selection, onChange);
+  else majBoutique(onChange);
+}
+export function quitterBoutique() {
+  armement = null;
+  apercuPerso?.(null);
+}
+
+/** Le bouton du panneau. Il change de rôle avec l'état, jamais de place. */
+async function agirBoutique(onChange) {
+  const article = ARTICLES.find((a) => a.id === selection);
+  if (!article) return;
   const id = article.id;
 
   if (estDebloque(id)) {
@@ -635,6 +653,12 @@ async function agirBoutique(article, onChange) {
       majBoutique(onChange, { erreur: { id, texte: RAISONS[e?.code] ?? (e?.message || 'Purchase failed.') } });
       return;
     }
+  } else if (article.condition === 'cadeau') {
+    // Le cadeau se reçoit dans SON écran, la boîte (`cadeau.js`) — pas ici. Un
+    // événement, parce que ce fichier ne connaît pas la boîte et n'a pas à la connaître.
+    sfx.click();
+    document.dispatchEvent(new CustomEvent('tumble-cadeau-ouvrir'));
+    return;
   } else if (enAttente(id) && attenteRestante(id) === 0) {
     const verdict = reclamer(id);
     if (!verdict.ok) { majBoutique(onChange); return; }
@@ -677,7 +701,7 @@ function partirPublier(article, onChange) {
 }
 
 /**
- * Repeint chaque carte selon son état.
+ * Repeint les vignettes et le panneau selon l'état.
  *
  * Le compte à rebours (réclamation, armement) se réarme lui-même tant qu'il court : c'est
  * la seule chose animée de l'écran, et sans lui un bouton resterait grisé sans dire
@@ -687,53 +711,86 @@ export function majBoutique(onChange, { bloquee = null, enCours = null, erreur =
   clearTimeout(horlogeBoutique);
   let relance = Infinity;
 
+  // Les vignettes.
   for (const article of ARTICLES) {
-    const carte = carteDe(article.id);
-    if (!carte) continue;
-    const id = article.id;
-    const bouton = carte.querySelector('.shop-action');
-    const note = carte.querySelector('.shop-note');
-    const lien = carte.querySelector('.shop-lien');
-    bouton.classList.remove('reclamer', 'porte', 'acheter', 'confirmer');
-    note.classList.remove('ok', 'alerte');
-    lien.classList.add('hidden');
-    carte.classList.toggle('possede', estDebloque(id));
+    const tuile = tuileDe(article.id);
+    if (!tuile) continue;
+    const possede = estDebloque(article.id);
+    const porte = article.id === cosmetics.model;
+    tuile.classList.toggle('on', article.id === selection);
+    tuile.classList.toggle('possede', possede);
+    const pied = tuile.querySelector('.pied');
+    pied.className = 'pied' + (porte ? ' porte' : possede ? ' owned' : article.condition === 'post' ? ' free' : '');
+    pied.innerHTML = porte ? 'EQUIPPED'
+      : possede ? '✓ OWNED'
+        : article.condition === 'post' ? 'FREE · POST'
+          : article.condition === 'achat' ? `<img src="/icons/icon-usdc.png" alt="">${article.prix.replace(' USDC', '')}`
+            : article.prix;
+  }
 
-    if (estDebloque(id)) {
-      const porte = id === cosmetics.model;
-      bouton.classList.add('porte');
-      bouton.disabled = porte;
-      bouton.textContent = porte ? 'EQUIPPED' : 'EQUIP';
-      note.classList.add('ok');
-      note.textContent = article.condition === 'post'
-        ? 'Unlocked for good. Thanks for the post — see you on the course.'
-        : 'Yours for good. Your USDC went to the fee wallet and burns BG.';
-      continue;
+  // Le panneau.
+  const article = ARTICLES.find((a) => a.id === selection);
+  const panneau = el('shop-detail');
+  if (!article || !panneau) { majBadgeBoutique(); return; }
+  const id = article.id;
+  const m = MODELS.find((x) => x.id === id);
+  const r = RARITY[m?.rarity] ?? RARITY.common;
+  panneau.dataset.article = id;
+  panneau.style.setProperty('--rar', r.color);
+  panneau.querySelector('.shop-rarity').textContent = r.label;
+  panneau.querySelector('.shop-rarity').style.background = r.color;
+  panneau.querySelector('.shop-prix').textContent = article.prix;
+  panneau.querySelector('.shop-nom').textContent = m?.name ?? id;
+  panneau.querySelector('.shop-accroche').textContent = article.accroche;
+  panneau.querySelector('.shop-detail-txt').textContent = `${m?.desc ?? ''} ${article.detail}`.trim();
+  const post = panneau.querySelector('.shop-post');
+  // Le post est montré AVANT le clic, mot pour mot. On demande à quelqu'un de publier
+  // sous son propre nom : lui cacher le texte est la meilleure façon qu'il ne publie rien.
+  post.classList.toggle('hidden', article.condition !== 'post');
+  if (article.condition === 'post') post.textContent = apercuDuPost(article, JEU);
+
+  const bouton = panneau.querySelector('.shop-action');
+  const note = panneau.querySelector('.shop-note');
+  const lien = panneau.querySelector('.shop-lien');
+  bouton.classList.remove('reclamer', 'porte', 'acheter', 'confirmer');
+  note.classList.remove('ok', 'alerte');
+  lien.classList.add('hidden');
+
+  if (estDebloque(id)) {
+    const porte = id === cosmetics.model;
+    bouton.classList.add('porte');
+    bouton.disabled = porte;
+    bouton.textContent = porte ? 'EQUIPPED' : 'EQUIP';
+    note.classList.add('ok');
+    note.textContent = article.condition === 'post'
+      ? 'Unlocked for good. Thanks for the post — see you on the course.'
+      : 'Yours for good. Your USDC went to the fee wallet and burns BG.';
+  } else if (article.condition === 'achat') {
+    bouton.classList.add('acheter');
+    if (enCours === id) {
+      bouton.disabled = true;
+      bouton.textContent = 'PAYING…';
+      note.textContent = 'Signing the transfer from your game wallet…';
+    } else if (armement?.id === id && armement.jusqua > Date.now()) {
+      bouton.classList.add('confirmer');
+      bouton.disabled = false;
+      bouton.textContent = `CONFIRM ${article.prix}`;
+      note.classList.add('alerte');
+      note.textContent = `${article.prix} leaves your game wallet now. Click again to confirm.`;
+      relance = 250;
+    } else {
+      bouton.disabled = false;
+      bouton.textContent = `BUY · ${article.prix}`;
+      if (erreur?.id === id) { note.classList.add('alerte'); note.textContent = erreur.texte; }
+      else note.textContent = 'Paid from your game wallet. 100% goes to buying and burning BG.';
     }
-
-    if (article.condition === 'achat') {
-      bouton.classList.add('acheter');
-      if (enCours === id) {
-        bouton.disabled = true;
-        bouton.textContent = 'PAYING…';
-        note.textContent = 'Signing the transfer from your game wallet…';
-      } else if (armement?.id === id && armement.jusqua > Date.now()) {
-        bouton.classList.add('confirmer');
-        bouton.disabled = false;
-        bouton.textContent = `CONFIRM ${article.prix}`;
-        note.classList.add('alerte');
-        note.textContent = `${article.prix} leaves your game wallet now. Click again to confirm.`;
-        relance = Math.min(relance, 250);
-      } else {
-        bouton.disabled = false;
-        bouton.textContent = `BUY · ${article.prix}`;
-        if (erreur?.id === id) { note.classList.add('alerte'); note.textContent = erreur.texte; }
-        else note.textContent = 'Paid from your game wallet. 100% goes to buying and burning BG.';
-      }
-      continue;
-    }
-
-    // Le post.
+  } else if (article.condition !== 'post') {
+    // Une condition que ce panneau ne sait pas jouer (un cadeau, par exemple) : on la dit,
+    // on ne propose rien. Un bouton qui promet un geste inconnu ment.
+    bouton.disabled = true;
+    bouton.textContent = article.prix;
+    note.textContent = article.detail ?? '';
+  } else {
     lien.href = lienDePost(article, JEU);
     if (enAttente(id)) {
       const reste = attenteRestante(id);
@@ -748,7 +805,7 @@ export function majBoutique(onChange, { bloquee = null, enCours = null, erreur =
       lien.classList.remove('hidden');
       // Le lien de secours compte lui aussi comme un départ : c'est le même geste.
       lien.onclick = () => { marquerEnvoi(id); majBoutique(onChange); };
-      if (reste > 0) relance = Math.min(relance, Math.min(reste, 200));
+      if (reste > 0) relance = Math.min(reste, 200);
     } else {
       bouton.disabled = false;
       bouton.textContent = 'UNLOCK WITH A POST';
