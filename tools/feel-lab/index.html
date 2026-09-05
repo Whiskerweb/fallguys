@@ -560,7 +560,7 @@
     backdrop-filter:blur(7px);
   }
   #screen-skins.on { display:block; }
-  #screen-skins .head { display:flex; align-items:flex-start; gap:16px; }
+  #screen-skins .head { display:flex; align-items:flex-start; gap:18px; }
   #screen-skins .head .spacer { flex:1; }
   #screen-skins h1 {
     color:#fff; font-size:32px; font-weight:900; letter-spacing:2px; margin-bottom:3px;
@@ -568,7 +568,7 @@
   }
   #screen-skins .sub { color:rgba(255,255,255,.55); font-weight:800; font-size:13.5px; margin-bottom:20px; }
   #btn-retour, #btn-retour-boutique {
-    flex:none; height:42px; padding:0 20px; cursor:pointer; font-family:inherit;
+    flex:none; height:42px; padding:0 18px; margin-top:4px; cursor:pointer; font-family:inherit;
     border:none; border-radius:13px; background:rgba(255,255,255,.09);
     box-shadow:inset 0 0 0 2px rgba(255,255,255,.14);
     color:#fff; font-weight:900; font-size:13px; letter-spacing:1.4px;
@@ -645,7 +645,7 @@
     backdrop-filter:blur(7px);
   }
   #screen-boutique.on { display:block; }
-  #screen-boutique .head { display:flex; align-items:flex-start; gap:16px; }
+  #screen-boutique .head { display:flex; align-items:flex-start; gap:18px; }
   #screen-boutique .head .spacer { flex:1; }
   #screen-boutique h1 {
     color:#fff; font-size:32px; font-weight:900; letter-spacing:2px; margin-bottom:3px;
@@ -1304,6 +1304,7 @@
   #iris.ouvre .trou { animation:iris-ouvre .5s cubic-bezier(.4,0,.5,1) forwards; }
   @keyframes iris-ouvre { to { width:260vmax; height:260vmax; } }
 
+  /* Le panneau lil-gui n'existe qu'avec `?gui` (banc). */
   .lil-gui.root { top:82px !important; z-index:30 !important; }
 
   /* ---------- la porte : connexion plein page ----------
@@ -1879,13 +1880,14 @@
   </div>
 
   <div id="screen-skins">
+    <!-- BACK a GAUCHE, avant le titre — la ou l'oeil cherche une sortie (demande du
+         directeur produit, 5 septembre 2026). Echap fait pareil (lobbyui.js). -->
     <div class="head">
+      <button id="btn-retour" title="Back to the lobby (Esc)">← BACK</button>
       <div>
         <h1>CHARACTER</h1>
         <div class="sub">Your avatar on the track. Every one of them is animated by its own skeleton.</div>
       </div>
-      <div class="spacer"></div>
-      <button id="btn-retour">BACK</button>
     </div>
     <div class="tiles" id="skins-grid"></div>
   </div>
@@ -1899,12 +1901,11 @@
   -->
   <div id="screen-boutique">
     <div class="head">
+      <button id="btn-retour-boutique" title="Back to the lobby (Esc)">← BACK</button>
       <div>
         <h1>SHOP</h1>
         <div class="sub" id="shop-sub">Start with Pepe. Earn BabyTrump with a post, buy the others from 10 USDC.</div>
       </div>
-      <div class="spacer"></div>
-      <button id="btn-retour-boutique">BACK</button>
     </div>
 
     <!--

@@ -118,7 +118,7 @@ addEventListener('keydown', (e) => {
   // plus de chemin hors ligne derriere cette touche.
   if (e.code === 'Enter' && game?.mode === 'lobby') game.jouer?.();
   if (settings.matches(e.code, 'restart') && game?.mode === 'racing') game.restart();
-  if (e.code === 'KeyH') gui.show(gui._hidden);
+  if (e.code === 'KeyH' && gui) gui.show(gui._hidden);
   if (e.code === 'KeyP') el('perf').classList.toggle('hidden');
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -1850,7 +1850,10 @@ async function boot() {
 
   const view = createWorld();
   const lobby = buildLobbyScreen(assets);
-  buildGui(() => game?.arena?.world ?? null);
+  // Le panneau de reglages « Game feel » est un outil de banc : il n'apparait qu'avec
+  // `?gui` dans l'adresse. Le directeur produit l'a vu en haut a droite du lobby et l'a
+  // fait retirer (5 septembre 2026) — un joueur n'a rien a y regler.
+  if (new URLSearchParams(location.search).has('gui')) buildGui(() => game?.arena?.world ?? null);
   wireSettings();
   await applyIcons();
   buildSkinsScreen(onCosmeticChange);

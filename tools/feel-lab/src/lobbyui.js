@@ -524,6 +524,20 @@ export function wireEcrans(onEcran, onChangePerso) {
   });
   el('btn-retour-boutique').addEventListener('click', () => { sfx.click(); montrer('play'); });
 
+  /*
+   * ECHAP = BACK, sur la vitrine et la boutique (demande du directeur produit, 5 septembre
+   * 2026). En course, Echap ouvre la pause (main.js) ; au lobby, main.js ne fait rien, et
+   * c'est ici qu'on ferme l'ecran ouvert. Un champ de saisie garde sa touche.
+   */
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.repeat) return;
+    if (/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')) return;
+    const ouvert = ['skins', 'boutique'].find((n) => el(`screen-${n}`)?.classList.contains('on'));
+    if (!ouvert) return;
+    sfx.click();
+    montrer('play');
+  });
+
   return { montrer };
 }
 
