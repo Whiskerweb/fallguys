@@ -430,6 +430,17 @@ a pas en headless) ; ce qui se vérifie sans wallet, c'est le bouton, et le mess
 quand le navigateur n'en a pas. Il faut `https://play.babyguy.dev` dans Authentication →
 URL Configuration de Supabase, sinon « URI which is not allowed ».
 
+**PLUSIEURS WALLETS INSTALLÉS : ON NE PREND PLUS `window.ethereum`, ON FAIT CHOISIR
+(EIP-6963, 5 septembre 2026).** Deux extensions (MetaMask et Phantom, Rabby et
+Coinbase…) posent chacune `window.ethereum` et se le renvoient : « je me trompe de
+wallet, je refais » finissait en « Maximum call stack size exceeded » (directeur
+produit). Chaque wallet S'ANNONCE (`eip6963:announceProvider`) avec son propre
+`provider` ; `compte.js` garde la liste, la porte montre un bouton par wallet quand il y
+en a plus d'un (`#porte-wallets`), et `walletNavigateur()` rend le CHOISI — mémorisé
+par `rdns` dans `tumble-wallet` — pour la signature, le dépôt et le swap. Un seul
+wallet, ou un wallet muet : `window.ethereum` reste le repli. `diag/wallets.mjs` le
+verrouille sans navigateur, avec un `window.ethereum` piégé qui explose si on l'appelle.
+
 **DEPOSIT FROM WALLET : le parcours court demandé par le directeur produit.** Le joueur
 tape un montant, le lobby met son wallet sur Robinhood Chain (`wallet_switchEthereumChain`,
 et `wallet_addEthereumChain` avec les paramètres venus de `/moi` s'il ne la connaît pas),
@@ -719,6 +730,7 @@ cd tools/feel-lab     && node diag/economie.mjs #  87 — les dix lignes, les ro
 cd tools/feel-lab     && node diag/duel.mjs   #  53 — DEUX navigateurs, un duel payant
 cd tools/feel-lab     && node diag/boutique.mjs #  la boutique : quatre articles, prix = backend, possession, le post, sans navigateur
 cd tools/feel-lab     && node diag/boutique-ecran.mjs # le deblocage CLIQUE, l'achat ARME puis refuse sans compte, la fenetre vers X interceptee
+cd tools/feel-lab     && node diag/wallets.mjs        # 11 — deux extensions wallet installees : le jeu parle a la CHOISIE, jamais a window.ethereum
 cd tools/feel-lab     && node diag/cadeau-ecran.mjs   # 41 — l'ARRIVÉE : la boîte, BabyVlad équipé, le guide de dépôt sans clic (mainnet et testnet, wallet et RPC factices)
 cd tools/feel-lab     && node diag/bascule.mjs #  DEUX navigateurs : présence, suggestion, SWITCH
 cd tools/feel-lab     && node diag/partie.mjs #  le BANC solo (hors produit), trois manches

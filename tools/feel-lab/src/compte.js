@@ -166,6 +166,7 @@ export function messageErreur(e) {
   if (/rate limit|too many/i.test(m)) return 'Too many attempts. Wait a minute.';
   if (/URI which is not allowed|signed for another app/i.test(m)) return 'Wallet sign-in is not allowed for this site yet: play.babyguy.dev must be listed in the Supabase URL configuration.';
   if (e?.code === 'WALLET_ABSENT') return 'No wallet found in this browser. Install MetaMask, Rabby or Robinhood Wallet, then try again.';
+  if (/Maximum call stack/i.test(m)) return 'Two wallet extensions are fighting over this page. Pick one wallet in the list, or disable the other extension and reload.';
   if (e?.code === 4001 || e?.code === 'ACTION_REJECTED') return 'Refused in the wallet. Nothing was sent.';
   if (/user rejected|rejected the request|User declined/i.test(m)) return 'Signature refused in the wallet. Nothing was sent.';
   if (/web3.*(disabled|not enabled)|provider is not enabled/i.test(m)) return 'Wallet sign-in is not enabled on the server yet.';
@@ -239,8 +240,68 @@ export async function appeler(chemin, corps = null) {
 
 // ---------- le wallet ----------
 
-/** Le wallet EVM injecte dans la page (MetaMask, Rabby, Robinhood Wallet…), ou `null`. */
+/*
+ * LES WALLETS ANNONCES — EIP-6963 — ET POURQUOI ON NE PREND PLUS `window.ethereum`.
+ *
+ * Quand deux extensions sont installees (MetaMask et Phantom, Rabby et Coinbase…),
+ * chacune pose `window.ethereum` et le redirige vers l'autre : la premiere demande
+ * tombe sur l'une, la seconde sur l'autre, et parfois les deux se renvoient la balle
+ * jusqu'a « Maximum call stack size exceeded ». Vu par le directeur produit le
+ * 5 septembre 2026 : « je me trompe de wallet, je refais, et j'ai ce message ».
+ *
+ * EIP-6963 est la reponse standard : chaque wallet S'ANNONCE (nom, icone, identifiant
+ * inverse `rdns`, et SON objet `provider`), sans toucher a celui des autres. On garde la
+ * liste, la porte la montre quand il y en a plus d'un, et tout le jeu — signature,
+ * depot, swap — parle au provider CHOISI, jamais a l'objet dispute. Le choix est
+ * memorise par `rdns` : au retour, le meme wallet, sans redemander.
+ *
+ * `window.ethereum` reste le repli : un seul wallet, ancien, qui ne s'annonce pas.
+ */
+const annonces = new Map();
+const CLE_WALLET = 'tumble-wallet';
+let choisi = null;
+if (typeof window !== 'undefined') {
+  window.addEventListener('eip6963:announceProvider', (e) => {
+    const d = e.detail;
+    if (d?.info?.uuid && d.provider && typeof d.provider.request === 'function') annonces.set(d.info.uuid, d);
+  });
+  window.dispatchEvent(new Event('eip6963:requestProvider'));
+}
+
+/** La fiche d'un wallet annonce, telle que le jeu la lit : `{ uuid, nom, icone, rdns }`. */
+const fiche = (d) => ({ uuid: d.info.uuid, nom: d.info.name, icone: d.info.icon, rdns: d.info.rdns });
+
+/** Les wallets qui se sont annonces, dans l'ordre d'annonce. */
+export function walletsAnnonces() {
+  return [...annonces.values()].map(fiche);
+}
+
+/** Retient le wallet a employer partout. Rend son provider, ou `null` si l'annonce n'existe pas. */
+export function choisirWallet(uuid) {
+  const d = annonces.get(uuid);
+  if (!d) return null;
+  choisi = d;
+  try { localStorage.setItem(CLE_WALLET, d.info.rdns); } catch { /* memoire indisponible : le choix vaut pour la page */ }
+  return d.provider;
+}
+
+/** Le wallet retenu — celui de la page, ou celui memorise s'il est de nouveau annonce. */
+export function walletChoisi() {
+  if (choisi) return fiche(choisi);
+  let rdns = null;
+  try { rdns = localStorage.getItem(CLE_WALLET); } catch { /* rien */ }
+  const d = rdns ? [...annonces.values()].find((x) => x.info.rdns === rdns) : null;
+  if (d) choisi = d;
+  return d ? fiche(d) : null;
+}
+
+/**
+ * Le wallet EVM a employer : le CHOISI, sinon le seul annonce, sinon `window.ethereum`
+ * (MetaMask, Rabby, Robinhood Wallet…), sinon `null`.
+ */
 export function walletNavigateur() {
+  if (walletChoisi()) return choisi.provider;
+  if (annonces.size === 1) return [...annonces.values()][0].provider;
   const w = window.ethereum;
   return w && typeof w.request === 'function' ? w : null;
 }

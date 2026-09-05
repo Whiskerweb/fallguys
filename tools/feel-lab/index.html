@@ -1399,6 +1399,14 @@
   #porte-wallet:hover:not(:disabled) { transform:translateY(-2px); filter:brightness(1.06); box-shadow:0 7px 0 #5c42b0, inset 0 0 0 2.5px rgba(255,255,255,.4); }
   #porte-wallet:active:not(:disabled) { transform:translateY(3px); box-shadow:0 2px 0 #5c42b0, inset 0 0 0 2.5px rgba(255,255,255,.35); }
   #porte-wallet:disabled { opacity:.55; cursor:default; }
+  /* La liste des wallets annonces : un bouton par extension, icone et nom, le dernier choisi surligne. */
+  #porte-wallets { display:grid; gap:6px; margin-top:8px; }
+  #porte-wallets.hidden { display:none; }
+  .porte-choix { display:flex; align-items:center; gap:10px; height:44px; padding:0 12px; border:none; border-radius:12px; cursor:pointer; font-family:inherit;
+    color:#fff; font-weight:900; font-size:12.5px; letter-spacing:.6px; background:rgba(255,255,255,.08); box-shadow:inset 0 0 0 2px rgba(255,255,255,.12); }
+  .porte-choix img { width:24px; height:24px; border-radius:6px; background:#fff; padding:2px; }
+  .porte-choix:hover { background:rgba(255,255,255,.14); }
+  .porte-choix.on { box-shadow:inset 0 0 0 2.5px var(--cyan); }
   #porte-oublie { display:block; margin:12px auto 0; border:none; background:none; color:rgba(255,255,255,.5); cursor:pointer; font-family:inherit;
     font-size:12px; font-weight:800; text-decoration:underline; }
   #porte-oublie:hover { color:#fff; }
@@ -1704,6 +1712,8 @@
       <!-- Le wallet : Sign in with Ethereum, avec n'importe quel wallet EVM. Une signature,
            pas de transaction ; le meme bouton inscrit et connecte (porte.js). -->
       <button id="porte-wallet" type="button"><img src="/icons/wallet.svg" alt="">CONTINUE WITH WALLET<small>METAMASK · RABBY · ROBINHOOD WALLET</small></button>
+      <!-- Plusieurs wallets installes : la liste (EIP-6963), remplie par porte.js. -->
+      <div id="porte-wallets" class="hidden"></div>
       <button id="porte-oublie" type="button">Forgot password?</button>
       <div id="porte-msg"></div>
       <p id="porte-pied"><span class="testnet"><img src="/icons/robinhood-plume-vert.png" alt="">ROBINHOOD CHAIN TESTNET · TEST USDC</span><span>18+</span><span>SKILL COMPETITION</span><span>STAKES COMMITTED AT LAUNCH</span></p>

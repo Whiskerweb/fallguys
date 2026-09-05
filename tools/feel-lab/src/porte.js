@@ -23,7 +23,10 @@
 
 import { sfx } from './audio.js';
 import { caisse } from './caisse.js';
-import { CONFIGURE, session, connecter, creerCompte, connecterAvecWallet, motDePasseOublie, messageErreur, surSession } from './compte.js';
+import {
+  CONFIGURE, session, connecter, creerCompte, connecterAvecWallet, motDePasseOublie, messageErreur, surSession,
+  walletsAnnonces, choisirWallet, walletChoisi,
+} from './compte.js';
 import { renommerJoueur, majBarre } from './lobbyui.js';
 
 const el = (id) => document.getElementById(id);
@@ -138,10 +141,10 @@ export function buildPorte() {
    * le lobby (`renommerJoueur`). Aucune transaction : la fenetre du wallet ne demande
    * qu'une signature, et la phrase qu'elle affiche le dit.
    */
-  el('porte-wallet').addEventListener('click', () => pendant(async () => {
-    sfx.click();
+  const signer = () => pendant(async () => {
     const nom = onglet === 'creer' ? el('porte-nom-champ').value.trim().slice(0, 24) : null;
-    dire('Open your wallet and sign the message…');
+    const w = walletChoisi();
+    dire(w ? `Open ${w.nom} and sign the message…` : 'Open your wallet and sign the message…');
     try {
       const s = await connecterAvecWallet(nom || null);
       dire('Signed in with your wallet.', true);
@@ -149,8 +152,42 @@ export function buildPorte() {
       await entre(s, nom || null);
     } catch (e) {
       dire(messageErreur(e));
+      // Rate ? On remontre la liste : « je me suis trompe de wallet » se repare ici, pas
+      // en rechargeant la page.
+      if (walletsAnnonces().length > 1) montrerWallets();
     }
-  }));
+  });
+
+  /*
+   * PLUSIEURS WALLETS INSTALLES : ON DEMANDE LEQUEL (EIP-6963, voir `compte.js`). Un
+   * bouton par wallet annonce, avec son icone et son nom ; le choix est memorise et
+   * vaut ensuite pour le depot et le swap. Avec un seul wallet, ou un wallet qui ne
+   * s'annonce pas, le bouton signe directement comme avant.
+   */
+  const liste = el('porte-wallets');
+  function montrerWallets() {
+    const wallets = walletsAnnonces();
+    const courant = walletChoisi();
+    liste.innerHTML = '';
+    for (const w of wallets) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'porte-choix' + (courant?.uuid === w.uuid ? ' on' : '');
+      b.innerHTML = '<img alt=""><span></span>';
+      b.querySelector('img').src = w.icone;
+      b.querySelector('span').textContent = w.nom;
+      b.addEventListener('click', () => { sfx.click(); choisirWallet(w.uuid); liste.classList.add('hidden'); signer(); });
+      liste.appendChild(b);
+    }
+    liste.classList.remove('hidden');
+    dire(courant ? `Last time: ${courant.nom}. Pick a wallet to sign with.` : 'Pick the wallet to sign with.');
+  }
+
+  el('porte-wallet').addEventListener('click', () => {
+    sfx.click();
+    if (walletsAnnonces().length > 1) montrerWallets();
+    else signer();
+  });
   el('porte-oublie').addEventListener('click', () => pendant(async () => {
     sfx.click();
     const email = el('porte-mail').value.trim();

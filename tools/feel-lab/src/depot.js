@@ -49,7 +49,7 @@ import { sfx } from './audio.js';
 import { MICROS, montant } from './economie.js';
 import { portefeuille, caisse } from './caisse.js';
 import {
-  walletNavigateur, comptesConnus, connecterLeWallet, soldesDuWallet, devisDeSwap,
+  walletNavigateur, walletChoisi, comptesConnus, connecterLeWallet, soldesDuWallet, devisDeSwap,
   deposerDepuisWallet, deposerParSwap, messageErreur,
 } from './compte.js';
 
@@ -335,7 +335,7 @@ function peindre(jetonsAussi = true) {
     el('depot-jetons').classList.toggle('hidden', !c.wallet);
     el('depot-wallet-etat').textContent = !c.wallet
       ? 'No wallet found in this browser — install MetaMask, Rabby or Robinhood Wallet, or send from an exchange below.'
-      : etat.compte ? `Wallet ${etat.compte.slice(0, 6)}…${etat.compte.slice(-4)}` : '';
+      : etat.compte ? `${walletChoisi()?.nom ?? 'Wallet'} ${etat.compte.slice(0, 6)}…${etat.compte.slice(-4)}` : '';
     // Le testnet en tête : c'est LE chemin quand on y est. Sur mainnet, le bloc n'existe pas.
     el('depot-testnet').classList.toggle('hidden', !c.robinet);
     if (c.robinet) el('depot-robinet').textContent = `GET ${montant(p.chaine.robinetMicros)} TEST USDC · FREE`;
