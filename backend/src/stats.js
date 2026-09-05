@@ -79,7 +79,8 @@ export async function statistiques(db, chaine) {
   const adresses = tresorerie.adresses();
   cache = {
     reseau: config.reseau,
-    chaine: { nom: RESEAUX[config.reseau]?.nom ?? config.reseau, chainId: config.chainId, explorateur: RESEAUX[config.reseau]?.explorateur ?? null },
+    // `chaine`, plus bas, compte les transactions : le reseau porte un autre nom, sinon l'un ecrase l'autre.
+    reseauDetail: { nom: RESEAUX[config.reseau]?.nom ?? config.reseau, chainId: config.chainId, explorateur: RESEAUX[config.reseau]?.explorateur ?? null },
     a: new Date().toISOString(),
     contrats: { usdc: config.usdcAdresse ?? null, bg: config.bgAdresse ?? null, lot: config.lotAdresse ?? null },
     adresses,

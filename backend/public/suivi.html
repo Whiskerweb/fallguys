@@ -115,7 +115,7 @@
   }
 
   function peindre(s) {
-    $('reseau').textContent = s.chaine?.nom ?? s.reseau;
+    $('reseau').textContent = s.reseauDetail?.nom ?? s.reseau;
     $('parties').textContent = s.parties.reglees.toLocaleString('en-US');
     $('parties-s').textContent = `${s.parties.enCours} in progress · ${s.parties.annulees} cancelled · ` + s.parties.parMode.map((m) => `${m.n} ${MODES[m.mode] ?? m.mode}`).join(' · ');
     $('volume').textContent = usdc(s.parties.volume) + ' USDC';
