@@ -8,7 +8,7 @@ primary_region = "cdg"
 
 [env]
   PORT = "8787"
-  SOLANA_RESEAU = "devnet"
+  ROBINHOOD_RESEAU = "testnet"
 
 [[vm]]
   size = "shared-cpu-1x"

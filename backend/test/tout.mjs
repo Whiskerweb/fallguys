@@ -127,7 +127,7 @@ titre('3. Idempotence — rejouer ne paie pas deux fois');
 // ===========================================================================
 {
   const carol = await joueur(db, 'carol');
-  const signature = '5xFakeSolanaSignature' + randomUUID();
+  const signature = '0x' + randomUUID().replace(/-/g, '').padEnd(64, 'f') + '#0';
 
   const depot = () => db.transaction((tx) => poster(tx, {
     genre: 'depot', ref: signature,

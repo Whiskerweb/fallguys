@@ -9,6 +9,30 @@
 > 19 août, et le réécrire effacerait la trace des décisions. Ce qui a changé depuis est
 > listé ici, et c'est cette liste qui fait foi en cas de contradiction.
 >
+> **5 septembre 2026 — L'ARGENT EST SUR ROBINHOOD CHAIN, PLUS SUR SOLANA. Décision du
+> directeur produit.**
+>
+> « Supprime tout le Solana et passe en mode Robinhood. » Le jeu quitte Solana pour
+> **Robinhood Chain**, le Layer 2 d'Ethereum de Robinhood (Arbitrum Orbit) — testnet
+> d'abord (chainId 46630), mainnet (chainId 4663) ensuite. Tout ce que la version Solana
+> faisait est refait à l'identique, en EVM :
+>
+> - **un wallet dérivé par joueur et par partie**, sans ETH : il **signe une autorisation**
+>   (EIP-3009) et la caisse soumet et paie le gaz ;
+> - **une transaction par salon et par règlement**, tout ou rien (contrat `Lot`) : si une
+>   mise ne passe pas, aucune n'est partie ;
+> - **BG** est un ERC-20 d'un milliard, frappé une fois au constructeur, **sans fonction de
+>   frappe** ; le rachat-brûlage reste atomique ;
+> - sur le testnet, **l'USDC est le nôtre** (contrat d'essai frappable) et le jeu offre un
+>   **robinet** au joueur ; sur mainnet, `USDC_ADRESSE` désignera le vrai jeton ;
+> - la connexion par wallet devient **Sign in with Ethereum** (MetaMask, Rabby, Robinhood
+>   Wallet…), et le lobby propose **DEPOSIT FROM WALLET** : un transfert signé dans le
+>   wallet du joueur, réseau ajouté d'office.
+>
+> Les mentions de Solana, de devnet et de Phantom dans les amendements plus bas décrivent
+> l'état d'avant cette date. Les données d'essai de l'ancienne chaîne sont effacées
+> (`backend/outils/purger.mjs`) : on ne migre pas de l'argent qui ne vaut rien.
+>
 > **2 septembre 2026 — LA ROUE TIRE, APRÈS LA PARTIE. Décision du directeur produit.**
 >
 > Ceci renverse l'amendement du 1er septembre ci-dessous, et le § 5 avec lui. Le directeur

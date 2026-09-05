@@ -5,13 +5,13 @@
  *
  *   - les SECRETS (`GRAINE_DEPOTS`, `CAISSE_CLE`, `SUPABASE_SERVICE_ROLE`) : ils ne
  *     doivent apparaitre ni dans git, ni dans un journal, ni dans une reponse HTTP.
- *     Sur devnet ils ne gardent rien ; en mainnet, `CAISSE_CLE` EST le systeme. On les
- *     traite des maintenant comme s'ils valaient quelque chose, pour que l'habitude soit
- *     prise avant que ce soit vrai ;
+ *     Sur le testnet ils ne gardent rien ; en mainnet, `CAISSE_CLE` EST le systeme. On
+ *     les traite des maintenant comme s'ils valaient quelque chose, pour que l'habitude
+ *     soit prise avant que ce soit vrai ;
  *
- *   - les REGLAGES (mint USDC, reseau, minimums) : dans l'environnement eux aussi, pour
- *     que le passage devnet -> mainnet soit un changement de configuration et non une
- *     chasse aux valeurs ecrites en dur dans le code.
+ *   - les REGLAGES (adresses des contrats, reseau, minimums) : dans l'environnement eux
+ *     aussi, pour que le passage testnet -> mainnet soit un changement de configuration
+ *     et non une chasse aux valeurs ecrites en dur dans le code.
  *
  * Le fichier `.env` de la racine est deja ignore par git, avec une exception pour
  * `.env.example`. Les nouvelles variables y sont declarees a vide.
@@ -21,6 +21,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MICROS } from './argent.js';
+import { RESEAUX } from './robinhood/reseaux.js';
 
 /*
  * Le `.env` de la racine est charge ICI, sans rien ecraser : une variable deja posee dans
@@ -46,22 +47,34 @@ const lire = (nom, defaut = undefined) => {
   return v;
 };
 
+const reseau = lire('ROBINHOOD_RESEAU', 'testnet');
+const parametres = RESEAUX[reseau] ?? RESEAUX.testnet;
+
 export const config = {
   // ---- chaine ----
-  reseau: lire('SOLANA_RESEAU', 'devnet'),
-  rpc: lire('SOLANA_RPC', 'https://api.devnet.solana.com'),
+  /** `testnet` par defaut. `mainnet` un jour ; `local` (anvil) et `factice` pour les bancs. */
+  reseau,
+  rpc: lire('ROBINHOOD_RPC', parametres.rpc ?? ''),
+  chainId: Number(lire('ROBINHOOD_CHAIN_ID', String(parametres.chainId))),
 
   /**
-   * Le mint USDC. Devnet par defaut, alimentable au faucet Circle.
-   * En variable et non en constante : le mainnet ne doit demander qu'un changement ici.
+   * Les CONTRATS. Trois adresses, toutes en variables et jamais en constantes : le
+   * mainnet ne doit demander qu'un changement ici.
+   *
+   *   - USDC_ADRESSE : le jeton dans lequel on mise. Sur le testnet, c'est NOTRE jeton
+   *     d'essai (`USDCTest`, frappable) ; sur mainnet, le vrai ;
+   *   - BG_ADRESSE   : Baby Guy, cree par `outils/contrats.mjs` : 1 milliard, sans frappe ;
+   *   - LOT_ADRESSE  : l'executeur de lot, qui rend un reglement atomique.
    */
-  mintUsdc: lire('USDC_MINT', '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'),
+  usdcAdresse: lire('USDC_ADRESSE'),
+  bgAdresse: lire('BG_ADRESSE'),
+  lotAdresse: lire('LOT_ADRESSE'),
 
   /**
-   * Cle de la CAISSE, en base58 : le payeur de frais et de rente de toutes les transactions
-   * du service, et l'autorite qui a cree le jeton BG. Depuis le 2 septembre 2026 elle ne
-   * detient plus les USDC des joueurs — chacun les garde sur son propre wallet derive —
-   * mais elle signe encore chaque transaction comme payeur : elle reste LE secret.
+   * Cle de la CAISSE, en hexadecimal (0x…, 32 octets) : le payeur de GAZ de toutes les
+   * transactions du service, et le proprietaire des contrats. Elle ne detient pas les
+   * USDC des joueurs — chacun les garde sur son propre wallet derive — mais elle soumet
+   * chaque transaction et paie chaque frais : elle reste LE secret.
    */
   caisseCle: lire('CAISSE_CLE'),
 
@@ -71,19 +84,13 @@ export const config = {
    *
    *   - FRAIS : recoit le rake de chaque partie, sur la chaine. C'est le wallet que la
    *     page de suivi montre comme « frais », et celui que le brulage vide ;
-   *   - POOL  : la liquidite BG/USDC. Sur devnet il n'existe aucun marche pour un jeton
-   *     neuf, donc le service tient lui-meme une reserve a produit constant, dont les
-   *     soldes ON-CHAIN fixent le prix. Sur mainnet, ce wallet s'efface derriere un
-   *     agregateur (Jupiter) et une vraie paire : voir `solana/brulage.js`.
+   *   - POOL  : la liquidite BG/USDC. Sur le testnet il n'existe aucun marche pour un
+   *     jeton neuf, donc le service tient lui-meme une reserve a produit constant, dont
+   *     les soldes ON-CHAIN fixent le prix. Sur mainnet, ce wallet s'efface derriere un
+   *     routeur de DEX et une vraie paire : voir `robinhood/brulage.js`.
    */
   fraisCle: lire('FRAIS_CLE'),
   poolCle: lire('POOL_CLE'),
-
-  /**
-   * Le jeton BG (« Baby Guy »), cree par `outils/jeton.mjs` : 1 milliard d'unites, six
-   * decimales, autorite de frappe REVOQUEE — l'offre ne peut que baisser.
-   */
-  mintBg: lire('BG_MINT'),
 
   /**
    * La cle PUBLIQUE du serveur de jeu. Un resultat de partie n'est accepte que signe par
@@ -99,6 +106,15 @@ export const config = {
    */
   brulageSeuil: Number(lire('BRULAGE_SEUIL_MICROS', String(1 * MICROS))),
   brulageActif: lire('BRULAGE', '1') !== '0',
+
+  /**
+   * LE ROBINET — testnet seulement. `POST /robinet` frappe des USDC d'essai sur le wallet
+   * de jeu du joueur, parce que personne ne vend d'USDC de test et que le directeur
+   * produit doit pouvoir jouer sans un tiers. Interdit sur mainnet par construction : le
+   * vrai USDC n'a pas de fonction de frappe.
+   */
+  robinetMicros: Number(lire('ROBINET_MICROS', String(20 * MICROS))),
+  robinetDelaiMinutes: Number(lire('ROBINET_DELAI_MINUTES', '60')),
 
   /**
    * Graine maitresse des adresses de depot.

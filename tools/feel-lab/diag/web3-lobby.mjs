@@ -2,7 +2,7 @@
  * LE LOBBY CONNECTÉ À L'ARGENT — vu par un vrai navigateur, contre un vrai backend.
  *
  * Ce harnais ne lance PAS ses serveurs : il vise un serveur de jeu en PRODUCTION, branché
- * sur un backend (Supabase + Solana devnet), exactement comme un joueur. Il faut donc :
+ * sur un backend (Supabase + Robinhood Chain testnet), exactement comme un joueur. Il faut donc :
  *
  *   cd backend && PORT=8788 npm start
  *   cd serveur && PORT=8081 BACKEND_URL=http://127.0.0.1:8788 npm start
@@ -78,11 +78,15 @@ titre('3. Le panneau WALLET : dépôt, retrait, historique');
   await page.waitForSelector('#wallet-fond:not(.hidden)');
   await page.waitForFunction(() => (document.getElementById('wallet-adresse')?.textContent ?? '—') !== '—', null, { timeout: 15_000 });
   const adresse = await page.$eval('#wallet-adresse', (e) => e.textContent);
-  dit(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(adresse), `l'adresse de dépôt est une adresse Solana : ${adresse}`);
+  dit(/^0x[0-9a-fA-F]{40}$/.test(adresse), `l'adresse de dépôt est une adresse Robinhood Chain : ${adresse}`);
   const lien = await page.$eval('#wallet-adresse', (e) => e.getAttribute('href'));
-  dit(lien.includes('explorer.solana.com/address/') && lien.includes(adresse), 'et elle mène à l\'explorateur');
+  dit(/chain\.robinhood\.com\/address\/|blockscout\.com\/address\//.test(lien) && lien.includes(adresse), `et elle mène à l'explorateur : ${lien}`);
   const noteDepot = await page.$eval('#wallet-depot-note', (e) => e.textContent);
-  dit(/devnet/.test(noteDepot) && /Minimum/.test(noteDepot), `la note dit le réseau et le minimum : « ${noteDepot.slice(0, 60)}… »`);
+  dit(/Robinhood Chain/.test(noteDepot) && /Minimum/.test(noteDepot), `la note dit le réseau et le minimum : « ${noteDepot.slice(0, 60)}… »`);
+  const robinet = await page.$eval('#wallet-robinet', (e) => ({ cache: e.classList.contains('hidden'), texte: e.textContent }));
+  dit(!robinet.cache && /TEST USDC/.test(robinet.texte), `le robinet d'essai est offert sur le testnet : « ${robinet.texte} »`);
+  const deposer = await page.$eval('#wallet-deposer', (e) => e.textContent);
+  dit(/DEPOSIT FROM WALLET/.test(deposer), 'et le dépôt direct depuis le wallet du joueur est proposé');
   const lie = await page.$eval('#wallet-lie', (e) => e.textContent);
   dit(/LINK|Withdrawals go to/.test(lie), `le retrait exige un wallet lié : « ${lie.slice(0, 50)}… »`);
   await page.waitForFunction(() => !/Loading/.test(document.getElementById('wallet-historique')?.textContent ?? ''), null, { timeout: 15_000 });
@@ -106,7 +110,7 @@ titre('4. La page de suivi, relayée par le serveur de jeu');
 {
   const r = await fetch(`${BASE}/api/stats`);
   const s = await r.json();
-  dit(r.ok && s.reseau === 'devnet', `/api/stats répond : réseau ${s.reseau}, ${s.parties.reglees} parties, ${s.brulage.rachats} rachats`);
+  dit(r.ok && s.reseau === 'testnet' && s.chaine?.chainId === 46630, `/api/stats répond : réseau ${s.reseau} (chainId ${s.chaine?.chainId}), ${s.parties.reglees} parties, ${s.brulage.rachats} rachats`);
   const p = await fetch(`${BASE}/api/suivi`);
   dit(p.ok && /Tumble · on-chain/.test(await p.text()), '/api/suivi sert la page de suivi');
 }

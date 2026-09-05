@@ -19,7 +19,7 @@ import {
   ARTICLES, JEU, apercuDuPost, lienDePost, marquerEnvoi,
   estDebloque, enAttente, attenteRestante, reclamer, verrouilles,
 } from './boutique.js';
-import { CONFIGURE, API, session, connecter, creerCompte, deconnecter, messageErreur, lierWallet, adresseWallet, adresseCourte } from './compte.js';
+import { CONFIGURE, API, session, connecter, creerCompte, deconnecter, messageErreur, lierWallet, deposerDepuisWallet, adresseWallet, adresseCourte } from './compte.js';
 
 /**
  * Interface du lobby : la barre noire, le ticket d'entrée, la vitrine des personnages.
@@ -792,13 +792,15 @@ let ouvrirPortefeuille = () => {};
  * Trois sections, et chacune dit d'où vient ce qu'elle montre :
  *
  *   - DÉPÔT : l'adresse du wallet de jeu du joueur, dérivée par le backend, avec son lien
- *     vers l'explorateur. Une adresse Solana ne se recopie pas à la main sans faute de
+ *     vers l'explorateur. Une adresse 0x ne se recopie pas à la main sans faute de
  *     frappe, et une faute envoie les fonds dans le vide : le bouton COPY n'est pas un
- *     confort, c'est la seule façon sûre de la transmettre ;
- *   - RETRAIT : vers le wallet LIÉ uniquement, prouvé par signature (Phantom, Solflare).
- *     Le montant est le seul paramètre ; la destination n'en est jamais un ;
+ *     confort, c'est la seule façon sûre de la transmettre. Et le chemin court : DEPOSIT
+ *     FROM WALLET fait signer un transfert USDC au wallet du joueur (MetaMask…), réseau
+ *     ajouté d'office ; sur le testnet, GET TEST USDC demande au robinet du backend ;
+ *   - RETRAIT : vers le wallet LIÉ uniquement, prouvé par signature du wallet. Le montant
+ *     est le seul paramètre ; la destination n'en est jamais un ;
  *   - HISTORIQUE : chaque ligne du grand livre avec, quand elle existe, la transaction
- *     Solana qui la prouve. Un gain sans signature est un gain en cours de paiement.
+ *     Robinhood Chain qui la prouve. Un gain sans hache est un gain en cours de paiement.
  *
  * Le panneau n'existe QUE connecté : sans compte, il n'y a rien à montrer.
  */
@@ -807,7 +809,8 @@ export function buildPortefeuille(onChangement) {
   if (!fond) return;
   const msg = el('wallet-msg');
   const dire = (texte, ok = false) => { msg.textContent = texte; msg.classList.toggle('ok', ok); };
-  const explorateur = (p) => `https://explorer.solana.com/address/${p}${caisse.profil?.reseau && caisse.profil.reseau !== 'mainnet' ? `?cluster=${caisse.profil.reseau}` : ''}`;
+  // L'explorateur vient du backend avec le reseau : aucune adresse de site n'est ecrite ici.
+  const explorateur = (p) => (caisse.profil?.liens?.explorateur ? `${caisse.profil.liens.explorateur}/address/${p}` : '#');
 
   const GENRES = {
     depot: 'Deposit', mise: 'Stake', gain: 'Payout', mise_rendue: 'Stake returned',
@@ -825,15 +828,18 @@ export function buildPortefeuille(onChangement) {
     el('wallet-adresse').textContent = p.adresseDepot ?? '—';
     el('wallet-adresse').href = p.adresseDepot ? explorateur(p.adresseDepot) : '#';
     el('wallet-depot-note').textContent =
-      `Send USDC on Solana ${p.reseau} to this address. Minimum ${montant(p.depotMinimum)} USDC. `
+      `Send USDC on ${p.chaine?.nom ?? p.reseau} to this address, or deposit straight from your wallet. Minimum ${montant(p.depotMinimum)} USDC. `
       + 'It is your own game wallet: stakes leave it, winnings come back to it.';
+    // Le robinet n'existe que sur le testnet, et c'est le backend qui le dit.
+    el('wallet-robinet').classList.toggle('hidden', !p.chaine?.robinet);
+    if (p.chaine?.robinet) el('wallet-robinet').textContent = `GET ${montant(p.chaine.robinetMicros)} TEST USDC`;
 
     const lie = el('wallet-lie');
     if (p.wallet) {
       lie.innerHTML = `Withdrawals go to <a class="mono" target="_blank" rel="noopener" href="${explorateur(p.wallet)}">${p.wallet}</a> `
         + '<button id="wallet-relier" class="mini">CHANGE</button>';
     } else {
-      lie.innerHTML = 'No wallet linked yet. <button id="wallet-relier" class="mini primaire">LINK PHANTOM / SOLFLARE</button>';
+      lie.innerHTML = 'No wallet linked yet. <button id="wallet-relier" class="mini primaire">LINK METAMASK / WALLET</button>';
     }
     el('wallet-relier').addEventListener('click', () => pendant(async () => {
       dire('Sign the message in your wallet…');
@@ -842,7 +848,7 @@ export function buildPortefeuille(onChangement) {
         dire(`Wallet linked. First withdrawal opens ${p.delaiPremierRetraitHeures} h after linking.`, true);
         await caisse.rafraichir();
         await peindre();
-      } catch (e) { dire(e.message ?? String(e)); }
+      } catch (e) { dire(messageErreur(e)); }
     }));
     el('wallet-retrait-note').textContent =
       `Minimum ${montant(p.retraitMinimum)} USDC · first withdrawal ${p.delaiPremierRetraitHeures} h after linking a wallet · sent from your game wallet.`;
@@ -865,7 +871,7 @@ export function buildPortefeuille(onChangement) {
     } catch { h.innerHTML = '<div class="wallet-note">History unavailable.</div>'; }
   }
 
-  const boutons = ['wallet-copier', 'wallet-relever', 'wallet-retirer'];
+  const boutons = ['wallet-copier', 'wallet-relever', 'wallet-retirer', 'wallet-deposer', 'wallet-robinet'];
   async function pendant(travail) {
     for (const b of boutons) { const e = el(b); if (e) e.disabled = true; }
     try { await travail(); } finally { for (const b of boutons) { const e = el(b); if (e) e.disabled = false; } }
@@ -889,6 +895,37 @@ export function buildPortefeuille(onChangement) {
       onChangement?.();
     } catch (e) { dire(e.message); }
   }));
+  /*
+   * DÉPÔT DEPUIS LE WALLET : le joueur signe un transfert USDC dans MetaMask, vers son
+   * wallet de jeu. Le réseau est ajouté au wallet s'il ne le connaît pas. Le crédit suit
+   * quand le guetteur voit la transaction — CHECK DEPOSITS l'accélère.
+   */
+  el('wallet-deposer').addEventListener('click', () => pendant(async () => {
+    sfx.click();
+    const p = caisse.profil;
+    const usdc = Number(el('wallet-depot-montant').value);
+    if (!(usdc > 0)) { dire('Enter an amount in USDC.'); return; }
+    dire('Confirm the network and the transfer in your wallet…');
+    try {
+      const hache = await deposerDepuisWallet({ chaine: p.chaine, adresseDepot: p.adresseDepot, micros: Math.round(usdc * MICROS) });
+      el('wallet-depot-montant').value = '';
+      dire(`Transfer sent (${hache.slice(0, 10)}…). It is credited as soon as it is confirmed — click CHECK DEPOSITS in a moment.`, true);
+    } catch (e) { dire(messageErreur(e)); }
+  }));
+  el('wallet-robinet').addEventListener('click', () => pendant(async () => {
+    sfx.click();
+    dire('Asking the faucet…');
+    try {
+      const r = await caisse.robinet();
+      dire(`${montant(r.montant)} test USDC credited.`, true);
+      await caisse.rafraichir();
+      await peindre();
+      majBarre();
+      onChangement?.();
+    } catch (e) { dire(e.code === 'ROBINET_TROP_TOT' ? e.message.replace('le robinet rouvre dans', 'The faucet reopens in') : messageErreur(e)); }
+  }));
+  el('wallet-depot-montant').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') el('wallet-deposer').click(); });
+  el('wallet-depot-montant').addEventListener('keyup', (e) => e.stopPropagation());
   el('wallet-retirer').addEventListener('click', () => pendant(async () => {
     sfx.click();
     const usdc = Number(el('wallet-montant').value);

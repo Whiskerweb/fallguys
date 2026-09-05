@@ -1,20 +1,22 @@
 /**
  * LE CYCLE COMPLET, SUR UNE VRAIE CHAINE : depot → mise → partie → gain → brulage → retrait.
  *
- *   node outils/cycle.mjs --local     # contre un validateur local (solana-test-validator),
- *                                     # avec un USDC d'essai et un jeton BG crees a la volee
- *   node outils/cycle.mjs             # contre le reseau du .env (devnet) : la caisse doit
- *                                     # avoir du SOL, et les deux joueurs d'essai des USDC
+ *   node outils/cycle.mjs --local     # contre anvil (Foundry), lance par ce script : les
+ *                                     # trois contrats sont deployes a la volee
+ *   node outils/cycle.mjs             # contre le reseau du .env (testnet) : la caisse doit
+ *                                     # avoir de l'ETH, les contrats etre deployes
  *
  * Ce n'est PAS un test unitaire : c'est la preuve que les transactions que `chaine.js`
- * construit passent sur Solana — Token-2022, fermeture de compte, lots de virements,
- * brulage atomique. Le grand livre tourne sur PGlite (en memoire), la chaine est REELLE.
- * Chaque signature est imprimee avec son lien d'explorateur.
+ * construit passent sur une chaine EVM — autorisations EIP-3009 signees par des wallets
+ * sans ETH, lots atomiques, brulage. Le grand livre tourne sur PGlite (en memoire), la
+ * chaine est REELLE. Chaque hache est imprime avec son lien d'explorateur.
  *
- * Sur devnet, le SOL vient de https://faucet.solana.com et l'USDC de
- * https://faucet.circle.com (Solana Devnet) : deux gestes humains, que ce script ne peut
- * pas faire. Il dit quoi approvisionner, et attend.
+ * Sur le testnet, l'ETH de la caisse vient de https://faucet.testnet.chain.robinhood.com
+ * — un geste humain, que ce script ne peut pas faire. L'USDC, lui, est le notre : le
+ * script en frappe pour les joueurs d'essai et le pool.
  */
+
+import { spawn } from 'node:child_process';
 
 const local = process.argv.includes('--local');
 /*
@@ -24,17 +26,24 @@ const local = process.argv.includes('--local');
  */
 process.env.RETRAIT_MINIMUM_MICROS = '1000000';
 process.env.DELAI_PREMIER_RETRAIT_HEURES = '0';
+let anvil = null;
 if (local) {
-  process.env.SOLANA_RPC = 'http://127.0.0.1:8899';
-  process.env.SOLANA_RESEAU = 'local';
-  // Sur un validateur local, USDC et BG n'existent pas encore : on les cree plus bas, et
-  // les variables doivent etre posees AVANT que `config.js` ne soit lu.
-  process.env.USDC_MINT = process.env.USDC_MINT_LOCAL ?? '11111111111111111111111111111111';
-  process.env.BG_MINT = process.env.BG_MINT_LOCAL ?? '11111111111111111111111111111111';
+  process.env.ROBINHOOD_RESEAU = 'local';
+  process.env.ROBINHOOD_RPC = 'http://127.0.0.1:8545';
+  process.env.ROBINHOOD_CHAIN_ID = '31337';
+  // Sur anvil, rien n'existe encore : les contrats sont deployes plus bas, et les
+  // variables doivent etre posees AVANT que `config.js` ne soit lu.
+  process.env.USDC_ADRESSE = ''; process.env.BG_ADRESSE = ''; process.env.LOT_ADRESSE = '';
+  // Une tresorerie DE BANC, deterministe et sans valeur : jamais les cles du .env sur anvil.
+  const cleDeTest = (octet) => '0x' + Buffer.alloc(32, octet).toString('hex');
+  process.env.CAISSE_CLE = cleDeTest(0x11); process.env.FRAIS_CLE = cleDeTest(0x22); process.env.POOL_CLE = cleDeTest(0x33);
+  process.env.GRAINE_DEPOTS ||= 'graine-de-banc-anvil';
+  anvil = spawn('anvil', ['--port', '8545', '--chain-id', '31337', '--silent'], { stdio: 'ignore' });
+  process.on('exit', () => anvil?.kill());
+  await new Promise((r) => setTimeout(r, 1200));
 }
 
-import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
-import { createMint, mintTo, getOrCreateAssociatedTokenAccount, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { JsonRpcProvider, Wallet, formatEther, parseEther } from 'ethers';
 
 /*
  * L'ORDRE DES IMPORTS EST LE POINT. `config.js` lit l'environnement une fois, a l'import ;
@@ -45,55 +54,48 @@ import { createMint, mintTo, getOrCreateAssociatedTokenAccount, TOKEN_PROGRAM_ID
  */
 const { config } = await import('../src/config.js');
 const { banc, joueur, doter } = await import('../test/aide.mjs');
-const { tresorerie } = await import('../src/solana/tresorerie.js');
-const chaineMod = await import('../src/solana/chaine.js');
-const { creerJeton } = await import('../src/solana/jeton.js');
+const { tresorerie } = await import('../src/robinhood/tresorerie.js');
+const chaineMod = await import('../src/robinhood/chaine.js');
+const { deployerContrats } = await import('../src/robinhood/contrats.js');
 const { engagerPartie, regler } = await import('../src/match/regler.js');
-const { racheterEtBruler, etatMarche } = await import('../src/solana/brulage.js');
-const { verifierChaine } = await import('../src/solana/reconciliation.js');
-const { demander, executer } = await import('../src/solana/retraits.js');
+const { racheterEtBruler, etatMarche } = await import('../src/robinhood/brulage.js');
+const { verifierChaine } = await import('../src/robinhood/reconciliation.js');
+const { demander, executer } = await import('../src/robinhood/retraits.js');
+const { releverDepots } = await import('../src/robinhood/guetteur.js');
 const { solde, compte, poster, verifierInvariant } = await import('../src/livre.js');
 const { MICROS, ecrire } = await import('../src/argent.js');
 const { table } = await import('../src/gains.js');
 
-const co = new Connection(config.rpc, 'confirmed');
+const co = new JsonRpcProvider(config.rpc, config.chainId, { staticNetwork: true, cacheTimeout: -1 });
 const caisse = tresorerie.caisse();
 const frais = tresorerie.frais();
 const pool = tresorerie.pool();
-const lien = (s) => chaineMod.lienExplorateur(s);
+const lien = (s) => chaineMod.lienExplorateur(s) ?? s;
 const dit = (t) => console.log(`  ${t}`);
 const titre = (t) => console.log(`\n\x1b[1m${t}\x1b[0m`);
+const fin = (code) => { anvil?.kill(); process.exit(code); };
 
-titre(`Cycle sur ${config.reseau} (${config.rpc})`);
-dit(`caisse ${caisse.publicKey.toBase58()}`);
-dit(`frais  ${frais.publicKey.toBase58()}`);
-dit(`pool   ${pool.publicKey.toBase58()}`);
+titre(`Cycle sur ${config.reseau} (${config.rpc}, chainId ${config.chainId})`);
+dit(`caisse ${caisse.address}`);
+dit(`frais  ${frais.address}`);
+dit(`pool   ${pool.address}`);
 
-// ---------------------------------------------------------------- le SOL
-let sol = await co.getBalance(caisse.publicKey);
-if (local && sol < 2 * LAMPORTS_PER_SOL) {
-  const sig = await co.requestAirdrop(caisse.publicKey, 5 * LAMPORTS_PER_SOL);
-  await co.confirmTransaction(sig, 'confirmed');
-  sol = await co.getBalance(caisse.publicKey);
-}
-dit(`SOL de la caisse : ${(sol / LAMPORTS_PER_SOL).toFixed(4)}`);
-if (sol < 0.05 * LAMPORTS_PER_SOL) {
-  console.error('\n  La caisse manque de SOL. devnet : https://faucet.solana.com → ' + caisse.publicKey.toBase58());
-  process.exit(1);
+// ---------------------------------------------------------------- l'ETH
+if (local) await co.send('anvil_setBalance', [caisse.address, '0x' + parseEther('10').toString(16)]);
+const eth = Number(formatEther(await co.getBalance(caisse.address)));
+dit(`ETH de la caisse : ${eth.toFixed(5)}`);
+if (eth < 0.001) {
+  console.error('\n  La caisse manque d\'ETH. Testnet : https://faucet.testnet.chain.robinhood.com → ' + caisse.address);
+  fin(1);
 }
 
-// ---------------------------------------------------------------- USDC et BG
+// ---------------------------------------------------------------- les contrats
 if (local) {
-  // Un « USDC » d'essai : six decimales, la caisse en est l'autorite. Le mint est
-  // configurable precisement pour cela.
-  const mintUsdc = await createMint(co, caisse, caisse.publicKey, null, 6, undefined, { commitment: 'confirmed' }, TOKEN_PROGRAM_ID);
-  config.mintUsdc = mintUsdc.toBase58();
-  dit(`USDC d'essai cree : ${config.mintUsdc}`);
-  const { mint } = await creerJeton({ connexion: co, caisse, pool });
-  config.mintBg = mint;
-  dit(`BG cree : ${mint} (1 000 000 000, frappe revoquee)`);
+  const r = await deployerContrats({ connexion: co, caisse, pool: pool.address, usdcEssai: true });
+  config.lotAdresse = r.lot; config.usdcAdresse = r.usdc; config.bgAdresse = r.bg;
+  dit(`Lot ${r.lot} · USDC d'essai ${r.usdc} · BG ${r.bg} (1 000 000 000 au pool, sans frappe)`);
 }
-if (!config.mintBg) { console.error('\n  BG_MINT absent : node outils/jeton.mjs'); process.exit(1); }
+if (!config.bgAdresse || !config.lotAdresse || !config.usdcAdresse) { console.error('\n  contrats absents : node outils/contrats.mjs'); fin(1); }
 
 const { db, pglite } = await banc();
 const evenements = [];
@@ -101,59 +103,52 @@ const chaine = chaineMod.creerChaine({ db, surEvenement: (e) => evenements.push(
 
 // ---------------------------------------------------------------- les joueurs
 /*
- * Sur devnet, les deux joueurs d'essai ont des identifiants FIXES : leurs wallets derives
- * ne changent donc pas d'une execution a l'autre, et l'USDC qu'on y envoie (faucet Circle)
- * sert a toutes les suivantes. En local, peu importe.
+ * Les deux joueurs d'essai ont des identifiants FIXES : leurs wallets derives ne changent
+ * donc pas d'une execution a l'autre, et l'USDC frappe dessus sert aux suivantes.
  */
-const alice = await joueur(db, 'alice', local ? undefined : '00000000-0000-4000-8000-00000000a11c');
-const bob = await joueur(db, 'bob', local ? undefined : '00000000-0000-4000-8000-0000000000b0');
-const wallet = (id) => tresorerie.joueur(id).publicKey.toBase58();
+const alice = await joueur(db, 'alice', '00000000-0000-4000-8000-00000000a11c');
+const bob = await joueur(db, 'bob', '00000000-0000-4000-8000-0000000000b0');
+const wallet = (id) => tresorerie.joueur(id).address;
 
-async function approvisionner(proprietaire, usdc) {
-  if (local) {
-    const ata = await getOrCreateAssociatedTokenAccount(co, caisse, new PublicKey(config.mintUsdc), new PublicKey(proprietaire), true, 'confirmed', undefined, TOKEN_PROGRAM_ID);
-    await mintTo(co, caisse, new PublicKey(config.mintUsdc), ata.address, caisse, usdc * MICROS, [], { commitment: 'confirmed' }, TOKEN_PROGRAM_ID);
-  }
-  return chaine.solde(proprietaire, 'usdc');
-}
-
-titre('1. Depots');
-const manques = [];
+titre('1. Depots : le robinet frappe des USDC d\'essai, le guetteur les credite');
 for (const [nom, id] of [['alice', alice], ['bob', bob]]) {
-  const sur = await approvisionner(wallet(id), 10);
-  if (sur < 2 * MICROS) { manques.push(`${nom.padEnd(6)} ${wallet(id)}  (${ecrire(sur)} USDC, il en faut 2)`); continue; }
-  // Le livre suit la chaine : ce que le guetteur ferait en voyant le depot.
-  await doter(db, id, sur);
-  dit(`${nom} ${wallet(id)} · ${ecrire(sur)} USDC sur la chaine, credites au livre`);
+  const avant = await chaine.solde(wallet(id));
+  if (avant < 10 * MICROS) {
+    const r = await chaine.executer({ operations: [{ type: 'frappe', vers: wallet(id), mint: 'usdc', montant: 10 * MICROS, objet: 'robinet', ref: `${id}:${Date.now()}` }] });
+    dit(`frappe 10.00 USDC pour ${nom} → ${lien(r.signature)}`);
+  }
+  const vus = await releverDepots(db, { userId: id, adresse: wallet(id) });
+  const sur = await chaine.solde(wallet(id));
+  // Le guetteur ne voit que ce qui est sur la chaine dans sa fenetre ; le solde anterieur
+  // (executions precedentes sur le testnet) est dote au livre comme un depot ancien.
+  const credite = await solde(db, compte.joueur(id));
+  if (credite < sur) await doter(db, id, sur - credite);
+  dit(`${nom} ${wallet(id)} · ${ecrire(sur)} USDC sur la chaine (${vus.length} depot(s) vus par le guetteur), credites au livre`);
 }
-const poolUsdc = await approvisionner(pool.publicKey.toBase58(), 100);
-if (poolUsdc <= 0) manques.push(`pool   ${pool.publicKey.toBase58()}  (0 USDC : sans USDC le pool n'a pas de prix et ne brule rien)`);
-if (manques.length) {
-  console.error('\n  Il manque des USDC. Sur devnet : https://faucet.circle.com (Solana Devnet), vers :');
-  for (const m of manques) console.error(`    ${m}`);
-  console.error('');
-  process.exit(1);
+let poolUsdc = await chaine.solde(pool.address, 'usdc');
+if (poolUsdc < 100 * MICROS) {
+  const r = await chaine.executer({ operations: [{ type: 'frappe', vers: pool.address, mint: 'usdc', montant: 100 * MICROS, objet: 'robinet', ref: `pool:${Date.now()}` }] });
+  dit(`frappe 100.00 USDC pour le pool → ${lien(r.signature)}`);
+  poolUsdc = await chaine.solde(pool.address, 'usdc');
 }
-if (poolUsdc > 0) {
-  await db.transaction((tx) => poster(tx, { genre: 'dotation', ref: `pool:${Date.now()}`, lignes: [{ compte: compte.entree, montant: -poolUsdc }, { compte: compte.pool, montant: poolUsdc }] }));
-}
-dit(`pool : ${ecrire(poolUsdc)} USDC · ${((await chaine.solde(pool.publicKey.toBase58(), 'bg')) / MICROS).toLocaleString('en-US')} BG`);
+await db.transaction((tx) => poster(tx, { genre: 'dotation', ref: `pool:${Date.now()}`, lignes: [{ compte: compte.entree, montant: -poolUsdc }, { compte: compte.pool, montant: poolUsdc }] }));
+dit(`pool : ${ecrire(poolUsdc)} USDC · ${((await chaine.solde(pool.address, 'bg')) / MICROS).toLocaleString('en-US')} BG`);
 
-titre('2. Un duel a 2 USDC : les mises partent vers le pot');
+titre('2. Un duel a 2 USDC : les deux mises partent vers le pot, en UNE transaction');
 const partie = `cycle-${Date.now().toString(36)}`;
 const eng = await engagerPartie(db, chaine, { partie, mode: 'duel', mise: 2 * MICROS, joueurs: [{ userId: alice, nom: 'alice' }, { userId: bob, nom: 'bob' }] });
-if (eng.annulee) { console.error('  ANNULEE :', JSON.stringify(eng.refuses)); process.exit(1); }
+if (eng.annulee) { console.error('  ANNULEE :', JSON.stringify(eng.refuses)); fin(1); }
 dit(`pot ${eng.adressePot} · ${ecrire(await chaine.solde(eng.adressePot))} USDC`);
-for (const [id, sig] of Object.entries(eng.signatures)) dit(`mise ${id === alice ? 'alice' : 'bob'} → ${lien(sig)}`);
+dit(`mises → ${lien(eng.signatures[alice])}`);
 
-titre('3. Le reglement : le pot est vide vers le vainqueur et les frais, puis ferme');
+titre('3. Le reglement : le pot est vide vers le vainqueur et les frais');
 const graineRoue = Math.floor(Math.random() * 0x1_0000_0000);
 const r = await regler(db, { matchId: partie, mise: 2 * MICROS, mode: 'duel', graineRoue, effectif: 2, classement: [{ userId: alice, rang: 1 }, { userId: bob, rang: 2 }] }, chaine);
 const bareme = table(2 * MICROS, 'duel', r.issue);
 dit(`ligne ${r.issue} (graine ${graineRoue}) · alice touche ${ecrire(bareme.parRang[0])}, bob ${ecrire(bareme.parRang[1])}, frais ${ecrire(bareme.rake)}`);
 for (const sig of r.signatures) dit(`reglement → ${lien(sig)}`);
 dit(`alice sur la chaine : ${ecrire(await chaine.solde(wallet(alice)))} · au livre : ${ecrire(await solde(db, compte.joueur(alice)))}`);
-dit(`pot sur la chaine : ${ecrire(await chaine.solde(eng.adressePot))} · frais : ${ecrire(await chaine.solde(frais.publicKey.toBase58()))}`);
+dit(`pot sur la chaine : ${ecrire(await chaine.solde(eng.adressePot))} · frais : ${ecrire(await chaine.solde(frais.address))}`);
 
 titre('4. Livre ↔ chaine');
 const v = await verifierChaine(db, chaine);
@@ -161,7 +156,7 @@ dit(`${v.verifies} comptes verifies · ${v.ecarts.length} ecart ${v.ok ? '' : JS
 const inv = await verifierInvariant(db);
 dit(`invariant du livre : ${inv.total} (attendu 0)`);
 
-titre('5. Le brulage : les frais achetent des BG au pool et les brulent');
+titre('5. Le brulage : les frais achetent des BG au pool, brules depuis le pool');
 const marcheAvant = await etatMarche(chaine);
 const b = await racheterEtBruler(db, chaine, { seuil: 1 });
 if (!b || b.statut !== 'brule') { dit(`pas de brulage : ${JSON.stringify(b)}`); }
@@ -173,7 +168,7 @@ else {
 }
 
 titre('6. Un retrait : du wallet de jeu d\'alice vers un wallet externe');
-const externe = Keypair.generate().publicKey.toBase58();
+const externe = Wallet.createRandom().address;
 await db.query(`update public.profiles set wallet = $2, wallet_lie_le = now() - interval '2 days' where id = $1`, [alice, externe]);
 const dem = await demander(db, { userId: alice, montant: Math.min(await solde(db, compte.joueur(alice)), 5 * MICROS) });
 const ex = await executer(db, chaine, dem.id);
@@ -187,4 +182,4 @@ dit(`${evenements.length} transactions confirmees pendant le cycle`);
 
 await pglite.close();
 console.log(`\n${v.ok && v2.ok && inv.total === 0 ? 'CYCLE COMPLET' : 'CYCLE AVEC ECARTS'}\n`);
-process.exit(v.ok && v2.ok ? 0 : 1);
+fin(v.ok && v2.ok ? 0 : 1);

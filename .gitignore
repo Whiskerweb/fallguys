@@ -66,5 +66,9 @@ tools/feel-lab/diag/vues/
 # Assets ecartes : gardes en local, trop lourds pour le depot (146 Mo)
 tools/meshy-pipeline/unused/
 
-# Wallets devnet generes par backend/outils/tresorerie.mjs : cles secretes, jamais versionnees
+# Wallets generes par backend/outils/tresorerie.mjs (testnet, mainnet) : cles secretes, jamais versionnees
 backend/wallets/
+
+# Foundry : sorties de compilation, regenerables (les artefacts utiles sont recopies dans src/robinhood/artefacts.js)
+backend/contrats/out/
+backend/contrats/cache/

@@ -2,8 +2,8 @@
  * LES STATISTIQUES PUBLIQUES — ce que la page de suivi montre a tout le monde.
  *
  * Aucun solde de joueur n'en sort, aucun identifiant non plus : des totaux, des
- * comptes, et des signatures de transactions que n'importe qui peut ouvrir sur un
- * explorateur. C'est deliberement la meme information que celle qu'on peut reconstituer
+ * comptes, et des haches de transactions que n'importe qui peut ouvrir sur
+ * l'explorateur. C'est deliberement la meme information que celle qu'on peut reconstituer
  * depuis la chaine — la page ne fait que l'assembler et la mettre a jour en direct.
  *
  * Les lectures sur la chaine (soldes du pool, offre de BG) sont mises en cache quelques
@@ -11,9 +11,10 @@
  */
 
 import { config } from './config.js';
-import { tresorerie } from './solana/tresorerie.js';
-import { etatMarche, bilanBrulage } from './solana/brulage.js';
-import { lienExplorateur, lienAdresse } from './solana/chaine.js';
+import { tresorerie } from './robinhood/tresorerie.js';
+import { etatMarche, bilanBrulage } from './robinhood/brulage.js';
+import { lienExplorateur, lienAdresse } from './robinhood/chaine.js';
+import { RESEAUX } from './robinhood/reseaux.js';
 
 let cache = null;
 let cacheA = 0;
@@ -78,15 +79,17 @@ export async function statistiques(db, chaine) {
   const adresses = tresorerie.adresses();
   cache = {
     reseau: config.reseau,
+    chaine: { nom: RESEAUX[config.reseau]?.nom ?? config.reseau, chainId: config.chainId, explorateur: RESEAUX[config.reseau]?.explorateur ?? null },
     a: new Date().toISOString(),
-    mints: { usdc: config.mintUsdc, bg: config.mintBg ?? null },
+    contrats: { usdc: config.usdcAdresse ?? null, bg: config.bgAdresse ?? null, lot: config.lotAdresse ?? null },
     adresses,
     liens: {
-      explorateur: (s) => lienExplorateur(s),
       caisse: adresses.caisse && lienAdresse(adresses.caisse),
       frais: adresses.frais && lienAdresse(adresses.frais),
       pool: adresses.pool && lienAdresse(adresses.pool),
-      bg: config.mintBg && lienAdresse(config.mintBg),
+      bg: config.bgAdresse && lienAdresse(config.bgAdresse),
+      usdc: config.usdcAdresse && lienAdresse(config.usdcAdresse),
+      lot: config.lotAdresse && lienAdresse(config.lotAdresse),
     },
     parties: {
       reglees: parties.reglees, enCours: parties.en_cours, annulees: parties.annulees,
@@ -111,7 +114,6 @@ export async function statistiques(db, chaine) {
     dernieresParties: dernieresParties.map((p) => ({ ...p, lienPot: p.adresse_pot && lienAdresse(p.adresse_pot) })),
     verification: derniereVerification,
   };
-  delete cache.liens.explorateur;
   cacheA = Date.now();
   return cache;
 }

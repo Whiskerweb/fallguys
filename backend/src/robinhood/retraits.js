@@ -2,8 +2,8 @@
  * LES RETRAITS — le seul endroit du systeme ou un bug se solde par un double paiement.
  *
  * Tout le reste se rattrape : un depot manque se relit, un classement faux se corrige, un
- * pot mal solde se voit dans l'invariant. Une transaction Solana envoyee deux fois, non.
- * Ce fichier est donc ecrit pour cette seule crainte.
+ * pot mal solde se voit dans l'invariant. Un virement envoye deux fois, non. Ce fichier
+ * est donc ecrit pour cette seule crainte.
  *
  * Trois regles, dans l'ordre ou elles comptent :
  *
@@ -11,20 +11,18 @@
  *      debit laisserait le joueur paye ET credite. Dans l'autre sens, un arret laisse
  *      l'argent immobilise mais jamais perdu — et une reprise le retrouve.
  *
- *   2. ON ENREGISTRE LA SIGNATURE AVANT DE DIFFUSER. Sur Solana, la signature est connue
- *      des que la transaction est signee, avant meme d'etre envoyee. On l'ecrit donc en
- *      base d'abord. Sans cela, un arret au mauvais moment laisse une transaction peut-etre
- *      partie, dont on ne connait pas le nom — et rien ne permet plus de savoir si elle a
- *      abouti.
+ *   2. ON ENREGISTRE LE HACHE AVANT DE DIFFUSER. Le hache d'une transaction est connu des
+ *      qu'elle est signee, avant meme d'etre envoyee. On l'ecrit donc en base d'abord.
+ *      Sans cela, un arret au mauvais moment laisse une transaction peut-etre partie, dont
+ *      on ne connait pas le nom — et rien ne permet plus de savoir si elle a abouti.
  *
  *   3. ON NE RE-SIGNE JAMAIS SANS AVOIR RELU LA CHAINE. Et pas seulement « la transaction
- *      est-elle confirmee ? » : une transaction non confirmee peut encore l'etre tant que
- *      son blockhash est valide. Il faut donc que le blockhash soit EXPIRE avant de
- *      considerer qu'elle ne partira jamais. C'est la seule verification qui autorise a
- *      recommencer.
+ *      a-t-elle un recu ? » : sans recu, elle peut encore etre minee tant que son nonce
+ *      n'est pas consomme. C'est `chaine.js:reprendre` qui tranche, et lui seul.
  */
 
 import { randomUUID } from 'node:crypto';
+import { isAddress } from 'ethers';
 import { poster, compte, solde, verrouillerJoueur, mouvementExistant } from '../livre.js';
 import { config } from '../config.js';
 import { tresorerie } from './tresorerie.js';
@@ -53,6 +51,7 @@ export async function demander(db, { userId, montant }) {
      * peut pas rediriger les fonds, parce qu'il n'y a aucun parametre a detourner.
      */
     if (!p.wallet) throw refus('WALLET_ABSENT', 'aucun wallet lie a ce compte');
+    if (!isAddress(p.wallet)) throw refus('WALLET_INVALIDE', 'le wallet lie n\'est pas une adresse Robinhood Chain');
 
     if (montant < config.retraitMinimum) {
       throw refus('SOUS_LE_MINIMUM',
@@ -113,15 +112,15 @@ export async function demander(db, { userId, montant }) {
 /**
  * Envoie un retrait demande, DEPUIS LE WALLET DU JOUEUR.
  *
- * Depuis le 2 septembre 2026, les USDC d'un joueur sont sur son propre wallet derive, pas
- * sur la caisse : c'est donc sa cle — recalculee a la demande — qui signe la sortie, et la
- * caisse ne fait que payer les frais. Sur un explorateur, le retrait se lit « du wallet
- * de jeu du joueur vers le wallet qu'il a lie », ce qui est exactement ce qui se passe.
+ * Les USDC d'un joueur sont sur son propre wallet derive, pas sur la caisse : c'est donc
+ * sa cle — recalculee a la demande — qui signe l'autorisation de sortie, et la caisse ne
+ * fait que soumettre et payer le gaz. Sur l'explorateur, le retrait se lit « du wallet de
+ * jeu du joueur vers le wallet qu'il a lie », ce qui est exactement ce qui se passe.
  *
- * Tout le reste — signature ecrite avant diffusion, reprise sans re-signature, echec
- * definitif contre echec ambigu — est desormais tenu par `chaine.js`, pour tous les
- * objets et pas seulement les retraits. Ce fichier ne garde que ce qui lui est propre :
- * la machine a etats de `withdrawals`, et le remboursement.
+ * Tout le reste — hache ecrit avant diffusion, reprise sans re-signature, echec definitif
+ * contre echec ambigu — est tenu par `chaine.js`, pour tous les objets et pas seulement
+ * les retraits. Ce fichier ne garde que ce qui lui est propre : la machine a etats de
+ * `withdrawals`, et le remboursement.
  *
  * @returns {Promise<{id: string, statut: string, signature?: string}>}
  */

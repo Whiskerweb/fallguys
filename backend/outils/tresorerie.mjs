@@ -5,22 +5,23 @@
  *   node outils/tresorerie.mjs --ecrire   # et ajoute les cles manquantes au .env de la racine
  *
  * Quatre cles :
- *   CAISSE_CLE       le payeur de frais, l'autorite de creation du jeton
+ *   CAISSE_CLE       le payeur de gaz, le proprietaire des contrats (Lot, USDC d'essai)
  *   FRAIS_CLE        recoit le rake de chaque partie
- *   POOL_CLE         la liquidite BG/USDC du brulage
+ *   POOL_CLE         la liquidite BG/USDC du brulage — recoit toute l'offre de BG
  *   SERVEUR_CLE      la cle Ed25519 avec laquelle le serveur de jeu SIGNE les resultats
  *   SERVEUR_PUBLIQUE sa moitie publique, que le backend verifie
  *
- * Les cles existantes dans le .env sont GARDEES : relancer l'outil ne remplace jamais une
- * cle qui detient peut-etre des fonds. Tout est ecrit dans `wallets/<reseau>.json`, que
- * git ignore — c'est la note demandee, avec les secrets, hors du depot.
+ * Les trois premieres sont des cles secp256k1 (0x + 64 hexadecimaux), les memes que
+ * n'importe quel wallet EVM. Les cles existantes dans le .env sont GARDEES : relancer
+ * l'outil ne remplace jamais une cle qui detient peut-etre des fonds. Tout est ecrit dans
+ * `wallets/<reseau>.json`, que git ignore — c'est la note demandee, avec les secrets,
+ * hors du depot.
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Keypair } from '@solana/web3.js';
-import bs58 from 'bs58';
+import { Wallet } from 'ethers';
 import { genererCle, publiqueDe } from '../src/signature.js';
 
 const ICI = path.dirname(fileURLToPath(import.meta.url));
@@ -40,32 +41,32 @@ function lireEnv() {
 }
 
 const env = lireEnv();
-const reseau = env.SOLANA_RESEAU || 'devnet';
+const reseau = env.ROBINHOOD_RESEAU || 'testnet';
 const ecrire = process.argv.includes('--ecrire');
 
 const nouvelles = {};
 const wallets = {};
 
-function solana(nomEnv, role) {
+function evm(nomEnv, role) {
   let secrete = env[nomEnv];
-  let paire;
-  if (secrete) {
-    const o = bs58.decode(secrete);
-    paire = o.length === 64 ? Keypair.fromSecretKey(o) : Keypair.fromSeed(o);
+  let w;
+  if (secrete && /^0x[0-9a-fA-F]{64}$/.test(secrete)) {
+    w = new Wallet(secrete);
   } else {
-    paire = Keypair.generate();
-    secrete = bs58.encode(paire.secretKey);
+    // Absente, ou d'un autre format (une cle de l'ancienne chaine) : on en genere une neuve.
+    w = Wallet.createRandom();
+    secrete = w.privateKey;
     nouvelles[nomEnv] = secrete;
   }
   wallets[nomEnv.replace('_CLE', '').toLowerCase()] = {
-    role, variable: nomEnv, publique: paire.publicKey.toBase58(), secrete,
+    role, variable: nomEnv, publique: w.address, secrete,
     neuve: Boolean(nouvelles[nomEnv]),
   };
 }
 
-solana('CAISSE_CLE', 'Caisse : paie les frais et la rente de toutes les transactions ; autorite de creation du jeton BG.');
-solana('FRAIS_CLE', 'Frais : recoit le rake (10 % en moyenne) de chaque partie, sur la chaine.');
-solana('POOL_CLE', 'Pool : la liquidite BG/USDC. Les frais y achetent des BG, qui sont brules.');
+evm('CAISSE_CLE', 'Caisse : paie le gaz de toutes les transactions ; proprietaire du Lot et de l\'USDC d\'essai. A alimenter en ETH.');
+evm('FRAIS_CLE', 'Frais : recoit le rake (10 % en moyenne) de chaque partie, sur la chaine.');
+evm('POOL_CLE', 'Pool : la liquidite BG/USDC. Recoit le milliard de BG ; les frais y achetent des BG, qui sont brules.');
 
 {
   let secrete = env.SERVEUR_CLE;
@@ -75,7 +76,7 @@ solana('POOL_CLE', 'Pool : la liquidite BG/USDC. Les frais y achetent des BG, qu
   if (!env.SERVEUR_CLE) { nouvelles.SERVEUR_CLE = secrete; }
   if (env.SERVEUR_PUBLIQUE !== publique) nouvelles.SERVEUR_PUBLIQUE = publique;
   wallets.serveur = {
-    role: 'Serveur de jeu : signe les resultats de partie (Ed25519). Pas un wallet Solana, pas de fonds.',
+    role: 'Serveur de jeu : signe les resultats de partie (Ed25519). Pas un wallet, pas de fonds.',
     variable: 'SERVEUR_CLE', publique, secrete, neuve: !env.SERVEUR_CLE,
   };
 }
@@ -105,7 +106,7 @@ if (manquantes.length) {
     const contenu = existsSync(ENV) ? readFileSync(ENV, 'utf8') : '';
     for (const [k, v] of manquantes) {
       if (new RegExp(`^${k}=`, 'm').test(contenu)) {
-        // La variable existe mais vide : on la remplit sur place.
+        // La variable existe (vide, ou d'un autre format) : on la remplace sur place.
         writeFileSync(ENV, readFileSync(ENV, 'utf8').replace(new RegExp(`^${k}=.*$`, 'm'), `${k}=${v}`));
       } else {
         bloc += `${k}=${v}\n`;

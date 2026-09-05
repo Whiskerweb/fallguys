@@ -14,8 +14,8 @@
  * y figure aussi, pour qu'un message intercepte ne se rejoue pas indefiniment.
  *
  * AUCUNE DEPENDANCE : Node sait faire de l'Ed25519 nativement depuis la version 12. La
- * cle est un germe de 32 octets en base58 — le meme format qu'une cle Solana, dont on
- * accepte aussi la forme longue de 64 octets, par commodite.
+ * cle est un germe de 32 octets en base58 ; on accepte aussi la forme longue de 64 octets
+ * (germe + publique), par commodite.
  *
  * Le fichier est partage tel quel avec `serveur/src/signature.js`, qui le reexporte : une
  * copie de chaque cote finirait par diverger sur la canonisation, et une signature qui ne
@@ -35,7 +35,7 @@ const DER_PUBLIQUE = Buffer.from('302a300506032b6570032100', 'hex');
 
 function germe(secrete) {
   const octets = Buffer.from(bs58.decode(secrete));
-  // 64 octets : le format Solana (germe + publique). On n'a besoin que du germe.
+  // 64 octets : la forme longue (germe + publique). On n'a besoin que du germe.
   if (octets.length === 64) return octets.subarray(0, 32);
   if (octets.length !== 32) throw new Error(`cle secrete : ${octets.length} octets, attendu 32 ou 64`);
   return octets;

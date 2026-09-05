@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tumble · on-chain</title>
 <!--
-  LA PAGE DE SUIVI — tout ce que le jeu fait sur Solana, en direct, pour tout le monde.
+  LA PAGE DE SUIVI — tout ce que le jeu fait sur Robinhood Chain, en direct, pour tout le monde.
 
   Aucun cadre, aucune dependance, aucun build : un fichier servi tel quel par le backend
   a /suivi. Les chiffres viennent de /stats ; le flux /stats/flux (SSE) dit quand relire.
-  Chaque montant qu'on affiche est relisible sur l'explorateur Solana par le lien d'a
-  cote : c'est le principe de la page, pas un ornement.
+  Chaque montant qu'on affiche est relisible sur l'explorateur de Robinhood Chain par le
+  lien d'a cote : c'est le principe de la page, pas un ornement.
 
   Les chemins sont RELATIFS (`stats`, pas `/stats`) : la page marche aussi derriere le
   serveur de jeu, qui la sert a /api/suivi et relaie /api/stats.
@@ -77,7 +77,7 @@
   <h2>Baby Guy (BG) — bought with the fees, then burned</h2>
   <div class="tuiles">
     <div class="tuile bg"><div class="l">BG burned</div><div class="v" id="brules">—</div><div class="s" id="brules-s"></div><div class="barre"><i id="brules-barre"></i></div></div>
-    <div class="tuile bg"><div class="l">Supply remaining</div><div class="v" id="offre">—</div><div class="s">of 1,000,000,000 · mint authority revoked</div></div>
+    <div class="tuile bg"><div class="l">Supply remaining</div><div class="v" id="offre">—</div><div class="s">of 1,000,000,000 · no mint function: supply can only fall</div></div>
     <div class="tuile usdc"><div class="l">USDC spent on buybacks</div><div class="v" id="usdc-brule">—</div><div class="s" id="usdc-brule-s"></div></div>
     <div class="tuile"><div class="l">BG price</div><div class="v" id="prix">—</div><div class="s" id="prix-s"></div></div>
     <div class="tuile usdc"><div class="l">Fees waiting to burn</div><div class="v" id="attente">—</div><div class="s" id="attente-s"></div></div>
@@ -93,11 +93,11 @@
   <div class="defil"><table id="burns-table"><thead><tr><th>When</th><th class="num">USDC spent</th><th class="num">BG burned</th><th class="num">Supply after</th><th>Transaction</th></tr></thead><tbody></tbody></table></div>
 
   <h2>Latest transactions</h2>
-  <div class="defil"><table id="tx-table"><thead><tr><th>When</th><th>What</th><th class="num">Amount</th><th>Match</th><th>Status</th><th>Signature</th></tr></thead><tbody></tbody></table></div>
+  <div class="defil"><table id="tx-table"><thead><tr><th>When</th><th>What</th><th class="num">Amount</th><th>Match</th><th>Status</th><th>Transaction</th></tr></thead><tbody></tbody></table></div>
 
   <h2>Treasury</h2>
   <div class="adresses" id="adresses"></div>
-  <p class="note">Every player has their own on-chain wallet: stakes leave it, winnings come back to it, withdrawals go out of it. Each match has its own pot wallet, emptied and closed at settlement. The fee wallet buys BG from the liquidity pool and burns them in a single atomic transaction.</p>
+  <p class="note">Every player has their own on-chain wallet: stakes leave it, winnings come back to it, withdrawals go out of it. Each match has its own pot wallet, filled in one transaction at launch and emptied in one at settlement. The fee wallet buys BG from the liquidity pool, burned in the same atomic transaction. Player and pot wallets never hold ETH: they sign EIP-3009 authorizations and the payer wallet submits them.</p>
 </main>
 <script>
   const $ = (id) => document.getElementById(id);
@@ -115,7 +115,7 @@
   }
 
   function peindre(s) {
-    $('reseau').textContent = s.reseau;
+    $('reseau').textContent = s.chaine?.nom ?? s.reseau;
     $('parties').textContent = s.parties.reglees.toLocaleString('en-US');
     $('parties-s').textContent = `${s.parties.enCours} in progress · ${s.parties.annulees} cancelled · ` + s.parties.parMode.map((m) => `${m.n} ${MODES[m.mode] ?? m.mode}`).join(' · ');
     $('volume').textContent = usdc(s.parties.volume) + ' USDC';
@@ -158,19 +158,19 @@
     tb.innerHTML = b.derniers.length ? b.derniers.map((x) => `<tr>
       <td>${quand(x.cree_le)}</td><td class="num">${usdc(Number(x.usdc))}</td><td class="num">${bg(Number(x.bg), 6)}</td>
       <td class="num">${x.supply ? bg(Number(x.supply), 0) : '—'}</td>
-      <td><a class="mono" href="${x.lien}" target="_blank" rel="noopener">${court(x.signature, 8)}</a></td></tr>`).join('') : '<tr><td colspan="5" class="vide">No burn yet — fees accumulate first</td></tr>';
+      <td>${x.lien ? `<a class="mono" href="${x.lien}" target="_blank" rel="noopener">${court(x.signature, 8)}</a>` : `<span class="mono">${court(x.signature, 8)}</span>`}</td></tr>`).join('') : '<tr><td colspan="5" class="vide">No burn yet — fees accumulate first</td></tr>';
 
     const tt = $('tx-table').querySelector('tbody');
     tt.innerHTML = s.chaine.dernieres.length ? s.chaine.dernieres.map((t) => `<tr>
       <td>${quand(t.clos_le ?? t.cree_le)}</td><td><span class="tag ${t.objet}">${t.objet.replace('_', ' ')}</span></td>
-      <td class="num">${t.mint === 'bg' ? bg(t.montant, 6) + ' BG' : (t.objet === 'cloture_pot' ? '—' : usdc(t.montant) + ' USDC')}</td>
+      <td class="num">${t.mint === 'bg' ? bg(t.montant, 6) + ' BG' : usdc(t.montant) + ' USDC'}</td>
       <td class="mono">${t.partie ?? '—'}</td><td><span class="tag ${t.statut}">${t.statut}</span></td>
-      <td><a class="mono" href="${t.lien}" target="_blank" rel="noopener">${court(t.signature, 8)}</a></td></tr>`).join('') : '<tr><td colspan="6" class="vide">No transaction yet</td></tr>';
+      <td>${t.lien ? `<a class="mono" href="${t.lien}" target="_blank" rel="noopener">${court(t.signature, 8)}</a>` : `<span class="mono">${court(t.signature, 8)}</span>`}</td></tr>`).join('') : '<tr><td colspan="6" class="vide">No transaction yet</td></tr>';
 
     const a = s.adresses; const l = s.liens;
     $('adresses').innerHTML = [
       ['Fees', a.frais, l.frais], ['Pool', a.pool, l.pool], ['Payer', a.caisse, l.caisse],
-      ['BG mint', s.mints.bg, l.bg], ['USDC mint', s.mints.usdc, null],
+      ['BG token', s.contrats.bg, l.bg], ['USDC', s.contrats.usdc, l.usdc], ['Batch', s.contrats.lot, l.lot],
     ].map(([n, adr, lien]) => `<div><b>${n}</b>${adr ? (lien ? `<a class="mono" href="${lien}" target="_blank" rel="noopener">${adr}</a>` : `<span class="mono">${adr}</span>`) : '<span class="mono">—</span>'}</div>`).join('');
   }
 

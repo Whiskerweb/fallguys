@@ -137,7 +137,7 @@ implémentations. N'importe qui peut le refaire et vérifier.
 |---|---|
 | [`tools/feel-lab/`](tools/feel-lab/) | **Le jeu.** Three.js + Rapier, cinq épreuves, le lobby, l'économie affichée. C'est aussi lui que le serveur exécute. |
 | [`serveur/`](serveur/) | **Le serveur de jeu**, autoritatif. Il arbitre les parties et n'a accès à aucun solde. |
-| [`backend/`](backend/) | **L'argent.** Comptes Supabase, grand livre en partie double, dépôts et retraits USDC sur devnet. |
+| [`backend/`](backend/) | **L'argent.** Comptes Supabase, grand livre en partie double, dépôts et retraits USDC sur Robinhood Chain (testnet). |
 | [`src/Fallguys.Rules/`](src/Fallguys.Rules/) | **Le noyau de règles** en C# : la table des gains, sans Unity ni dépendance. |
 
 Le serveur de jeu **importe les vrais modules du jeu**, pas une réécriture. Une simulation
@@ -174,7 +174,7 @@ compter des frames mesure la machine et non le jeu.
 
 ## Avant de toucher de l'argent réel
 
-Le devnet ne vaut rien : on peut y tricher sans conséquence, et c'est très bien. La liste
+Le testnet ne vaut rien : on peut y tricher sans conséquence, et c'est très bien. La liste
 des conditions à remplir avant le mainnet est en tête de [`backend/README.md`](backend/README.md)
 — serveur autoritatif (fait), résultats **signés** (à faire), journal de replay,
 géo-restriction, gestion de clé sérieuse, et validation juridique.

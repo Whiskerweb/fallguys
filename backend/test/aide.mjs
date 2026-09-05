@@ -18,7 +18,7 @@ import './env.mjs';
 import { PGlite } from '@electric-sql/pglite';
 import { randomUUID } from 'node:crypto';
 import { enrober, appliquerSchema } from '../src/base.js';
-import { adresseDepot } from '../src/solana/adresses.js';
+import { adresseDepot } from '../src/robinhood/adresses.js';
 
 /** Double du schema d'authentification de Supabase. */
 const AUTH = `

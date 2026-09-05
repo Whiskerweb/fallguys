@@ -8,16 +8,18 @@
  * ne connait aucun solde et ne declenche aucun paiement. Il produit un resultat de partie
  * SIGNE ; c'est ce module, et lui seul, qui le convertit en mouvements.
  *
- * ─── DEPUIS LE 2 SEPTEMBRE 2026, CHAQUE PARTIE SE VOIT SUR SOLANA ──────────
+ * ─── CHAQUE PARTIE SE VOIT SUR ROBINHOOD CHAIN ──────────────────────────────
  *
  *   1. ENGAGER : la mise de chaque joueur quitte SON wallet pour le wallet du POT de la
- *      partie — une transaction par joueur, signee par sa cle derivee, frais payes par la
- *      caisse. Si UNE mise ne part pas, la partie est ANNULEE et toutes les autres
- *      reviennent : personne ne joue pour rien, personne ne joue contre un fantome.
- *   2. REGLER : le pot est vide vers les gagnants et vers le wallet des frais, puis son
- *      compte de jetons est ferme (la rente revient a la caisse). Le grand livre est
- *      ecrit D'ABORD ; la chaine SUIT, et `payerSurChaine` est idempotent — un reglement
- *      dont la chaine a trebuche se rejoue tel quel, sans jamais payer deux fois.
+ *      partie — UNE transaction pour tout le salon, chaque virement autorise par la cle
+ *      derivee de son joueur (EIP-3009), gaz paye par la caisse, tout ou rien. Si UNE
+ *      mise ne passe pas, AUCUNE n'est partie et la partie est ANNULEE : personne ne joue
+ *      pour rien, personne ne joue contre un fantome, et il n'y a rien a rendre sur la
+ *      chaine.
+ *   2. REGLER : le pot est vide vers les gagnants et vers le wallet des frais, dans une
+ *      seule transaction. Le grand livre est ecrit D'ABORD ; la chaine SUIT, et
+ *      `payerSurChaine` est idempotent — un reglement dont la chaine a trebuche se
+ *      rejoue tel quel, sans jamais payer deux fois.
  *
  * L'ordre « livre puis chaine » n'est pas indifferent. Le livre est une transaction
  * Postgres : atomique, verrouillee, verifiable. La chaine est lente et peut couper. Ecrire
@@ -28,12 +30,12 @@
 import { poster, compte, solde, verrouillerJoueur, mouvementExistant } from '../livre.js';
 import { table, tableEffectif, mode, tirerIssue } from '../gains.js';
 import { micros } from '../argent.js';
-import { tresorerie } from '../solana/tresorerie.js';
-import { ChaineEchouee, ChaineIncertaine, VIREMENTS_PAR_TRANSACTION } from '../solana/chaine.js';
+import { tresorerie } from '../robinhood/tresorerie.js';
+import { ChaineEchouee, ChaineIncertaine, OPERATIONS_PAR_TRANSACTION } from '../robinhood/chaine.js';
 
 /** L'adresse du pot, ou `null` sans graine — les tests du bareme n'en ont pas besoin. */
 function adressePotDe(matchId) {
-  try { return tresorerie.pot(matchId).publicKey.toBase58(); } catch { return null; }
+  try { return tresorerie.pot(matchId).address; } catch { return null; }
 }
 
 /**
@@ -139,7 +141,7 @@ export async function engagerPartie(db, chaine, { partie, mode: modeId, mise, jo
   if (ids.size !== joueurs.length) throw new Error('engagerPartie : un joueur figure deux fois');
 
   const pot = tresorerie.pot(partie);
-  const adressePot = pot.publicKey.toBase58();
+  const adressePot = pot.address;
 
   // La partie est connue AVANT la premiere mise : c'est ce qui permet a la reprise de
   // savoir, pour une mise laissee en suspens, si sa partie a ete annulee entre-temps.
@@ -154,7 +156,6 @@ export async function engagerPartie(db, chaine, { partie, mode: modeId, mise, jo
     throw Object.assign(new Error(`la partie ${partie} est deja ${existante.statut}`), { code: 'PARTIE_CLOSE' });
   }
 
-  const engages = [];
   const refuses = [];
   const signatures = {};
 
@@ -168,39 +169,45 @@ export async function engagerPartie(db, chaine, { partie, mode: modeId, mise, jo
       refuses.push({ userId, nom, raison: e.code ?? 'LIVRE', detail: e.message });
     }
   }
-
-  // 2. LA CHAINE, en parallele : seize virements a la file coûteraient seize confirmations.
-  const resultats = await Promise.allSettled(aVirer.map(({ userId }) => chaine.executer({
-    operations: [{
-      type: 'virement', de: tresorerie.joueur(userId), vers: adressePot, mint: 'usdc', montant,
-      objet: 'mise', ref: `${partie}:${userId}`, partie, userId,
-    }],
-  })));
-
-  for (let i = 0; i < aVirer.length; i++) {
-    const { userId, nom } = aVirer[i];
-    const r = resultats[i];
-    if (r.status === 'fulfilled') { engages.push(userId); signatures[userId] = r.value.signature; continue; }
-    const e = r.reason;
-    if (e instanceof ChaineEchouee) {
-      // Rien n'est parti : on rend la mise au livre tout de suite.
-      await rendreMise(db, { matchId: partie, userId, mise: montant, raison: `chaine : ${e.message}` });
-      refuses.push({ userId, nom, raison: 'CHAINE_REFUS', detail: e.message });
-    } else if (e instanceof ChaineIncertaine) {
-      // Peut-etre partie. On ne rend RIEN : `reprendre()` tranchera et rendra s'il le faut.
-      refuses.push({ userId, nom, raison: 'CHAINE_INCERTAINE', detail: e.message });
-    } else {
-      await rendreMise(db, { matchId: partie, userId, mise: montant, raison: `erreur : ${e.message}` });
-      refuses.push({ userId, nom, raison: 'ERREUR', detail: e.message });
-    }
-  }
-
+  /*
+   * Un seul refus au livre, et la partie n'aura pas lieu : inutile de faire partir les
+   * autres mises pour les rendre aussitot. On rend au livre, on annule, on repond.
+   */
   if (refuses.length) {
+    for (const { userId } of aVirer) await rendreMise(db, { matchId: partie, userId, mise: montant, raison: 'partie annulee avant le depart' });
     await annulerPartie(db, chaine, { partie, raison: `mise refusee : ${refuses.map((r) => r.raison).join(', ')}` });
     return { partie, annulee: true, engages: [], refuses, signatures };
   }
 
-  return { partie, annulee: false, engages, refuses, signatures, adressePot };
+  // 2. LA CHAINE, en UN lot : toutes les mises, ou aucune.
+  try {
+    const r = await chaine.executer({
+      operations: aVirer.map(({ userId }) => ({
+        type: 'virement', de: tresorerie.joueur(userId), vers: adressePot, mint: 'usdc', montant,
+        objet: 'mise', ref: `${partie}:${userId}`, partie, userId,
+      })),
+    });
+    for (const { userId } of aVirer) signatures[userId] = r.signature;
+  } catch (e) {
+    if (e instanceof ChaineEchouee) {
+      // Rien n'est parti, c'est certain : chaque mise revient au livre tout de suite. Le
+      // lot dit QUEL appel a echoue : c'est ce joueur-la qui est refuse, les autres sont
+      // renvoyes en file par le serveur de jeu.
+      for (const { userId } of aVirer) await rendreMise(db, { matchId: partie, userId, mise: montant, raison: `chaine : ${e.message}` });
+      const fautif = Number.isInteger(e.index) ? aVirer[e.index] : null;
+      for (const { userId, nom } of (fautif ? [fautif] : aVirer)) refuses.push({ userId, nom, raison: 'CHAINE_REFUS', detail: e.message });
+    } else if (e instanceof ChaineIncertaine) {
+      // Peut-etre partie. On ne rend RIEN : `reprendre()` tranchera et rendra s'il le faut.
+      for (const { userId, nom } of aVirer) refuses.push({ userId, nom, raison: 'CHAINE_INCERTAINE', detail: e.message });
+    } else {
+      for (const { userId } of aVirer) await rendreMise(db, { matchId: partie, userId, mise: montant, raison: `erreur : ${e.message}` });
+      for (const { userId, nom } of aVirer) refuses.push({ userId, nom, raison: 'ERREUR', detail: e.message });
+    }
+    await annulerPartie(db, chaine, { partie, raison: `mise refusee : ${refuses.map((r) => r.raison).join(', ')}` });
+    return { partie, annulee: true, engages: [], refuses, signatures };
+  }
+
+  return { partie, annulee: false, engages: aVirer.map((j) => j.userId), refuses, signatures, adressePot };
 }
 
 /**
@@ -224,14 +231,14 @@ export async function annulerPartie(db, chaine, { partie, raison }) {
     await rendreMise(db, { matchId: partie, userId, mise, raison });
     rendus.push(userId);
   }
-  // Un seul signataire (le pot) : on groupe les retours.
+  // Les retours partent groupes : un lot, atomique.
   const signatures = [];
-  for (let i = 0; i < rendus.length; i += VIREMENTS_PAR_TRANSACTION) {
-    const lot = rendus.slice(i, i + VIREMENTS_PAR_TRANSACTION);
+  for (let i = 0; i < rendus.length; i += OPERATIONS_PAR_TRANSACTION) {
+    const lot = rendus.slice(i, i + OPERATIONS_PAR_TRANSACTION);
     try {
       const r = await chaine.executer({
         operations: lot.map((userId) => ({
-          type: 'virement', de: pot, vers: tresorerie.joueur(userId).publicKey.toBase58(), mint: 'usdc', montant: mise,
+          type: 'virement', de: pot, vers: tresorerie.joueur(userId).address, mint: 'usdc', montant: mise,
           objet: 'annulation', ref: `${partie}:${userId}`, partie, userId,
         })),
       });
@@ -379,31 +386,21 @@ export async function payerSurChaine(db, chaine, matchId) {
     const gain = parRang[rang - 1] ?? 0;
     if (gain <= 0) continue;
     virements.push({
-      type: 'virement', de: pot, vers: tresorerie.joueur(userId).publicKey.toBase58(), mint: 'usdc', montant: gain,
+      type: 'virement', de: pot, vers: tresorerie.joueur(userId).address, mint: 'usdc', montant: gain,
       objet: 'gain', ref: `${matchId}:${userId}`, partie: matchId, userId,
     });
   }
   if (rake > 0) {
     virements.push({
-      type: 'virement', de: pot, vers: tresorerie.frais().publicKey.toBase58(), mint: 'usdc', montant: rake,
+      type: 'virement', de: pot, vers: tresorerie.frais().address, mint: 'usdc', montant: rake,
       objet: 'rake', ref: matchId, partie: matchId,
     });
   }
 
+  // Quinze gains et un rake tiennent dans un lot : un reglement d'arene est UNE transaction.
   const signatures = [];
-  for (let i = 0; i < virements.length; i += VIREMENTS_PAR_TRANSACTION) {
-    const lot = virements.slice(i, i + VIREMENTS_PAR_TRANSACTION);
-    const dernier = i + VIREMENTS_PAR_TRANSACTION >= virements.length;
-    // La fermeture du compte du pot voyage avec le DERNIER lot : elle exige un solde nul,
-    // donc elle ne peut suivre que le dernier virement — et dans la meme transaction, elle
-    // ne peut pas etre oubliee.
-    if (dernier) {
-      lot.push({
-        type: 'fermer_ata', proprietaire: pot, mint: 'usdc', versLamports: tresorerie.caisse().publicKey.toBase58(),
-        objet: 'cloture_pot', ref: matchId, partie: matchId,
-      });
-    }
-    const r = await chaine.executer({ operations: lot });
+  for (let i = 0; i < virements.length; i += OPERATIONS_PAR_TRANSACTION) {
+    const r = await chaine.executer({ operations: virements.slice(i, i + OPERATIONS_PAR_TRANSACTION) });
     signatures.push(r.signature);
   }
   await db.query(`update public.matches set paye_sur_chaine_le = now() where id = $1`, [matchId]);
@@ -428,11 +425,11 @@ export async function rattraperChaine(db, chaine) {
         if (m) await rendreMise(db, { matchId: l.partie, userId: l.user_id, mise: Number(m.mise_micros), raison: 'virement jamais passe' });
       }
       if (l.objet === 'retrait') {
-        const { rembourserRetrait } = await import('../solana/retraits.js');
+        const { rembourserRetrait } = await import('../robinhood/retraits.js');
         await rembourserRetrait(db, l.ref, `transaction jamais passee (${l.raison_echec ?? ''})`);
       }
       if (l.objet === 'rachat') {
-        const { annulerRachat } = await import('../solana/brulage.js');
+        const { annulerRachat } = await import('../robinhood/brulage.js');
         await annulerRachat(db, l.ref.split(':')[0], 'transaction jamais passee');
       }
     },
@@ -443,11 +440,11 @@ export async function rattraperChaine(db, chaine) {
         if (m?.statut === 'annulee') await annulerPartie(db, chaine, { partie: l.partie, raison: 'mise arrivee apres annulation' });
       }
       if (l.objet === 'retrait') {
-        const { clore } = await import('../solana/retraits.js');
+        const { clore } = await import('../robinhood/retraits.js');
         await clore(db, l.ref, 'confirme');
       }
       if (l.objet === 'rachat') {
-        const { consignerRachat } = await import('../solana/brulage.js');
+        const { consignerRachat } = await import('../robinhood/brulage.js');
         await consignerRachat(db, chaine, l.ref.split(':')[0], l.signature);
       }
     },

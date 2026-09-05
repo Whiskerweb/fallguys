@@ -1,8 +1,9 @@
 /**
  * L'adresse de depot d'un joueur, DERIVEE plutot que stockee.
  *
- * Chaque joueur recoit une adresse Solana qui n'appartient qu'a lui. Il y envoie ses
- * USDC ; un guetteur voit l'arrivee, credite le grand livre, puis balaie vers la caisse.
+ * Chaque joueur recoit une adresse Robinhood Chain qui n'appartient qu'a lui. Il y envoie
+ * ses USDC ; un guetteur voit l'arrivee et credite le grand livre. Les USDC y RESTENT :
+ * c'est son wallet de jeu.
  *
  * Pourquoi une adresse par joueur, et pas les deux autres solutions evidentes :
  *
@@ -19,10 +20,13 @@
  * maitresse et l'identifiant du joueur : il n'y a donc pas de table de cles a proteger,
  * a sauvegarder, ni a fuiter. En contrepartie, `GRAINE_DEPOTS` se garde comme la cle de
  * la caisse — la perdre, c'est perdre l'acces a tous les depots en transit.
+ *
+ * Un wallet derive n'a JAMAIS d'ETH : il signe des autorisations (EIP-3009), la caisse
+ * soumet et paie le gaz. Voir `chaine.js`.
  */
 
 import { hkdfSync } from 'node:crypto';
-import { Keypair } from '@solana/web3.js';
+import { Wallet } from 'ethers';
 import { config } from '../config.js';
 
 /**
@@ -33,8 +37,12 @@ import { config } from '../config.js';
  * contient l'identifiant du joueur, donc deux joueurs ne peuvent pas tomber sur la meme
  * cle, et connaitre l'une n'aide en rien a retrouver la graine ni les autres.
  *
+ * Les 32 octets obtenus sont une cle secp256k1 (ethers refuse les rares valeurs hors
+ * de l'ordre de la courbe, ce qui n'arrive qu'avec une probabilite de 2^-128 : on
+ * prefere une erreur franche a une adresse silencieusement differente).
+ *
  * @param {string} userId identifiant Supabase du joueur
- * @returns {Keypair}
+ * @returns {Wallet}
  */
 export function cleDepot(userId) {
   if (!config.graineDepots) {
@@ -46,15 +54,16 @@ export function cleDepot(userId) {
     'sha256',
     Buffer.from(config.graineDepots, 'utf8'),
     // Le sel est fixe et public : il ne sert pas a cacher, mais a separer cet usage de la
-    // graine de tout autre usage qu'on pourrait lui donner un jour.
-    Buffer.from('fallguys/depot/v1'),
+    // graine de tout autre usage qu'on pourrait lui donner un jour. Il nomme la chaine :
+    // les adresses derivees pour une autre chaine ne peuvent pas se confondre avec celles-ci.
+    Buffer.from('tumble/robinhood/depot/v1'),
     Buffer.from(userId, 'utf8'),
     32,
   );
-  return Keypair.fromSeed(new Uint8Array(graine));
+  return new Wallet('0x' + Buffer.from(graine).toString('hex'));
 }
 
-/** L'adresse publique de depot d'un joueur, en base58 — la seule moitie qui sort d'ici. */
+/** L'adresse publique de depot d'un joueur (0x…, avec sa somme de controle) — la seule moitie qui sort d'ici. */
 export function adresseDepot(userId) {
-  return cleDepot(userId).publicKey.toBase58();
+  return cleDepot(userId).address;
 }

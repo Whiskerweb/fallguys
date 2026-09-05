@@ -1,8 +1,8 @@
 /**
  * LE PONT VERS L'ARGENT — ce que le serveur de jeu dit au backend, et comment il le prouve.
  *
- * Le serveur de jeu ne connait aucun solde et ne signe aucune transaction Solana (spec
- * § 6.3). Mais il est le SEUL a savoir qui a pris le depart et qui a fini ou. Il le dit
+ * Le serveur de jeu ne connait aucun solde et ne signe aucune transaction sur la chaine
+ * (spec § 6.3). Mais il est le SEUL a savoir qui a pris le depart et qui a fini ou. Il le dit
  * donc au backend, en trois moments :
  *
  *   1. AVANT le depart : « voici les joueurs de ce salon, engagez leurs mises ». Le

@@ -1,16 +1,17 @@
 /**
- * Le COMPTE du joueur : connexion Supabase, et liaison d'un wallet Solana.
+ * Le COMPTE du joueur : connexion Supabase, et liaison d'un wallet Robinhood Chain.
  *
  * Deux identites, qu'il ne faut pas confondre :
  *
  *   - QUI EST LE JOUEUR — un compte Supabase, ouvert par e-mail et mot de passe, OU par
- *     la signature d'un wallet Solana (`connecterAvecWallet`, fournisseur Web3 active
- *     dans le projet Supabase par le directeur produit le 4 septembre 2026). C'est lui
- *     qui porte le solde, la progression, l'historique. Discord et Google viendront plus
- *     tard : ils s'ajouteront a cote sans rien deplacer, puisque tout le reste du jeu ne
- *     connait que `session()` et `jeton()` ;
- *   - OU VA L'ARGENT — une adresse Solana, LIEE au compte par une signature. Elle n'est
- *     pas necessaire pour jouer : elle l'est pour deposer et pour retirer.
+ *     la signature d'un wallet EVM — MetaMask, Rabby, Robinhood Wallet… tout ce qui
+ *     injecte `window.ethereum` (`connecterAvecWallet`, fournisseur Web3 « Ethereum »
+ *     du projet Supabase). C'est lui qui porte le solde, la progression, l'historique.
+ *     Discord et Google viendront plus tard : ils s'ajouteront a cote sans rien
+ *     deplacer, puisque tout le reste du jeu ne connait que `session()` et `jeton()` ;
+ *   - OU VA L'ARGENT — une adresse Robinhood Chain (0x…), LIEE au compte par une
+ *     signature. Elle n'est pas necessaire pour jouer : elle l'est pour retirer, et
+ *     pour deposer depuis son propre wallet en un clic.
  *
  * Les separer n'est pas une complication gratuite. Un compte social se recupere quand on
  * le perd ; un wallet non. Et exiger un wallet pour entrer fermerait la porte au palier
@@ -91,14 +92,16 @@ export async function creerCompte(email, motDePasse, nom = null) {
 }
 
 /**
- * Ouvre une session — ou cree le compte — avec un WALLET SOLANA, par signature.
+ * Ouvre une session — ou cree le compte — avec un WALLET EVM, par signature.
  *
- * C'est « Sign in with Solana » : le wallet signe un message qui nomme le domaine, l'URI
- * et l'instant, Supabase le verifie et rend une session comme pour un e-mail. Aucune
- * transaction, aucun frais, aucune cle ne quitte le wallet — une signature, c'est tout,
- * et la phrase `statement` le dit au joueur dans la fenetre du wallet (Phantom EXIGE une
- * phrase). Le meme geste sert a s'inscrire et a se connecter : Supabase cree le compte a
- * la premiere signature d'une adresse, et le retrouve ensuite.
+ * C'est « Sign in with Ethereum » (EIP-4361) : le wallet signe un message qui nomme le
+ * domaine, l'URI, la chaine et l'instant, Supabase le verifie et rend une session comme
+ * pour un e-mail. Aucune transaction, aucun frais, aucune cle ne quitte le wallet — une
+ * signature, c'est tout, et la phrase `statement` le dit au joueur dans la fenetre du
+ * wallet (sans retour a la ligne : le format l'interdit). Le meme geste sert a s'inscrire
+ * et a se connecter : Supabase cree le compte a la premiere signature d'une adresse, et
+ * le retrouve ensuite. La chaine sur laquelle le wallet se trouve n'a pas d'importance
+ * pour SIGNER : on ne demande pas au joueur de changer de reseau pour entrer.
  *
  * Le compte n'a pas d'e-mail. Le nom de joueur vient du formulaire quand il est rempli
  * (onglet CREATE), sinon de l'adresse raccourcie — un joueur a toujours un nom qu'un
@@ -113,9 +116,9 @@ export async function creerCompte(email, motDePasse, nom = null) {
 export async function connecterAvecWallet(nom = null) {
   if (!supabase) throw new Error('comptes non configures');
   const w = walletNavigateur();
-  if (!w) throw Object.assign(new Error('aucun wallet Solana dans ce navigateur'), { code: 'WALLET_ABSENT' });
+  if (!w) throw Object.assign(new Error('aucun wallet EVM dans ce navigateur'), { code: 'WALLET_ABSENT' });
   const { data, error } = await supabase.auth.signInWithWeb3({
-    chain: 'solana',
+    chain: 'ethereum',
     wallet: w,
     statement: 'Sign in to Baby Guys. No transaction, no fee: a signature only.',
   });
@@ -129,7 +132,7 @@ export async function connecterAvecWallet(nom = null) {
   return s;
 }
 
-/** L'adresse Solana d'un compte ouvert par wallet, ou `null` pour un compte e-mail. */
+/** L'adresse (0x…) d'un compte ouvert par wallet, ou `null` pour un compte e-mail. */
 export function adresseWallet(user) {
   if (!user) return null;
   const idn = (user.identities ?? []).find((i) => i.provider === 'web3' || i.identity_data?.address);
@@ -139,10 +142,10 @@ export function adresseWallet(user) {
     ?? null;
 }
 
-/** « 7xKp…9fQ2 » : ce qu'on montre d'une adresse quand on n'a pas la place de la lire. */
+/** « 0x7f3a…9fQ2 » : ce qu'on montre d'une adresse quand on n'a pas la place de la lire. */
 export function adresseCourte(adresse) {
   if (!adresse) return null;
-  return adresse.length > 12 ? `${adresse.slice(0, 4)}…${adresse.slice(-4)}` : adresse;
+  return adresse.length > 12 ? `${adresse.slice(0, 6)}…${adresse.slice(-4)}` : adresse;
 }
 
 /**
@@ -162,7 +165,8 @@ export function messageErreur(e) {
   if (/is invalid/i.test(m)) return 'Supabase rejected this email address. Try another domain.';
   if (/rate limit|too many/i.test(m)) return 'Too many attempts. Wait a minute.';
   if (/URI which is not allowed|signed for another app/i.test(m)) return 'Wallet sign-in is not allowed for this site yet: play.babyguy.dev must be listed in the Supabase URL configuration.';
-  if (e?.code === 'WALLET_ABSENT') return 'No Solana wallet found in this browser. Install Phantom or Solflare, then try again.';
+  if (e?.code === 'WALLET_ABSENT') return 'No wallet found in this browser. Install MetaMask, Rabby or Robinhood Wallet, then try again.';
+  if (e?.code === 4001 || e?.code === 'ACTION_REJECTED') return 'Refused in the wallet. Nothing was sent.';
   if (/user rejected|rejected the request|User declined/i.test(m)) return 'Signature refused in the wallet. Nothing was sent.';
   if (/web3.*(disabled|not enabled)|provider is not enabled/i.test(m)) return 'Wallet sign-in is not enabled on the server yet.';
   return m;
@@ -235,13 +239,25 @@ export async function appeler(chemin, corps = null) {
 
 // ---------- le wallet ----------
 
-/** Le portefeuille Solana injecte dans la page (Phantom, Solflare…), ou `null`. */
+/** Le wallet EVM injecte dans la page (MetaMask, Rabby, Robinhood Wallet…), ou `null`. */
 export function walletNavigateur() {
-  return window.phantom?.solana ?? window.solflare ?? window.solana ?? null;
+  const w = window.ethereum;
+  return w && typeof w.request === 'function' ? w : null;
+}
+
+const hexUtf8 = (texte) => '0x' + Array.from(new TextEncoder().encode(texte), (b) => b.toString(16).padStart(2, '0')).join('');
+const hexNombre = (n) => '0x' + BigInt(n).toString(16);
+const mot = (hex) => hex.replace(/^0x/, '').toLowerCase().padStart(64, '0');
+
+/** Le compte que le wallet accepte de montrer, en demandant la connexion s'il le faut. */
+async function compteDuWallet(w) {
+  const comptes = await w.request({ method: 'eth_requestAccounts' });
+  if (!comptes?.length) throw new Error('le wallet n\'a donne aucun compte');
+  return comptes[0];
 }
 
 /**
- * Lie un wallet Solana au compte, par preuve de signature.
+ * Lie un wallet Robinhood Chain au compte, par preuve de signature.
  *
  * Le message signe porte l'identifiant du compte ET l'instant. L'identifiant empeche de
  * presenter devant un autre compte une signature obtenue ailleurs ; l'horodatage empeche
@@ -249,20 +265,62 @@ export function walletNavigateur() {
  * classique de ce genre de liaison, et le backend refuse les deux cas.
  *
  * Le joueur ne tape JAMAIS son adresse : elle vient du wallet, et la signature prouve
- * qu'il en detient la cle. Une adresse saisie au clavier serait une adresse qu'on peut se
- * tromper — ou se faire dicter.
+ * qu'il en detient la cle (`personal_sign`, verifiee par le backend). Une adresse saisie
+ * au clavier serait une adresse qu'on peut se tromper — ou se faire dicter.
  */
 export async function lierWallet(userId) {
   const w = walletNavigateur();
-  if (!w) throw new Error('aucun wallet Solana detecte dans ce navigateur');
+  if (!w) throw Object.assign(new Error('aucun wallet EVM detecte dans ce navigateur'), { code: 'WALLET_ABSENT' });
 
-  await w.connect();
-  const adresse = w.publicKey.toBase58();
-  const message = `Tumble — lier ce wallet au compte ${userId}\n${new Date().toISOString()}`;
+  const adresse = await compteDuWallet(w);
+  const message = `Baby Guys — link this wallet to account ${userId}\n${new Date().toISOString()}`;
+  // `personal_sign` prend le message en hexadecimal et l'adresse qui signe.
+  const signature = await w.request({ method: 'personal_sign', params: [hexUtf8(message), adresse] });
+  return appeler('/wallet/lier', { adresse, message, signature });
+}
 
-  const { signature } = await w.signMessage(new TextEncoder().encode(message), 'utf8');
+/**
+ * Met le wallet du joueur sur Robinhood Chain — en l'ajoutant s'il ne la connait pas.
+ *
+ * `chaine` vient du backend (`/moi`) : nom, chainId, RPC, explorateur, monnaie. Une seule
+ * source pour le jeu et le wallet, sinon les deux finiraient sur deux reseaux. Le wallet
+ * demande confirmation au joueur pour l'ajout, et pour le changement.
+ */
+export async function passerSurLaChaine(w, chaine) {
+  const chainId = hexNombre(chaine.chainId);
+  const courant = await w.request({ method: 'eth_chainId' }).catch(() => null);
+  if (courant && BigInt(courant) === BigInt(chainId)) return;
+  try {
+    await w.request({ method: 'wallet_switchEthereumChain', params: [{ chainId }] });
+  } catch (e) {
+    // 4902 : le wallet ne connait pas ce reseau. On le lui apprend, puis on y passe.
+    if (e?.code !== 4902 && !/unrecognized chain|not added|4902/i.test(String(e?.message ?? ''))) throw e;
+    await w.request({
+      method: 'wallet_addEthereumChain',
+      params: [{
+        chainId, chainName: chaine.nom, rpcUrls: [chaine.rpc],
+        nativeCurrency: { name: chaine.monnaie?.nom ?? 'Ether', symbol: chaine.monnaie?.symbole ?? 'ETH', decimals: chaine.monnaie?.decimales ?? 18 },
+        ...(chaine.explorateur ? { blockExplorerUrls: [chaine.explorateur] } : {}),
+      }],
+    });
+  }
+}
 
-  // La signature revient en octets ; le backend l'attend en base58, comme l'adresse.
-  const { default: bs58 } = await import('bs58');
-  return appeler('/wallet/lier', { adresse, message, signature: bs58.encode(signature) });
+/**
+ * Depose des USDC DEPUIS le wallet du joueur vers son wallet de jeu : un `transfer` ERC-20
+ * que le wallet signe et envoie lui-meme (le joueur paie ce gaz-la, quelques centimes).
+ *
+ * C'est le parcours court demande par le directeur produit : pas d'adresse a recopier.
+ * Le contrat et l'adresse de depot viennent du backend ; le montant du joueur. Rend le
+ * hache : le guetteur creditera le depot des qu'il le verra.
+ */
+export async function deposerDepuisWallet({ chaine, adresseDepot, micros }) {
+  const w = walletNavigateur();
+  if (!w) throw Object.assign(new Error('aucun wallet EVM detecte dans ce navigateur'), { code: 'WALLET_ABSENT' });
+  if (!chaine?.usdc) throw new Error('le contrat USDC n\'est pas connu');
+  const de = await compteDuWallet(w);
+  await passerSurLaChaine(w, chaine);
+  // transfer(address,uint256) : selecteur a9059cbb, puis les deux arguments sur 32 octets.
+  const data = '0xa9059cbb' + mot(adresseDepot) + mot(hexNombre(micros));
+  return w.request({ method: 'eth_sendTransaction', params: [{ from: de, to: chaine.usdc, data }] });
 }

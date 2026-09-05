@@ -2,32 +2,33 @@
  * Le service. UN SEUL PROCESSUS, et c'est une contrainte, pas un choix de simplicite.
  *
  * Le guetteur de depots, le signataire des mises, des gains, des retraits et des rachats
- * ne doivent pas tourner en double : deux processus qui signent depuis le meme wallet
- * produisent deux transactions concurrentes sur le meme solde, et deux signataires
+ * ne doivent pas tourner en double : deux processus qui signent depuis la meme caisse
+ * produisent deux transactions concurrentes sur le meme nonce, et deux signataires
  * peuvent envoyer deux fois le meme paiement. C'est le scenario dont on ne se releve pas.
  * Une seule instance, donc — voir README.md.
  *
- * Lancer depuis backend/, apres avoir charge le .env de la racine :
- *   set -a && source ../.env && set +a && npm start
+ * Lancer depuis backend/ : `npm start` (le .env de la racine est lu tout seul).
  */
 
+import { formatEther } from 'ethers';
 import { creerPool } from './pool.js';
 import { enrober, appliquerSchema } from './base.js';
 import { creerServeur } from './http/serveur.js';
-import { unTour } from './solana/guetteur.js';
-import { executer } from './solana/retraits.js';
-import { creerChaine, connexion } from './solana/chaine.js';
-import { tresorerie } from './solana/tresorerie.js';
+import { unTour } from './robinhood/guetteur.js';
+import { executer } from './robinhood/retraits.js';
+import { creerChaine, connexion } from './robinhood/chaine.js';
+import { tresorerie } from './robinhood/tresorerie.js';
+import { RESEAUX } from './robinhood/reseaux.js';
 import { rattraperChaine } from './match/regler.js';
-import { racheterEtBruler } from './solana/brulage.js';
-import { verifierChaine } from './solana/reconciliation.js';
+import { racheterEtBruler } from './robinhood/brulage.js';
+import { verifierChaine } from './robinhood/reconciliation.js';
 import { config, exiger } from './config.js';
 import { verifierInvariant } from './livre.js';
 import { ecrire } from './argent.js';
 import { publier } from './evenements.js';
 import { invaliderStats, poserVerification } from './stats.js';
 
-exiger('databaseUrl', 'supabaseUrl', 'supabaseAnon', 'graineDepots', 'caisseCle', 'fraisCle', 'poolCle', 'serveurPublique');
+exiger('databaseUrl', 'supabaseUrl', 'supabaseAnon', 'graineDepots', 'caisseCle', 'fraisCle', 'poolCle', 'serveurPublique', 'usdcAdresse', 'lotAdresse');
 
 const db = enrober(creerPool());
 
@@ -57,16 +58,28 @@ const chaine = creerChaine({
   surEvenement: (e) => { publier('chaine', e); invaliderStats(); },
 });
 
-// La tresorerie, telle qu'on la voit d'ici : les adresses, et de quoi payer les frais.
+// La tresorerie, telle qu'on la voit d'ici : les adresses, et de quoi payer le gaz.
 const adresses = tresorerie.adresses();
-let solCaisse = null;
-try { solCaisse = await connexion().getBalance(tresorerie.caisse().publicKey) / 1e9; } catch { /* RPC muet */ }
-console.log(`grand livre equilibre · reseau ${config.reseau} · USDC ${config.mintUsdc} · BG ${config.mintBg ?? 'PAS ENCORE CREE'}`);
-console.log(`  caisse ${adresses.caisse} · ${solCaisse === null ? 'SOL inconnu (RPC muet)' : `${solCaisse.toFixed(4)} SOL`}`);
+const reseau = RESEAUX[config.reseau] ?? { nom: config.reseau };
+let ethCaisse = null;
+let contratsOk = null;
+try {
+  const co = connexion();
+  ethCaisse = Number(formatEther(await co.getBalance(adresses.caisse)));
+  // Un contrat absent repond « 0x » : mieux vaut le lire ici qu'au premier reglement.
+  const codes = await Promise.all([config.usdcAdresse, config.lotAdresse, config.bgAdresse].map((a) => (a ? co.getCode(a) : Promise.resolve('0x'))));
+  contratsOk = { usdc: codes[0] !== '0x', lot: codes[1] !== '0x', bg: codes[2] !== '0x' };
+} catch { /* RPC muet */ }
+console.log(`grand livre equilibre · ${reseau.nom} (chainId ${config.chainId}) · USDC ${config.usdcAdresse} · BG ${config.bgAdresse ?? 'PAS ENCORE CREE'} · Lot ${config.lotAdresse}`);
+console.log(`  caisse ${adresses.caisse} · ${ethCaisse === null ? 'ETH inconnu (RPC muet)' : `${ethCaisse.toFixed(5)} ETH`}`);
 console.log(`  frais  ${adresses.frais}`);
 console.log(`  pool   ${adresses.pool}`);
-if (solCaisse !== null && solCaisse < 0.05) {
-  console.warn('  ATTENTION : la caisse manque de SOL pour payer les frais. Sur devnet : https://faucet.solana.com');
+if (contratsOk && (!contratsOk.usdc || !contratsOk.lot)) {
+  console.error(`  CONTRAT ABSENT sur ${reseau.nom} : USDC ${contratsOk.usdc ? 'ok' : 'MANQUE'}, Lot ${contratsOk.lot ? 'ok' : 'MANQUE'} — lancez « node outils/contrats.mjs »`);
+  process.exit(1);
+}
+if (ethCaisse !== null && ethCaisse < 0.002) {
+  console.warn(`  ATTENTION : la caisse manque d'ETH pour payer le gaz.${reseau.faucet ? ` Testnet : ${reseau.faucet}` : ''}`);
 }
 
 creerServeur(db, { chaine }).listen(config.port, () => {

@@ -34,7 +34,7 @@ session ajoutait une carte.
 |---|---|
 | `tools/feel-lab/` | **Le jeu.** Three.js + Rapier, cinq épreuves. Le serveur exécute ces mêmes modules. |
 | `serveur/` | **Serveur de jeu autoritatif.** Aucun accès aux soldes ; il SIGNE ce qu'il dit au backend. |
-| `backend/` | **L'argent.** Supabase, grand livre, USDC sur Solana (un wallet par joueur, un par partie), le jeton BG et son brûlage, la page `/suivi`. |
+| `backend/` | **L'argent.** Supabase, grand livre, USDC sur Robinhood Chain (un wallet par joueur, un par partie), le jeton BG et son brûlage, la page `/suivi`. |
 | `src/Fallguys.Rules/` | **Noyau de règles** C#, la table des gains. |
 
 `game/` (Unity) est **vide** : la spec le prévoyait, ça n'a jamais été commencé.
@@ -209,37 +209,108 @@ c'est la note demandée par le directeur produit, pas une copie de travail.
 
 ---
 
-## L'argent est sur la chaîne (2 septembre 2026)
+## L'argent est sur la chaîne — ROBINHOOD CHAIN (5 septembre 2026)
 
-**Le navigateur ne parle plus de partie au backend.** `caisse.js` engageait la mise et
-déclarait un rang à `POST /partie/regler` ; ces routes n'existent plus. C'est le SERVEUR DE
-JEU qui fait engager les mises avant le départ et régler le classement à la fin, par des
-messages **signés Ed25519** (`serveur/src/argent.js` → `backend /interne/…`). Le backend ne
-croit que cette signature, qui couvre le mode, la mise, l'effectif, la graine de roue et le
+**Le jeu a QUITTÉ SOLANA pour ROBINHOOD CHAIN, et c'est une décision du directeur produit
+(5 septembre 2026) : « supprime tout le solana et passe en mode robinhood, testnet pour
+commencer ».** Robinhood Chain est un Layer 2 d'Ethereum (Arbitrum Orbit) : gaz en ETH,
+contrats EVM, explorateur Blockscout. Testnet chainId 46630
+(`https://rpc.testnet.chain.robinhood.com`, `https://explorer.testnet.chain.robinhood.com`,
+faucet `https://faucet.testnet.chain.robinhood.com`), mainnet chainId 4663. Les
+paramètres vivent dans `backend/src/robinhood/reseaux.js` et partent vers le navigateur
+par `GET /moi` : une seule source, sinon le jeu et le wallet du joueur finissent sur deux
+chaînes. **Aucune trace de Solana ne doit revenir** : pas de base58 d'adresse, pas de
+Phantom, pas de « devnet » — le testnet s'appelle testnet.
+
+**Le navigateur ne parle pas de partie au backend.** C'est le SERVEUR DE JEU qui fait
+engager les mises avant le départ et régler le classement à la fin, par des messages
+**signés Ed25519** (`serveur/src/argent.js` → `backend /interne/…`). Le backend ne croit
+que cette signature, qui couvre le mode, la mise, l'effectif, la graine de roue et le
 classement, plus un horodatage. Le client apprend son gain par le message `reglement` et
 relit son solde. `caisse.engager` / `caisse.regler` survivent pour le BANC seulement.
 
 **Un wallet par joueur, un wallet par partie, et rien ne se mélange.** Les USDC d'un joueur
-sont sur SON wallet dérivé (`adresses.js`, HKDF de `GRAINE_DEPOTS`) — son adresse de dépôt
-EST son compte de jeu, on ne balaie plus vers la caisse. Sa mise part vers le wallet du POT
-de la partie (dérivé aussi, `tresorerie.pot`), le règlement vide le pot vers les gagnants
-et le wallet FRAIS, puis ferme le compte du pot (rente rendue). La caisse ne détient plus
-les USDC des joueurs : elle paie les frais de toutes les transactions. Chaque partie est
-donc lisible sur un explorateur, et `verifierChaine()` compare livre et chaîne compte par
-compte, en tenant compte de ce qui est en transit.
+sont sur SON wallet dérivé (`adresses.js`, HKDF de `GRAINE_DEPOTS` → clé secp256k1, sel
+`tumble/robinhood/depot/v1`) — son adresse de dépôt EST son compte de jeu. Sa mise part
+vers le wallet du POT de la partie (dérivé aussi, `tresorerie.pot`), le règlement vide le
+pot vers les gagnants et le wallet FRAIS. Chaque partie est lisible sur l'explorateur, et
+`verifierChaine()` compare livre et chaîne compte par compte, en tenant compte de ce qui
+est en transit.
+
+**UN WALLET DÉRIVÉ N'A JAMAIS D'ETH, ET N'EN AURA JAMAIS.** Sur une chaîne EVM
+l'expéditeur paie le gaz ; ici il **signe une autorisation EIP-3009**
+(`transferWithAuthorization`, hors chaîne, gratuit) et la CAISSE la soumet et paie. Le
+`nonce` de l'autorisation est le hache de la clé du journal `(objet, ref)` : rejouer la
+même opération est refusé PAR LE CONTRAT. Le domaine EIP-712 du jeton se LIT sur le
+contrat (`name`, `version`) avant de signer — le nôtre répond « 1 », l'USDC de Circle
+« 2 » ; signer avec un domaine deviné donne une autorisation refusée sans raison lisible.
+USDC de Circle implémente EIP-3009 sur toutes les chaînes EVM : le jour du mainnet, le
+même code signe contre le vrai jeton. Si le stable retenu ne l'implémente pas, c'est un
+point de la liste d'avant-mainnet, pas une surprise du jour J.
+
+**UN LOT, UNE TRANSACTION, TOUT OU RIEN.** Le contrat `Lot` (`backend/contrats/src/Lot.sol`,
+propriétaire : la caisse) enchaîne les appels et annule tout si l'un échoue, en disant
+LEQUEL (`AppelRate(index, raison)`). Les seize mises d'une arène partent dans UNE
+transaction ; si une seule ne passe pas, aucune n'est partie et il n'y a rien à rendre
+sur la chaîne — le joueur fautif est refusé, les autres renvoyés en file. Un règlement à
+seize joueurs tient dans une transaction (`OPERATIONS_PAR_TRANSACTION = 20`), le
+rachat-brûlage aussi. Sur Solana, chaque mise était une transaction ; ce n'est plus vrai,
+et `diag/web3-duel.mjs` vérifie que les deux mises portent le MÊME hache.
+
+**Trois contrats Solidity, compilés par Foundry, versionnés en artefacts.**
+`backend/contrats/src/{Jetons,Lot}.sol`, `forge build`, puis `outils/contrats-compiler.mjs`
+recopie ABI et bytecode dans `src/robinhood/artefacts.js` — le backend n'a pas besoin de
+Foundry pour tourner. `USDCTest` (six décimales, EIP-3009, frappable par son propriétaire
+= le Lot, donc la caisse) n'existe que sur testnet et anvil ; `BabyGuy` (BG, un milliard
+frappé au constructeur vers le POOL, **aucune fonction de frappe**, `burnWithAuthorization`
+pour brûler depuis le pool sans ETH) et `Lot` se déploient tels quels sur mainnet.
+`npm run contrats` déploie ce qui manque et écrit `LOT_ADRESSE`, `USDC_ADRESSE`,
+`BG_ADRESSE` dans le .env. Modifier un contrat sans recompiler laisse un artefact qui ne
+correspond plus à la source : `npm run contrats:compiler`.
 
 **Le livre d'abord, la chaîne ensuite, et le journal entre les deux.** `chain_tx` porte une
-ligne par opération, clée `(objet, ref)`, `prevu → signe → confirme | echoue` ; la signature
-y est écrite AVANT la diffusion. `ChaineEchouee` (rien n'est parti : on défait au livre) et
-`ChaineIncertaine` (peut-être parti : on ne défait RIEN, `rattraperChaine` relit la chaîne)
-ne sont pas la même erreur, et les confondre rembourse une mise qui est bel et bien partie.
-`executer()` saute les opérations déjà confirmées d'un lot — sans cela, une annulation
-rejouée renvoyait deux fois la même mise.
+ligne par opération, clée `(objet, ref)`, `prevu → signe → confirme | echoue` ; le hache,
+le nonce de la caisse et la transaction brute y sont écrits AVANT la diffusion.
+`ChaineEchouee` (simulation ratée, refus à l'envoi, ou minée et revert : rien n'a bougé, on
+défait au livre) et `ChaineIncertaine` (réseau coupé : peut-être minée, on ne défait RIEN,
+`rattraperChaine` relit la chaîne) ne sont pas la même erreur, et les confondre rembourse
+une mise qui est bel et bien partie. **La reprise tranche par le reçu, puis par le
+NONCE** : sans reçu, si le compteur de la caisse a dépassé le nonce de la transaction,
+elle ne sera jamais minée (`echoue`) ; sinon on la rediffuse, et passé dix minutes on la
+REMPLACE par une transaction vide au même nonce, plus chère, pour pouvoir dire « échoué »
+sans mentir. `executer()` saute les opérations déjà confirmées d'un lot.
 
-**Si UNE mise ne part pas, la partie est ANNULÉE et tout le monde est remboursé.** Pas de
-partie à quinze payants et un fantôme, pas de barème tordu : `engagerPartie` rend les mises
-parties, le serveur renvoie les innocents en file (`PARTIE_ANNULEE`) et dit sa raison au
-fautif (`SOLDE_INSUFFISANT`, `MISE_REFUSEE`).
+**`cacheTimeout: -1` sur tout `JsonRpcProvider`.** ethers met en cache 250 ms les réponses
+identiques, dont le nonce de la caisse : deux transactions signées à la suite recevaient
+le MÊME nonce et la seconde tombait en « nonce too low ». Vu sur anvil, au premier cycle.
+Et `executer()` tient un verrou : une transaction de la caisse à la fois.
+
+**Le guetteur lit les événements `Transfer` du contrat USDC depuis un curseur**
+(`chain_curseur`, en repartant trente blocs avant), et la vérification manuelle d'un joueur
+relit une fenêtre de vingt mille blocs pour sa seule adresse. Un dépôt est clé par
+`hache#index` (deux transferts vers la même adresse dans une transaction sont deux dépôts).
+Nos propres envois vers un joueur (gains, mises rendues) sont dans `chain_tx` avec son
+`user_id` et ne sont pas des dépôts ; une FRAPPE du robinet est journalisée SANS
+`user_id`, précisément pour que le guetteur la crédite.
+
+**LE ROBINET (`POST /robinet`) : des USDC d'essai, testnet seulement.** Personne ne vend
+d'USDC de test sur Robinhood Chain ; l'USDC du testnet est le NÔTRE, et le backend en
+frappe 20 sur le wallet de jeu du joueur, une fois par heure (`ROBINET_MICROS`,
+`ROBINET_DELAI_MINUTES`). Le lobby montre GET TEST USDC quand `/moi` dit `chaine.robinet`.
+Sur mainnet, la route répond 404 par construction : le vrai USDC n'a pas de fonction de
+frappe. C'est ce qui remplace le faucet Circle de l'époque Solana — un geste humain de
+moins.
+
+**Un seul geste humain reste : l'ETH de la caisse.** Le faucet du testnet est derrière une
+vérification anti-robot de Vercel : navigateur, pas script. La caisse paie le gaz de
+TOUTES les transactions (quelques centièmes de centime chacune sur un Orbit) ; `npm start`
+et `npm run contrats` affichent son adresse et préviennent sous 0,002 ETH.
+
+**Si UNE mise ne part pas, la partie est ANNULÉE et tout le monde est remboursé.** Un refus
+au LIVRE (solde insuffisant) annule AVANT de toucher la chaîne : inutile de faire partir
+des mises pour les rendre. Un refus de la CHAÎNE annule le lot entier ; le serveur renvoie
+les innocents en file (`PARTIE_ANNULEE`) et dit sa raison au fautif (`SOLDE_INSUFFISANT`,
+`MISE_REFUSEE`).
 
 **Plus de TOP UP.** Le portefeuille local de 25 USDC n'existe que sur un BANC, et c'est le
 SERVEUR qui le dit (`bienvenue.argent === false && identite === 'facultative'`) — jamais un
@@ -248,13 +319,15 @@ USDC ». `PRODUCTION` exige l'identité (`politique.identite: 'requise'`) et ref
 démarrer sans `BACKEND_URL` ; une politique de banc écrite à la main dans un harnais ne dit
 rien de l'identité et reste un banc.
 
-**Le jeton BG (« Baby Guy ») : 1 000 000 000, Token-2022, frappe révoquée.** Les frais
+**Le jeton BG (« Baby Guy ») : 1 000 000 000, ERC-20, sans fonction de frappe.** Les frais
 (10 % du pot en moyenne, sur le wallet FRAIS, sur la chaîne) achètent des BG et les brûlent
-dans UNE transaction atomique (`brulage.js`), dès 1 USDC. Sur devnet il n'existe aucun
+dans UNE transaction atomique (`brulage.js` : virement USDC frais → pool, puis
+`burnWithAuthorization` signé par le pool), dès 1 USDC. Sur le testnet il n'existe aucun
 marché pour un jeton neuf : le service tient sa propre réserve (wallet POOL, BG + USDC) et
 applique le produit constant — le prix se lit sur la chaîne, dans les soldes du pool. Sur
-mainnet, `echanger()` devient un routage Jupiter et rien d'autre ne bouge. **Le prix se dit
-en BG pour 1 USDC** (`bgParUsdc`) : en USDC par BG il vaut zéro au micro près.
+mainnet, le rachat devient un appel au routeur d'un DEX de Robinhood Chain et rien d'autre
+ne bouge. **Le prix se dit en BG pour 1 USDC** (`bgParUsdc`) : en USDC par BG il vaut zéro
+au micro près.
 
 **Les amounts de BG sont des micros aussi** (six décimales) : 10^15 unités au plus, sous
 `MAX_SAFE_INTEGER`. Les produits intermédiaires du prix passent par `BigInt`.
@@ -262,13 +335,15 @@ en BG pour 1 USDC** (`bgParUsdc`) : en USDC par BG il vaut zéro au micro près.
 **`config.js` lit l'environnement à l'import, et les imports sont hissés.** Poser
 `process.env.X` en tête d'un script ne sert à rien si un import statique charge `config.js`
 avant : `test/env.mjs` est le PREMIER import de `aide.mjs`, et `outils/cycle.mjs` importe
-tout en dynamique, dans l'ordre. La graine de test `Buffer.alloc(32, 1)` est une clé
-publique CONNUE (quelqu'un l'a financée sur devnet) : ne jamais la prendre pour une preuve.
+tout en dynamique, dans l'ordre. Les clés de test (`Buffer.alloc(32, n)`) sont des clés
+CONNUES : ne jamais les prendre pour une preuve, et `cycle --local` pose SES clés de banc,
+jamais celles du .env, sur anvil.
 
-**Le faucet devnet est limité par jour et par IP**, et l'airdrop RPC répond « Internal
-error » ou 429 sans distinguer les deux. `outils/cycle.mjs --local` prouve le cycle complet
-sur `solana-test-validator` (installé dans `~/.local/share/solana`) ; sur devnet, SOL
-(faucet.solana.com) et USDC (faucet.circle.com) sont deux gestes humains dans un navigateur.
+**`npm run cycle:local` lance anvil lui-même** (Foundry, `~/.foundry/bin`), déploie les
+trois contrats, frappe l'USDC, et joue dépôt → mises → règlement → brûlage → retrait avec
+le grand livre sur PGlite. Sept transactions, zéro écart. C'est LA preuve que ce que
+`chaine.js` construit passe sur une EVM ; `npm test` prouve les chemins du domaine sur la
+chaîne factice.
 
 **Deux processus déjà lancés sur 8080 et 8787 ne sont pas forcément les tiens.** Regarder
 `lsof -i :8787` et l'heure de lancement avant de tuer ; un serveur d'une autre session ou
@@ -284,20 +359,31 @@ seraient bloqués devant. L'ancien panneau de compte reste pour ACCOUNT / SIGN O
 création de compte demande un nom de joueur, stocké dans les métadonnées Supabase et
 repris par le lobby.
 
-**On entre aussi PAR WALLET — « Sign in with Solana » — et c'est un COMPTE, pas une
-liaison (4 septembre 2026).** Le directeur produit a activé le fournisseur Web3 dans le
-projet Supabase ; `compte.js:connecterAvecWallet` fait signer au wallet un message qui
-nomme le domaine et l'instant, et Supabase rend une session comme pour un e-mail. Le
-même bouton de la porte inscrit et connecte : Supabase crée le compte à la première
-signature d'une adresse. Ce compte n'a pas d'e-mail — le backend n'en lit jamais, il
-lit l'utilisateur du jeton et son nom ; le nom vient du formulaire (onglet CREATE) ou de
-l'adresse raccourcie, écrit dans les métadonnées seulement s'il n'y en a pas déjà un.
-Phantom EXIGE une phrase (`statement`), sans retour à la ligne, et c'est elle que le
-joueur lit dans son wallet : « une signature, pas de transaction ». **Se connecter par
-wallet ne lie PAS ce wallet aux retraits** : qui je suis et où va l'argent restent deux
-preuves, la seconde passe par `lierWallet` et le backend. Aucun harnais ne signe avec
-un vrai wallet (il n'y en a pas en headless) ; ce qui se vérifie sans wallet, c'est le
-bouton, et le message clair quand le navigateur n'en a pas.
+**On entre aussi PAR WALLET — « Sign in with Ethereum » — et c'est un COMPTE, pas une
+liaison.** Fournisseur Web3 (Ethereum) de Supabase ; `compte.js:connecterAvecWallet` fait
+signer au wallet injecté (`window.ethereum` : MetaMask, Rabby, Robinhood Wallet…) un
+message EIP-4361 qui nomme le domaine, l'URI, la chaîne et l'instant, et Supabase rend une
+session comme pour un e-mail. La chaîne sur laquelle le wallet se trouve n'a pas
+d'importance pour SIGNER : on ne demande pas au joueur de changer de réseau pour entrer.
+Le même bouton inscrit et connecte. Ce compte n'a pas d'e-mail — le nom vient du
+formulaire (onglet CREATE) ou de l'adresse raccourcie. La phrase `statement` ne doit pas
+contenir de retour à la ligne (le format l'interdit). **Se connecter par wallet ne lie PAS
+ce wallet aux retraits** : qui je suis et où va l'argent restent deux preuves, la seconde
+passe par `lierWallet` (`personal_sign`, vérifié par `ethers.verifyMessage` au backend).
+L'icône du bouton est un pictogramme de portefeuille SANS marque (`icons/wallet.svg`) :
+le bouton vaut pour tout wallet EVM. Aucun harnais ne signe avec un vrai wallet (il n'y en
+a pas en headless) ; ce qui se vérifie sans wallet, c'est le bouton, et le message clair
+quand le navigateur n'en a pas. Il faut `https://play.babyguy.dev` dans Authentication →
+URL Configuration de Supabase, sinon « URI which is not allowed ».
+
+**DEPOSIT FROM WALLET : le parcours court demandé par le directeur produit.** Le joueur
+tape un montant, le lobby met son wallet sur Robinhood Chain (`wallet_switchEthereumChain`,
+et `wallet_addEthereumChain` avec les paramètres venus de `/moi` s'il ne la connaît pas),
+puis lui fait signer un `transfer` ERC-20 vers son adresse de dépôt
+(`compte.js:deposerDepuisWallet`). Le joueur paie CE gaz-là (des centimes) ; le guetteur
+crédite dès qu'il voit la transaction, CHECK DEPOSITS l'accélère. Pas d'adresse à
+recopier. Le wallet de jeu reste : pas de signature par partie, ce qui était la condition
+du directeur produit (« si c'est le cas on fait pas »).
 
 **Ne jamais attendre `supabase.auth.getSession()` pendant un `onAuthStateChange`.**
 supabase-js tient un verrou en prévenant ses auditeurs, et l'appel ne répond jamais : la
@@ -325,10 +411,16 @@ compte. Un contexte par joueur (`browser.newContext()`), comme dans `diag/web3-d
 **Le serveur de jeu charge le `.env`, et `PORT=8787` y est celui du backend.** Il ignore
 un `PORT` venu du fichier (`SERVEUR_PORT`, ou `PORT` posé dans l'environnement réel).
 
-**Sur devnet, personne ne vend d'USDC contre du SOL.** L'USDC devnet n'a qu'une source, le
-faucet Circle (une demande par adresse et par heure). Les wallets dérivés sont à nous : on
-répartit l'USDC d'un seul faucet entre eux par un virement signé, la caisse payant les
-frais. Les comptes d'essai vivants sont `tumble.probe.9f3a1c@gmail.com` et
+**Changer de chaîne, c'est repartir de zéro sur les données d'essai.** Les soldes du grand
+livre étaient adossés à des wallets Solana qui n'existent pas ici ; `sql/004_robinhood.sql`
+amène le SCHÉMA (colonnes `nonce`, `tx_brute`, `bloc`, `dernier_robinet_le`,
+`chain_curseur`) mais n'efface rien — une migration jouée à chaque démarrage ne doit rien
+détruire. C'est `npm run purger -- --oui` qui efface, une fois, à la main, et JAMAIS sur
+mainnet. `joueurDe` re-dérive `adresse_depot` à la première requête d'un profil né sur
+l'ancienne chaîne. L'ancienne note `backend/wallets/devnet.json` reste sur le disque,
+hors dépôt, avec ses secrets sans valeur.
+
+**Les comptes d'essai vivants** sont `tumble.probe.9f3a1c@gmail.com` et
 `tumble.probe.b7e2d4@gmail.com` (mot de passe dans l'historique de session, pas ici).
 
 **`readFileSync` après `writeHead` tue le processus** (`ERR_HTTP_HEADERS_SENT`, non
@@ -563,8 +655,8 @@ saut, dans le plongeon même épuisé (7,29 m). À 2,00 m la marge tombait à 36
 
 ```bash
 dotnet test                                   # 120 — modes, dix issues, roue par rang (PATH=$HOME/.dotnet)
-cd backend            && npm test             # 154 — grand livre, RLS, retraits, tirage, et la CHAÎNE (factice) : mises, annulation, reprise, brûlage
-cd backend            && npm run cycle:local  # le cycle COMPLET sur un validateur local : dépôt, mise, gain, brûlage, retrait (SOL + Token-2022 réels)
+cd backend            && npm test             # 168 — grand livre, RLS, retraits, tirage, et la CHAÎNE (factice) : mises en lot, annulation, reprise, brûlage, robinet
+cd backend            && npm run cycle:local  # le cycle COMPLET sur anvil (lancé par le script) : contrats, dépôt, mise, gain, brûlage, retrait — EIP-3009 réel
 cd tools/test-harness && npm test             # 309 — serveur, files, graine de roue, réseau, entrées, tampon, GIGUE, mises, DALLES
 cd tools/test-harness && node dalles.mjs      #   7 — les trois règles des Dalles et les deux exploits fermés, sans navigateur
 cd tools/test-harness && node marche.mjs rondin 7 # un RAPPORT : un personnage court tout droit sans sauter, où tombe-t-il ?
@@ -576,14 +668,14 @@ cd tools/feel-lab     && node diag/boutique-ecran.mjs # 25 — le deblocage CLIQ
 cd tools/feel-lab     && node diag/bascule.mjs #  DEUX navigateurs : présence, suggestion, SWITCH
 cd tools/feel-lab     && node diag/partie.mjs #  le BANC solo (hors produit), trois manches
 cd tools/feel-lab     && node diag/franchir-rondin.mjs # 37 — un VRAI franchissement vu par le serveur, deux navigateurs
-cd tools/feel-lab     && node diag/web3-lobby.mjs http://127.0.0.1:8080 [email mdp]  # 17 — le lobby CONNECTÉ : zéro sans compte, WALLET, dépôt, retrait refusé en clair ; serveurs lancés d'avance
-cd tools/feel-lab     && node diag/web3-duel.mjs http://127.0.0.1:8080 emailA mdpA emailB mdpB  # 8 — un duel PAYANT réel : mises, règlement, pot fermé sur devnet, soldes rafraîchis
+cd tools/feel-lab     && node diag/web3-lobby.mjs http://127.0.0.1:8080 [email mdp]  # 19 — le lobby CONNECTÉ : zéro sans compte, WALLET, adresse 0x, robinet, dépôt direct, retrait refusé en clair ; serveurs lancés d'avance
+cd tools/feel-lab     && node diag/web3-duel.mjs http://127.0.0.1:8080 emailA mdpA emailB mdpB  # 8 — un duel PAYANT réel : les deux mises dans UNE transaction, règlement, soldes rafraîchis
 cd tools/test-harness && node franchissable.mjs # un RAPPORT, pas un test : les 5 cartes
 ```
 
-Rien ne demande Docker ni base de données. Seuls les deux harnais `web3-*` visent des
+Rien ne demande Docker ni base de données (anvil vient de Foundry, déjà installé). Seuls les deux harnais `web3-*` visent des
 serveurs lancés d'avance (`cd backend && npm start`, `cd serveur && npm start`) et des
-comptes Supabase confirmés avec de l'USDC devnet.
+comptes Supabase confirmés avec de l'USDC de test (le robinet du lobby en donne).
 
 **Les bancs navigateur (`diag/duel.mjs`, `franchir-rondin.mjs`, `hex-finale.mjs`…) jouent
 le jeu COMPILÉ** : le serveur de jeu sert `tools/feel-lab/dist`. Une modification du
@@ -794,12 +886,12 @@ le navigateur d'un joueur venu du site. Le script la dérive de `DOMAINE` (`DOMA
 pour la changer), et ce n'est qu'une seule chaîne : elle ne peut pas autoriser les deux
 noms à la fois.
 
-**Le site dit `devnet` parce que le backend déployé est sur devnet.** `NETWORK` dans
-`src/data/site.ts` du dépôt du site et `SOLANA_RESEAU` dans `deploy/fly/backend.toml`
-**bougent ensemble**. Les six boutons or de la page envoient miser ; tant que l'USDC sort
-d'un robinet public et ne vaut rien, la page l'écrit — pastille de la section Play, FAQ,
-pied de page. Le jour où l'on passe en mainnet, changer l'un sans l'autre fait mentir la
-page dans un sens ou dans l'autre.
+**Le site (dépôt `babysite`, séparé) parle encore de Solana devnet.** `NETWORK` dans
+`src/data/site.ts` du dépôt du site et `ROBINHOOD_RESEAU` dans `deploy/fly/backend.toml`
+doivent **bouger ensemble** — et au 5 septembre 2026 le site n'a PAS été mis à jour : il
+dit « Solana devnet » là où le jeu est sur Robinhood Chain testnet (pastille de la section
+Play, FAQ, pied de page). Ce dépôt-ci n'a aucune trace de Solana ; le site, si, tant que
+personne ne l'édite.
 
 **Le tableau des gains du SITE ne dit plus ce que le jeu paie.** `payouts` promet 25,00
 fixes au premier d'une arène à 5 USDC ; le jeu tire le gain du vainqueur sur une roue et
@@ -814,7 +906,7 @@ le double paiement dont on ne se relève pas. Quand Fly tourne, on n'a pas de ba
 local — ou on lui donne d'autres wallets et une autre base.
 
 **Le build du jeu dépasse dix minutes** (three, rapier, playwright sans navigateurs, puis
-les dépendances Solana) : `fly deploy` en arrière-plan, jamais en avant-plan avec un
+les dépendances du jeu) : `fly deploy` en arrière-plan, jamais en avant-plan avec un
 délai court.
 
 ---
@@ -824,8 +916,8 @@ délai court.
 Liste complète en bas de `backend/README.md`. En résumé : serveur autoritatif et
 `MatchResult` **signé** (faits le 2 septembre 2026 — le backend ne croit plus le
 navigateur), journal de replay, géo-restriction, gestion de clé sérieuse (KMS pour cinq
-clés désormais), un vrai marché BG/USDC et Jupiter à la place du pool maison, un RPC payé,
-validation juridique.
+clés désormais), un stable mainnet qui implémente EIP-3009, un vrai marché BG/USDC sur
+un DEX de Robinhood Chain à la place du pool maison, un RPC payé, validation juridique.
 
 La signature couvre **le mode, la mise, l'effectif, la graine de roue et le classement**,
 plus un horodatage : ce sont eux qui disent quelle ligne du tableau paie. Un résultat signé

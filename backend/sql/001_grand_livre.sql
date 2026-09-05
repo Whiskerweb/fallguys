@@ -24,16 +24,19 @@ create table if not exists public.profiles (
   id                uuid primary key references auth.users (id) on delete cascade,
   pseudo            text,
 
-  -- Adresse Solana LIEE au compte, prouvee par signature (Sign in with Solana).
+  -- Adresse Robinhood Chain (0x…) LIEE au compte, prouvee par signature du wallet.
   -- C'est la seule destination possible d'un retrait : un compte vole ne peut donc
   -- pas rediriger les fonds, et l'adresse de sortie est celle dont le joueur a
   -- demontre la possession — pas une chaine saisie au clavier.
   wallet            text unique,
   wallet_lie_le     timestamptz,
 
-  -- Adresse de DEPOT dediee, derivee de la graine maitresse et de `id`.
+  -- Adresse de DEPOT dediee (0x…), derivee de la graine maitresse et de `id`.
   -- La cle privee n'est jamais stockee : elle est re-derivable a la demande.
   adresse_depot     text unique not null,
+
+  -- Le robinet d'USDC d'essai (testnet) : une fois par heure et par joueur.
+  dernier_robinet_le timestamptz,
 
   -- Verrou anti-bot : la friction est a la SORTIE, pas a l'entree (spec section 2).
   premier_retrait_le timestamptz,
@@ -55,9 +58,9 @@ create table if not exists public.ledger_tx (
   -- 'depot' | 'mise' | 'rake' | 'gain' | 'remboursement' | 'retrait' | 'retrait_echoue'
   genre       text not null,
 
-  -- CLE D'IDEMPOTENCE, unique par genre. Une signature de transaction Solana pour
-  -- un depot, un identifiant de partie pour un reglement. `null` pour les
-  -- mouvements qui n'ont pas de source externe rejouable.
+  -- CLE D'IDEMPOTENCE, unique par genre. Le hache de la transaction (et l'index
+  -- de l'evenement) pour un depot, un identifiant de partie pour un reglement.
+  -- `null` pour les mouvements qui n'ont pas de source externe rejouable.
   ref         text,
 
   metadata    jsonb not null default '{}',
@@ -127,15 +130,15 @@ create constraint trigger ledger_entries_equilibre
 -- ---------------------------------------------------------------------------
 --  Depots observes sur la chaine
 --
---  La signature Solana EST la cle primaire : rejouer le meme bloc ne peut pas
---  crediter deux fois, et c'est la base qui le garantit, pas la prudence du
---  guetteur.
+--  « hache de transaction # index de l'evenement Transfer » EST la cle primaire :
+--  rejouer le meme bloc ne peut pas crediter deux fois, et c'est la base qui le
+--  garantit, pas la prudence du guetteur.
 -- ---------------------------------------------------------------------------
 create table if not exists public.deposits (
   signature      text primary key,
   user_id        uuid not null references public.profiles (id),
   amount_micros  bigint not null check (amount_micros > 0),
-  slot           bigint,
+  bloc           bigint,
   expediteur     text,
   vu_le          timestamptz not null default now(),
   credite_le     timestamptz,
@@ -148,10 +151,11 @@ create index if not exists deposits_user_idx on public.deposits (user_id);
 --  Retraits
 --
 --  Machine a etats : demande -> soumis -> confirme | echoue.
---  La signature est enregistree DES LA SOUMISSION, avant meme la confirmation :
---  c'est le seul moyen de savoir, apres un redemarrage au mauvais moment, qu'une
---  transaction est peut-etre deja partie. Re-signer sans cette trace, c'est
---  payer deux fois.
+--  Le hache de la transaction est enregistre DES LA SOUMISSION, avant meme la
+--  confirmation : c'est le seul moyen de savoir, apres un redemarrage au mauvais
+--  moment, qu'une transaction est peut-etre deja partie. Re-signer sans cette
+--  trace, c'est payer deux fois. Le detail (nonce, transaction brute) vit dans
+--  `chain_tx`, qui tient ce journal pour tous les objets.
 -- ---------------------------------------------------------------------------
 create table if not exists public.withdrawals (
   id              uuid primary key,
@@ -166,14 +170,6 @@ create table if not exists public.withdrawals (
   statut          text not null default 'demande'
                   check (statut in ('demande', 'soumis', 'confirme', 'echoue')),
   signature       text unique,
-
-  -- Le blockhash de la transaction signee.
-  --
-  -- Il repond a la seule question qui autorise a RE-SIGNER apres un arret : « cette
-  -- transaction peut-elle encore etre acceptee ? » Tant que le blockhash est valide, la
-  -- reponse est oui, et en signer une seconde paierait deux fois. Une fois expire, la
-  -- premiere ne partira jamais et l'on peut recommencer sans risque.
-  blockhash       text,
 
   raison_echec    text,
 

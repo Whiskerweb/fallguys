@@ -32,7 +32,7 @@ export const compte = {
   /** La caisse : la contrepartie en livre de ce que le wallet maison detient sur la chaine. */
   caisse: 'treasury:hot',
   /**
-   * Le pool BG/USDC : les USDC que le brulage y a deposes en achetant des BG. Sur devnet
+   * Le pool BG/USDC : les USDC que le brulage y a deposes en achetant des BG. Sur le testnet
    * c'est notre propre reserve ; sur mainnet, l'argent part vers un marche et ce compte
    * disparait au profit de `chain:out`.
    */
@@ -51,7 +51,7 @@ export const compte = {
  *   toute premiere ligne, qui est forcement desequilibree a elle seule.
  * @param {object} mouvement
  * @param {string} mouvement.genre 'depot' | 'mise' | 'rake' | 'gain' | 'retrait' | ...
- * @param {string|null} [mouvement.ref] cle d'idempotence (signature Solana, id de partie)
+ * @param {string|null} [mouvement.ref] cle d'idempotence (hache de transaction, id de partie)
  * @param {object} [mouvement.metadata]
  * @param {Array<{compte: string, montant: number}>} mouvement.lignes
  * @returns {Promise<{id: string, deja: boolean}>} `deja` vaut true si le mouvement existait

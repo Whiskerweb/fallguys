@@ -1,5 +1,5 @@
 /**
- * Verdicts sur LA CHAINE — ce que devnet fera, prouve ici sans SOL ni reseau.
+ * Verdicts sur LA CHAINE — ce que Robinhood Chain fera, prouve ici sans ETH ni reseau.
  *
  * `factice.js` offre la meme interface que la vraie chaine (journal en base compris), et
  * les modules du domaine — `regler.js`, `brulage.js`, `retraits.js` — ne savent pas
@@ -9,22 +9,24 @@
  * Usage : node test/chaine.mjs
  */
 
+import { Wallet } from 'ethers';
 import { banc, joueur, doter, dit, refuse, titre, bilan } from './aide.mjs';
 import { solde, compte, verifierInvariant } from '../src/livre.js';
 import { engagerPartie, regler, payerSurChaine, annulerPartie, rattraperChaine } from '../src/match/regler.js';
-import { creerChaineFactice } from '../src/solana/factice.js';
-import { tresorerie } from '../src/solana/tresorerie.js';
-import { verifierChaine } from '../src/solana/reconciliation.js';
-import { racheterEtBruler, prixAchat, etatMarche } from '../src/solana/brulage.js';
-import { demander, executer } from '../src/solana/retraits.js';
+import { creerChaineFactice } from '../src/robinhood/factice.js';
+import { tresorerie } from '../src/robinhood/tresorerie.js';
+import { verifierChaine } from '../src/robinhood/reconciliation.js';
+import { racheterEtBruler, prixAchat, etatMarche } from '../src/robinhood/brulage.js';
+import { demander, executer } from '../src/robinhood/retraits.js';
+import { nonceDe, raisonDe } from '../src/robinhood/chaine.js';
 import { genererCle, sceller, ouvrir, canonique, signer, verifier } from '../src/signature.js';
 import { table } from '../src/gains.js';
 import { MICROS, ecrire } from '../src/argent.js';
 
 const { db, pglite } = await banc();
-const adresse = (userId) => tresorerie.joueur(userId).publicKey.toBase58();
-const frais = tresorerie.frais().publicKey.toBase58();
-const pool = tresorerie.pool().publicKey.toBase58();
+const adresse = (userId) => tresorerie.joueur(userId).address;
+const frais = tresorerie.frais().address;
+const pool = tresorerie.pool().address;
 
 /** Un joueur dote au livre ET sur la chaine, comme apres un vrai depot. */
 async function joueurDote(chaine, nom, usdc) {
@@ -60,6 +62,13 @@ titre('1. Un resultat non signe ne vaut rien');
   dit(canonique({ b: 1, a: [3, { d: 1, c: 2 }] }) === '{"a":[3,{"c":2,"d":1}],"b":1}', 'la forme canonique trie les cles a tous les niveaux');
   dit(verifier({ a: 1, b: 2 }, signer({ b: 2, a: 1 }, serveur.secrete), serveur.publique), 'l\'ordre des proprietes ne change pas la signature');
   dit(ouvrir({ corps: 'x', signature: 5 }, serveur.publique).ok === false, 'un message illisible est refuse sans jeter');
+
+  // Le nonce d'une autorisation EIP-3009 est la cle du journal, hachee : le contrat
+  // refuse donc de lui-meme la meme operation presentee deux fois.
+  dit(nonceDe('mise', 'p1:a') === nonceDe('mise', 'p1:a') && nonceDe('mise', 'p1:a') !== nonceDe('mise', 'p1:b'), 'le nonce d\'une autorisation derive de (objet, ref), et de rien d\'autre');
+  dit(/^0x[0-9a-f]{64}$/.test(nonceDe('gain', 'p1:a')), 'et tient sur 32 octets, comme le contrat l\'attend');
+  dit(raisonDe('0x08c379a0' + '0000000000000000000000000000000000000000000000000000000000000020' + '0000000000000000000000000000000000000000000000000000000000000011' + Buffer.from('solde insuffisant').toString('hex').padEnd(64, '0')) === 'solde insuffisant',
+    'la raison d\'un revert Error(string) se lit en clair');
 }
 
 // ===========================================================================
@@ -83,8 +92,8 @@ const chaine = creerChaineFactice({
   const partie = 'squad-0001';
   const r = await engagerPartie(db, chaine, { partie, mode: 'squad', mise: 2 * MICROS, joueurs: gens.map((userId, i) => ({ userId, nom: `sq${i}` })) });
   dit(r.annulee === false && r.engages.length === 4, 'quatre mises engagees, partie confirmee');
-  dit(Object.keys(r.signatures).length === 4, 'une transaction par joueur, une signature chacune');
-  const potAdr = tresorerie.pot(partie).publicKey.toBase58();
+  dit(new Set(Object.values(r.signatures)).size === 1 && Object.keys(r.signatures).length === 4, 'les quatre mises tiennent dans UNE transaction : un lot, un hache');
+  const potAdr = tresorerie.pot(partie).address;
   dit(await chaine.solde(potAdr) === 8 * MICROS, `le pot detient ${ecrire(8 * MICROS)} USDC sur la chaine`);
   dit(await chaine.solde(adresse(gens[0])) === 18 * MICROS && await solde(db, compte.joueur(gens[0])) === 18 * MICROS,
     'chaque joueur a 18.00 au livre ET sur la chaine');
@@ -107,8 +116,8 @@ const chaine = creerChaineFactice({
   dit(await chaine.solde(adresse(gens[1])) === 18 * MICROS + bareme.parRang[1], `le second ${ecrire(bareme.parRang[1])}`);
   dit(await chaine.solde(frais) === bareme.rake && await solde(db, compte.rake) === bareme.rake,
     `les frais detiennent le rake de la ligne COURONNE : ${ecrire(bareme.rake)}, au livre comme sur la chaine`);
-  const cloture = (await db.query(`select statut from public.chain_tx where objet = 'cloture_pot' and ref = $1`, [partie])).rows[0];
-  dit(cloture?.statut === 'confirme', 'le compte du pot est ferme (rente rendue a la caisse)');
+  const lignes = (await db.query(`select objet, statut from public.chain_tx where partie = $1 and statut = 'confirme'`, [partie])).rows;
+  dit(lignes.filter((l) => l.objet === 'gain').length === 2 && lignes.filter((l) => l.objet === 'rake').length === 1, 'le journal porte deux gains et un rake confirmes pour cette partie');
   const m2 = (await db.query(`select statut, issue, paye_sur_chaine_le from public.matches where id = $1`, [partie])).rows[0];
   dit(m2.statut === 'reglee' && m2.issue === 'couronne' && m2.paye_sur_chaine_le, 'la partie est « reglee », ligne COURONNE, chaine payee');
 
@@ -125,33 +134,45 @@ const chaine = creerChaineFactice({
 }
 
 // ===========================================================================
-titre('3. Une mise qui ne part pas annule la partie');
+titre('3. Une mise qui ne part pas annule la partie — et aucune autre ne part');
 // ===========================================================================
 {
+  // 3a. Le LIVRE refuse (rien a miser) : la chaine n'est meme pas sollicitee.
   const a = await joueurDote(chaine, 'an-a', 10);
   const b = await joueurDote(chaine, 'an-b', 10);
-  // Il a de quoi, mais la chaine refusera SON virement (compte gele, RPC qui rejette…).
   const c = await joueurDote(chaine, 'an-c', 10);
-  // Et lui n'a rien du tout.
   const d = await joueur(db, 'an-d');
 
   const partie = 'squad-annulee';
-  panne = (op) => op.ref === `${partie}:${c}`;
   const r = await engagerPartie(db, chaine, { partie, mode: 'squad', mise: 5 * MICROS, joueurs: [a, b, c, d].map((userId) => ({ userId, nom: userId.slice(0, 4) })) });
   dit(r.annulee === true, 'la partie est annulee');
-  panne = null;
-  dit(r.refuses.find((x) => x.userId === c)?.raison === 'CHAINE_REFUS', 'celui dont le virement est refuse par la chaine est refuse');
-  dit(r.refuses.find((x) => x.userId === d)?.raison === 'SOLDE_INSUFFISANT', 'celui qui n\'a rien est refuse par le livre');
-  dit(await solde(db, compte.joueur(a)) === 10 * MICROS && await chaine.solde(adresse(a)) === 10 * MICROS, 'a retrouve ses 10.00 au livre et sur la chaine');
-  dit(await solde(db, compte.joueur(b)) === 10 * MICROS && await chaine.solde(adresse(b)) === 10 * MICROS, 'b aussi');
-  dit(await solde(db, compte.joueur(c)) === 10 * MICROS && await chaine.solde(adresse(c)) === 10 * MICROS, 'c retrouve son solde au livre (sa mise n\'etait jamais partie)');
-  dit(await chaine.solde(tresorerie.pot(partie).publicKey.toBase58()) === 0 && await solde(db, compte.pot(partie)) === 0, 'le pot est vide des deux cotes');
+  dit(r.refuses.length === 1 && r.refuses[0].userId === d && r.refuses[0].raison === 'SOLDE_INSUFFISANT', 'celui qui n\'a rien est refuse par le livre, et lui seul');
+  const journal = (await db.query(`select count(*)::int as n from public.chain_tx where partie = $1`, [partie])).rows[0].n;
+  dit(journal === 0, 'aucune transaction n\'a ete tentee : inutile de faire partir des mises pour les rendre');
+  for (const [nom, id] of [['a', a], ['b', b], ['c', c]]) {
+    dit(await solde(db, compte.joueur(id)) === 10 * MICROS && await chaine.solde(adresse(id)) === 10 * MICROS, `${nom} retrouve ses 10.00 au livre et sur la chaine`);
+  }
+  dit(await chaine.solde(tresorerie.pot(partie).address) === 0 && await solde(db, compte.pot(partie)) === 0, 'le pot est vide des deux cotes');
   const m = (await db.query(`select statut from public.matches where id = $1`, [partie])).rows[0];
   dit(m.statut === 'annulee', 'la partie est « annulee »');
   await refuse(regler(db, { matchId: partie, mise: 5 * MICROS, mode: 'squad', graineRoue: 1, classement: [{ userId: a, rang: 1 }, { userId: b, rang: 2 }, { userId: c, rang: 3 }, { userId: d, rang: 4 }] }, chaine),
     'une partie annulee ne se regle pas');
   await refuse(engagerPartie(db, chaine, { partie, mode: 'squad', mise: 5 * MICROS, joueurs: [a, b].map((userId) => ({ userId, nom: 'x' })) }),
     'et ne se reengage pas sous le meme identifiant');
+
+  // 3b. La CHAINE refuse le virement de c (compte gele, contrat qui rejette…) : le lot
+  // entier est annule, et l'index de l'appel fautif designe c.
+  const partie2 = 'squad-refusee';
+  panne = (op) => op.ref === `${partie2}:${c}`;
+  const r2 = await engagerPartie(db, chaine, { partie: partie2, mode: 'squad', mise: 5 * MICROS, joueurs: [a, b, c].map((userId) => ({ userId, nom: userId.slice(0, 4) })) });
+  panne = null;
+  dit(r2.annulee === true && r2.refuses.length === 1 && r2.refuses[0].userId === c && r2.refuses[0].raison === 'CHAINE_REFUS',
+    'le lot est refuse par la chaine : c est designe comme fautif, a et b ne sont pas refuses');
+  for (const [nom, id] of [['a', a], ['b', b], ['c', c]]) {
+    dit(await solde(db, compte.joueur(id)) === 10 * MICROS && await chaine.solde(adresse(id)) === 10 * MICROS, `${nom} n'a rien perdu : le lot est tout ou rien`);
+  }
+  const echouees = (await db.query(`select count(*)::int as n from public.chain_tx where partie = $1 and statut = 'echoue'`, [partie2])).rows[0].n;
+  dit(echouees === 3, 'les trois lignes du journal sont « echoue » — aucune n\'est partie seule');
   const inv = await verifierInvariant(db);
   dit(inv.total === 0 && inv.potsNonSoldes.length === 0, 'l\'invariant tient apres une annulation');
   const v = await verifierChaine(db, chaine);
@@ -159,7 +180,7 @@ titre('3. Une mise qui ne part pas annule la partie');
 }
 
 // ===========================================================================
-titre('4. Le reseau coupe pendant une mise');
+titre('4. Le reseau coupe pendant les mises');
 // ===========================================================================
 {
   const chaineFragile = chaine;
@@ -168,15 +189,15 @@ titre('4. Le reseau coupe pendant une mise');
   const partie = 'duel-incertain';
   couper = `${partie}:${b}`;
   const r = await engagerPartie(db, chaineFragile, { partie, mode: 'duel', mise: 2 * MICROS, joueurs: [{ userId: a, nom: 'a' }, { userId: b, nom: 'b' }] });
-  dit(r.annulee === true && r.refuses[0]?.raison === 'CHAINE_INCERTAINE', 'une mise dont on ne sait pas si elle est partie annule la partie');
-  dit(await solde(db, compte.joueur(b)) === 8 * MICROS, 'sa mise reste engagee au livre : on ne rend pas sur un doute');
-  dit(await solde(db, compte.joueur(a)) === 10 * MICROS && await chaineFragile.solde(adresse(a)) === 10 * MICROS, 'l\'autre joueur est deja rembourse');
+  dit(r.annulee === true && r.refuses.every((x) => x.raison === 'CHAINE_INCERTAINE') && r.refuses.length === 2, 'un lot dont on ne sait pas s\'il est parti annule la partie, pour les deux');
+  dit(await solde(db, compte.joueur(a)) === 8 * MICROS && await solde(db, compte.joueur(b)) === 8 * MICROS, 'les deux mises restent engagees au livre : on ne rend pas sur un doute');
 
   const signature = (await db.query(`select signature from public.chain_tx where objet = 'mise' and ref = $1`, [couper])).rows[0].signature;
   // Verdict de la chaine : elle n'est jamais passee.
   const bilan1 = await rattraperChaine(db, { ...chaineFragile, reprendre: (g) => chaineFragile.reprendre(g, { [signature]: 'echoue' }) });
-  dit(bilan1.reprise.echouees === 1 && await solde(db, compte.joueur(b)) === 10 * MICROS, 'quand la chaine dit « jamais passee », la mise est rendue au livre');
-  dit(await chaineFragile.solde(adresse(b)) === 10 * MICROS, 'et le wallet n\'a pas bouge');
+  dit(bilan1.reprise.echouees === 2 && await solde(db, compte.joueur(a)) === 10 * MICROS && await solde(db, compte.joueur(b)) === 10 * MICROS,
+    'quand la chaine dit « jamais minee », les deux mises sont rendues au livre');
+  dit(await chaineFragile.solde(adresse(a)) === 10 * MICROS && await chaineFragile.solde(adresse(b)) === 10 * MICROS, 'et les wallets n\'ont pas bouge');
 
   // L'autre verdict : elle EST passee, dans le pot d'une partie annulee entre-temps.
   const c = await joueurDote(chaineFragile, 'inc-c', 10);
@@ -187,9 +208,10 @@ titre('4. Le reseau coupe pendant une mise');
   const sig2 = (await db.query(`select signature from public.chain_tx where objet = 'mise' and ref = $1`, [couper])).rows[0].signature;
   couper = null;
   const bilan2 = await rattraperChaine(db, { ...chaineFragile, reprendre: (g) => chaineFragile.reprendre(g, { [sig2]: 'confirme' }) });
-  dit(bilan2.reprise.confirmees === 1, 'la chaine finit par dire « passee »');
-  dit(await solde(db, compte.joueur(d)) === 10 * MICROS && await chaineFragile.solde(adresse(d)) === 10 * MICROS,
-    'la mise arrivee dans un pot annule revient au joueur, au livre et sur la chaine');
+  dit(bilan2.reprise.confirmees === 2, 'la chaine finit par dire « minee »');
+  dit(await solde(db, compte.joueur(c)) === 10 * MICROS && await chaineFragile.solde(adresse(c)) === 10 * MICROS
+    && await solde(db, compte.joueur(d)) === 10 * MICROS && await chaineFragile.solde(adresse(d)) === 10 * MICROS,
+  'les mises arrivees dans un pot annule reviennent aux joueurs, au livre et sur la chaine');
   const v = await verifierChaine(db, chaineFragile);
   dit(v.ok, `livre ↔ chaine apres les deux reprises : ${v.ecarts.length} ecart ${v.ok ? '' : JSON.stringify(v.ecarts)}`);
 }
@@ -222,10 +244,11 @@ titre('5. Le brulage : les frais achetent des BG, qui sont detruits');
   dit(await chaine.solde(frais) === 0 && await solde(db, compte.rake) === 0, 'les frais sont a zero, au livre et sur la chaine');
   dit(await chaine.solde(pool, 'usdc') === 1_000 * MICROS + fraisAvant && await solde(db, compte.pool) === fraisAvant,
     'le pool a recu les USDC ; le livre le sait');
-  dit(await chaine.solde(frais, 'bg') === 0, 'aucun BG ne reste sur les frais : achetes et brules dans la meme transaction');
+  dit(await chaine.solde(pool, 'bg') === 1_000_000_000 * MICROS - attenduBg && await chaine.solde(frais, 'bg') === 0,
+    'les BG achetes sont sortis du pool et brules dans la meme transaction : aucun BG ne transite par les frais');
   dit((await chaine.offre('bg')).offre === offreAvant - attenduBg, `l'offre de BG a baisse de ${(attenduBg / MICROS).toFixed(6)}`);
   const ligne = (await db.query(`select * from public.burns`)).rows;
-  dit(ligne.length === 1 && Number(ligne[0].bg_micros) === attenduBg && ligne[0].signature === b.signature, 'le rachat est consigne, avec sa signature');
+  dit(ligne.length === 1 && Number(ligne[0].bg_micros) === attenduBg && ligne[0].signature === b.signature, 'le rachat est consigne, avec son hache');
   const marche = await etatMarche(chaine);
   dit(marche.bgParUsdc > 0 && marche.offre === offreAvant - attenduBg, `le marche se lit sur la chaine : ${(marche.bgParUsdc / MICROS).toFixed(2)} BG pour 1 USDC`);
 
@@ -240,7 +263,7 @@ titre('5. Le brulage : les frais achetent des BG, qui sont detruits');
   const rate = await racheterEtBruler(db, chainePanne, { seuil: 1 * MICROS });
   panne = null;
   dit(rate.statut === 'echoue' && await solde(db, compte.rake) === 3 * MICROS && await chainePanne.solde(frais) === 3 * MICROS,
-    'si la chaine refuse, le livre est rendu et les frais n\'ont pas bouge');
+    'si la chaine refuse le brulage, le virement des USDC est annule avec lui : le livre est rendu, les frais n\'ont pas bouge');
   const inv = await verifierInvariant(db);
   dit(inv.total === 0, 'l\'invariant tient a travers les rachats');
 }
@@ -250,7 +273,8 @@ titre('6. Un retrait part du wallet du joueur');
 // ===========================================================================
 {
   const eve = await joueurDote(chaine, 'ret-eve', 100);
-  await db.query(`update public.profiles set wallet = $2, wallet_lie_le = now() - interval '48 hours' where id = $1`, [eve, 'WalletExterneDEve1111111111111111111111111']);
+  const externe = Wallet.createRandom().address;
+  await db.query(`update public.profiles set wallet = $2, wallet_lie_le = now() - interval '48 hours' where id = $1`, [eve, externe]);
   const r = await demander(db, { userId: eve, montant: 40 * MICROS });
   dit(await solde(db, compte.joueur(eve)) === 60 * MICROS && await chaine.solde(adresse(eve)) === 100 * MICROS,
     'a la demande, le livre reserve ; la chaine n\'a pas encore bouge');
@@ -258,8 +282,8 @@ titre('6. Un retrait part du wallet du joueur');
   dit(v1.ok, `et la reconciliation le sait : un retrait en attente n'est pas un ecart ${v1.ok ? '' : JSON.stringify(v1.ecarts)}`);
 
   const ex = await executer(db, chaine, r.id);
-  dit(ex.statut === 'confirme' && ex.signature, 'le retrait est confirme avec une signature');
-  dit(await chaine.solde(adresse(eve)) === 60 * MICROS && await chaine.solde('WalletExterneDEve1111111111111111111111111') === 40 * MICROS,
+  dit(ex.statut === 'confirme' && ex.signature, 'le retrait est confirme avec un hache');
+  dit(await chaine.solde(adresse(eve)) === 60 * MICROS && await chaine.solde(externe) === 40 * MICROS,
     'les 40.00 sont partis DU WALLET DU JOUEUR vers le wallet lie');
   const bis = await executer(db, chaine, r.id);
   dit(bis.statut === 'confirme' && bis.signature === ex.signature, 'relancer le meme retrait ne renvoie rien');
@@ -272,6 +296,19 @@ titre('6. Un retrait part du wallet du joueur');
   dit(ex2.statut === 'echoue' && await solde(db, compte.joueur(eve)) === 60 * MICROS, 'un retrait refuse par la chaine est rembourse au livre');
   const v2 = await verifierChaine(db, chaine);
   dit(v2.ok, `livre ↔ chaine apres les retraits : ${v2.ecarts.length} ecart ${v2.ok ? '' : JSON.stringify(v2.ecarts)}`);
+}
+
+// ===========================================================================
+titre('7. Le robinet d\'essai frappe des USDC que le guetteur voit comme un depot');
+// ===========================================================================
+{
+  const fred = await joueur(db, 'rob-fred');
+  const r = await chaine.executer({ operations: [{ type: 'frappe', vers: adresse(fred), mint: 'usdc', montant: 20 * MICROS, objet: 'robinet', ref: `${fred}:1` }] });
+  dit(r.deja === false && await chaine.solde(adresse(fred)) === 20 * MICROS, 'la frappe depose 20.00 USDC sur le wallet de jeu');
+  const ligne = (await db.query(`select user_id, statut from public.chain_tx where objet = 'robinet'`)).rows[0];
+  dit(ligne.statut === 'confirme' && ligne.user_id === null, 'elle est journalisee SANS joueur : pour le guetteur, c\'est un depot comme un autre');
+  const bis = await chaine.executer({ operations: [{ type: 'frappe', vers: adresse(fred), mint: 'usdc', montant: 20 * MICROS, objet: 'robinet', ref: `${fred}:1` }] });
+  dit(bis.deja === true && await chaine.solde(adresse(fred)) === 20 * MICROS, 'rejouer la meme ref ne frappe pas deux fois');
 }
 
 await pglite.close();

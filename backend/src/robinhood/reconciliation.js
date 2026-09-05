@@ -12,9 +12,9 @@
  *   pot    : engagee → les mises confirmees ; reglee ou annulee → zero une fois payee
  *
  * Un ecart n'est pas forcement une fraude : c'est d'abord une transaction en suspens que
- * `rattraperChaine` n'a pas encore tranchee. Mais un ecart qui PERSISTE est la seule
- * chose qui merite qu'on arrete le service, et c'est pour ca que la page de suivi
- * l'affiche a tout le monde.
+ * `rattraperChaine` n'a pas encore tranchee, ou un depot que le guetteur n'a pas encore
+ * vu. Mais un ecart qui PERSISTE est la seule chose qui merite qu'on arrete le service,
+ * et c'est pour ca que la page de suivi l'affiche a tout le monde.
  */
 
 import { solde, compte } from '../livre.js';
@@ -66,7 +66,7 @@ export async function verifierChaine(db, chaine, { joueursMax = 200 } = {}) {
     const livre = await solde(db, compte.rake);
     const t = await transit(db, `objet in ('rake', 'rachat') and (mint = 'usdc' or mint is null)`, []);
     const attendu = livre - (t.rake ?? 0) + (t.rachat ?? 0);
-    const adresse = tresorerie.frais().publicKey.toBase58();
+    const adresse = tresorerie.frais().address;
     const surChaine = await chaine.solde(adresse, 'usdc');
     verifies++;
     if (surChaine !== attendu) ecarts.push({ compte: 'frais', adresse, livre, attendu, chaine: surChaine, ecart: surChaine - attendu });
@@ -79,7 +79,7 @@ export async function verifierChaine(db, chaine, { joueursMax = 200 } = {}) {
       order by coalesce(regle_le, engagee_le) desc limit 100`,
   )).rows;
   for (const p of pots) {
-    const adresse = p.adresse_pot ?? tresorerie.pot(p.id).publicKey.toBase58();
+    const adresse = p.adresse_pot ?? tresorerie.pot(p.id).address;
     const livre = await solde(db, compte.pot(p.id));
     const t = await transit(db, 'partie = $1', [p.id]);
     const attendu = livre - (t.mise ?? 0) + (t.gain ?? 0) + (t.rake ?? 0) + (t.annulation ?? 0);

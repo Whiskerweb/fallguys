@@ -1,12 +1,18 @@
-# Le backend — comptes, grand livre, USDC sur Solana, et le jeton BG
+# Le backend — comptes, grand livre, USDC sur Robinhood Chain, et le jeton BG
 
-> **Ce service est en devnet. Il ne doit pas toucher de mainnet.**
+> **Ce service est sur le testnet de Robinhood Chain. Il ne doit pas toucher de mainnet.**
 > La liste des conditions à remplir avant d'y penser est en bas de page, et elle n'est pas
 > facultative.
 
 Le jeu ne connaît aucun solde et ne déclenche aucun paiement. Le serveur de jeu produit un
 résultat de partie **signé** ; ce service le convertit en mouvements comptables **et en
-transactions Solana**, et lui seul parle à la chaîne.
+transactions sur Robinhood Chain**, et lui seul parle à la chaîne.
+
+Robinhood Chain est un Layer 2 d'Ethereum (Arbitrum Orbit) : le gaz se paie en ETH, les
+contrats sont des contrats EVM ordinaires, l'explorateur est un Blockscout. Testnet :
+chainId **46630**, `https://rpc.testnet.chain.robinhood.com`,
+`https://explorer.testnet.chain.robinhood.com`. Mainnet : chainId **4663**. Les paramètres
+vivent dans `src/robinhood/reseaux.js`, et partent tels quels vers le navigateur.
 
 ---
 
@@ -14,13 +20,14 @@ transactions Solana**, et lui seul parle à la chaîne.
 
 | | |
 |---|---|
-| **Comptes** | Supabase Auth, **e-mail et mot de passe** ; plus un wallet Solana **lié par signature** |
-| **Wallet de jeu** | **une adresse Solana par joueur, dérivée** — ses USDC y restent, ses mises en partent, ses gains y reviennent |
-| **Dépôts** | un guetteur voit l'arrivée et crédite. On ne balaie plus : le wallet du joueur EST son compte |
-| **Parties** | le serveur de jeu fait **engager** les mises (wallet → pot de la partie) avant le départ, et **régler** à la fin (pot → gagnants + frais), le tout signé |
+| **Comptes** | Supabase Auth, **e-mail et mot de passe**, ou **Sign in with Ethereum** (MetaMask, Rabby, Robinhood Wallet…) ; plus un wallet **lié par signature** pour les retraits |
+| **Wallet de jeu** | **une adresse Robinhood Chain par joueur, dérivée** — ses USDC y restent, ses mises en partent, ses gains y reviennent |
+| **Dépôts** | un guetteur lit les événements `Transfer` du contrat USDC et crédite. On ne balaie pas : le wallet du joueur EST son compte. Depuis le lobby, DEPOSIT FROM WALLET fait signer le transfert dans le wallet du joueur |
+| **Robinet** | testnet seulement : `POST /robinet` frappe des USDC d'essai sur le wallet de jeu (un par heure et par joueur) |
+| **Parties** | le serveur de jeu fait **engager** les mises (wallets → pot de la partie, **une transaction, tout ou rien**) avant le départ, et **régler** à la fin (pot → gagnants + frais, une transaction), le tout signé |
 | **Retraits** | depuis le wallet de jeu, vers le wallet lié **uniquement** ; minimum 25 USDC, 24 h avant le premier |
 | **Frais** | 10 % du pot en moyenne, sur le wallet FRAIS, sur la chaîne |
-| **Brûlage** | dès que les frais atteignent 1 USDC, ils **achètent des BG et les brûlent**, en une transaction atomique |
+| **Brûlage** | dès que les frais atteignent 1 USDC, ils **achètent des BG et les brûlent**, dans une transaction atomique |
 | **Suivi** | `/suivi` : parties, volume, frais, BG brûlés, offre restante, transactions — en direct |
 
 ---
@@ -29,22 +36,25 @@ transactions Solana**, et lui seul parle à la chaîne.
 
 ```bash
 cd backend && npm install
-npm run tresorerie          # une fois : génère FRAIS, POOL, la clé du serveur de jeu ; les note dans wallets/
-npm run jeton               # une fois, avec ~0,01 SOL sur la caisse : crée BG, 1 000 000 000, frappe révoquée
+npm run tresorerie          # une fois : génère CAISSE, FRAIS, POOL, la clé du serveur de jeu ; les note dans wallets/
+#                             puis de l'ETH sur la caisse : https://faucet.testnet.chain.robinhood.com (geste humain)
+npm run contrats            # une fois : déploie Lot, l'USDC d'essai et BG (1 000 000 000, sans frappe) ; écrit les adresses dans le .env
 APPLIQUER_SCHEMA=1 npm start # la première fois seulement
 npm start                   # lit le .env de la racine tout seul
 ```
 
 ```bash
-npm test          # 154 verdicts, aucun réseau : grand livre, RLS, retraits, tirage, chaîne factice
-npm run cycle:local   # le cycle COMPLET sur un validateur local : dépôt, mise, gain, brûlage, retrait
-npm run cycle         # le même sur devnet — la caisse doit avoir du SOL, les joueurs d'essai des USDC
+npm test              # 154 verdicts, aucun réseau : grand livre, RLS, retraits, tirage, chaîne factice
+npm run cycle:local   # le cycle COMPLET sur anvil (Foundry), lancé par le script : dépôt, mise, gain, brûlage, retrait
+npm run cycle         # le même sur le testnet — la caisse doit avoir de l'ETH ; l'USDC, on le frappe
+npm run contrats:compiler   # recompile les contrats (forge build) et recopie ABI + bytecode dans src/robinhood/artefacts.js
+npm run purger -- --oui     # efface les données d'argent d'un réseau d'ESSAI (jamais mainnet) — une fois, à la main
 ```
 
-**Sur devnet, deux gestes humains que rien n'automatise :** du SOL pour la caisse
-(https://faucet.solana.com, l'adresse est affichée au démarrage) et de l'USDC devnet pour
-un wallet de joueur (https://faucet.circle.com, « Solana Devnet »). L'airdrop RPC est
-limité par jour et par adresse IP ; le jour où il refuse, c'est le navigateur.
+**Sur le testnet, un seul geste humain que rien n'automatise :** de l'ETH pour la caisse
+(https://faucet.testnet.chain.robinhood.com, l'adresse est affichée au démarrage et par
+`npm run contrats`). Le faucet est derrière une vérification anti-robot de Vercel : c'est
+un navigateur, pas un script. L'USDC, lui, est le nôtre sur le testnet — pas de tiers.
 
 **Deux réglages dans le dashboard Supabase**, et le second n'est pas optionnel :
 
@@ -55,79 +65,124 @@ limité par jour et par adresse IP ; le jour où il refuse, c'est le navigateur.
    créé n'a pas de session avant que le lien reçu soit cliqué, et le SMTP gratuit est
    limité à quelques envois par heure.
 
+Et pour la connexion par wallet : le fournisseur **Web3 (Ethereum)** activé, et l'adresse
+publiée du jeu (`https://play.babyguy.dev`) dans Authentication → URL Configuration —
+sinon Supabase refuse le message signé (« URI which is not allowed »).
+
 **TLS.** `src/pool.js` **vérifie** le certificat du pooler contre la CA de Supabase,
 épinglée dans `certs/`. Pas de `rejectUnauthorized: false` sur une connexion qui transporte
 des ordres de paiement.
 
 Les tests tournent sur **PGlite** — Postgres compilé en WebAssembly, dans le processus
-Node — et sur une **chaîne factice** (`src/solana/factice.js`) qui offre la même interface
-que la vraie, journal compris. C'est ce qui permet de *vérifier* qu'une mise refusée par la
-chaîne est rendue au livre, sans SOL et sans réseau.
+Node — et sur une **chaîne factice** (`src/robinhood/factice.js`) qui offre la même
+interface que la vraie, journal compris. C'est ce qui permet de *vérifier* qu'une mise
+refusée par la chaîne est rendue au livre, sans ETH et sans réseau.
 
 ---
 
 ## L'argent sur la chaîne
 
-Depuis le 2 septembre 2026, **chaque partie se voit sur Solana** :
+**Chaque partie se voit sur Robinhood Chain** :
 
 ```
-wallet du joueur ──mise──► wallet du POT de la partie ──gain──► wallets des gagnants
-     ▲                                                    └─rake─► wallet FRAIS ──rachat──► POOL
-     └── dépôt (le joueur envoie)         retrait ──► wallet lié                      BG ──► brûlés
+wallets des joueurs ──mises (1 tx)──► wallet du POT de la partie ──gains (1 tx)──► wallets des gagnants
+     ▲                                                          └─rake─► wallet FRAIS ──rachat──► POOL
+     └── dépôt (le joueur envoie, ou le robinet frappe)   retrait ──► wallet lié          BG ──► brûlés
 ```
 
-- **Un wallet par joueur**, dérivé de `GRAINE_DEPOTS` et de son identifiant (HKDF). C'est
-  son adresse de dépôt ET son compte de jeu. Aucune clé privée n'est stockée : elles se
-  recalculent. Perdre la graine, c'est perdre l'accès à tout l'argent des joueurs.
+- **Un wallet par joueur**, dérivé de `GRAINE_DEPOTS` et de son identifiant (HKDF →
+  secp256k1). C'est son adresse de dépôt ET son compte de jeu. Aucune clé privée n'est
+  stockée : elles se recalculent. Perdre la graine, c'est perdre l'accès à tout l'argent
+  des joueurs.
 - **Un wallet par partie** (le pot), dérivé lui aussi. Les mises y entrent au départ ; le
-  règlement le vide vers les gagnants et les frais, puis **ferme son compte de jetons** : la
-  rente revient à la caisse, et le pot ne coûte que les frais de transaction.
-- **La caisse ne détient plus les USDC des joueurs.** Elle paie les frais et la rente de
-  toutes les transactions (un wallet de joueur n'a pas de SOL et n'en aura jamais : Solana
-  permet qu'un autre compte paie), et elle a créé le jeton.
+  règlement le vide vers les gagnants et les frais.
+- **Un wallet dérivé n'a jamais d'ETH, et n'en aura jamais.** Sur une chaîne EVM,
+  l'expéditeur paie le gaz ; ici il **signe une autorisation** (EIP-3009,
+  `transferWithAuthorization`), et la CAISSE la soumet et paie. Le `nonce` de
+  l'autorisation est le hache de la clé du journal `(objet, ref)` : rejouer la même
+  opération est refusé **par le contrat**. USDC de Circle implémente cette interface sur
+  toutes les chaînes EVM : le jour du mainnet, le même code signe contre le vrai jeton.
+- **Un lot, une transaction, tout ou rien.** Le contrat `Lot` (`contrats/src/Lot.sol`)
+  enchaîne les appels et annule tout si l'un échoue, en disant lequel. Les seize mises
+  d'une arène partent dans une transaction ; si une seule ne passe pas, **aucune n'est
+  partie** et il n'y a rien à rendre sur la chaîne. Un règlement à seize joueurs tient
+  aussi dans une transaction.
+- **La caisse ne détient pas les USDC des joueurs.** Elle paie le gaz de toutes les
+  transactions, et elle possède les contrats.
 - **Le livre d'abord, la chaîne ensuite.** Le grand livre est une transaction Postgres,
   atomique et verrouillée ; la chaîne est lente et peut couper. Le livre donne l'état de
   référence, la chaîne le rejoint, et `verifierChaine()` compare les deux, compte par
   compte, en tenant compte de ce qui est en transit. Le résultat est sur `/suivi`.
 
 **Le journal (`chain_tx`).** Chaque opération sur la chaîne a une ligne, clée par
-`(objet, ref)`, qui passe par `prevu → signe → confirme` ou `echoue`. La signature y est
-écrite AVANT la diffusion : c'est la règle apprise sur les retraits, et elle vaut désormais
-pour tout. Après un arrêt brutal, `rattraperChaine()` relit ces lignes et tranche **en
-interrogeant la chaîne**, jamais en re-signant à l'aveugle.
+`(objet, ref)`, qui passe par `prevu → signe → confirme` ou `echoue`. Le hache de la
+transaction, le nonce de la caisse et la transaction brute y sont écrits AVANT la
+diffusion. Après un arrêt brutal, `rattraperChaine()` relit ces lignes et tranche **en
+interrogeant la chaîne** : un reçu dit tout ; sans reçu, le nonce de la caisse dit si la
+transaction peut encore être minée (on la rediffuse) ou ne le sera jamais (une autre a
+consommé son nonce : `echoue`) ; et passé dix minutes sans reçu, elle est **remplacée**
+par une transaction vide au même nonce, plus chère, pour la rendre impossible avant de
+dire « échoué ». Jamais de re-signature à l'aveugle.
 
-**Deux échecs qui ne sont pas le même.** `ChaineEchouee` : la chaîne a refusé, ou le
-blockhash a expiré sans que la transaction soit vue — rien n'est parti, l'appelant peut
-défaire ce qu'il avait écrit au livre. `ChaineIncertaine` : le réseau a coupé pendant la
-diffusion — elle est *peut-être* passée, on ne défait RIEN, la reprise le saura. Confondre
-les deux, c'est rembourser une mise qui est bel et bien partie.
+**Deux échecs qui ne sont pas le même.** `ChaineEchouee` : la simulation a échoué, le
+RPC a refusé à l'envoi, ou la transaction a été minée et a revert — rien n'a bougé,
+l'appelant peut défaire ce qu'il avait écrit au livre. `ChaineIncertaine` : le réseau a
+coupé pendant la diffusion ou l'attente — elle est *peut-être* minée, on ne défait RIEN,
+la reprise le saura. Confondre les deux, c'est rembourser une mise qui est bel et bien
+partie.
 
-**Si UNE mise ne part pas, la partie est annulée.** Toutes les autres reviennent, au livre
-et sur la chaîne, et le serveur de jeu renvoie tout le monde au lobby avec la raison.
-Personne ne joue pour rien, personne ne joue contre un fantôme.
+**Si UNE mise ne part pas, la partie est annulée.** Le lot désigne l'appel fautif : ce
+joueur-là est refusé, les autres sont renvoyés en file par le serveur de jeu. Personne ne
+joue pour rien, personne ne joue contre un fantôme.
+
+**Le guetteur** lit les événements `Transfer` du contrat USDC depuis un curseur
+(`chain_curseur`), en repartant un peu avant à chaque tour. Les envois que nous faisons
+nous-mêmes vers un joueur (gains, mises rendues) sont dans `chain_tx` et ne sont pas des
+dépôts ; une frappe du robinet, journalisée sans joueur, en est un.
+
+---
+
+## Les contrats
+
+Trois contrats Solidity dans `contrats/src`, compilés par Foundry (`forge build`), ABI et
+bytecode recopiés dans `src/robinhood/artefacts.js` (versionné : le backend n'a pas
+besoin de Foundry pour tourner) :
+
+| | |
+|---|---|
+| `Lot` | l'exécuteur atomique. Propriétaire : la caisse. Ne détient rien, ne signe rien |
+| `USDCTest` | l'USDC d'essai, six décimales, EIP-3009, frappable par son propriétaire (le Lot, donc la caisse). **Testnet et anvil seulement** |
+| `BabyGuy` | BG, six décimales, EIP-3009, **un milliard frappé au constructeur vers le POOL, aucune fonction de frappe**, `burnWithAuthorization` pour brûler depuis le pool sans ETH |
+
+`Lot` et `BabyGuy` se déploient tels quels sur mainnet ; `USDCTest` n'y est jamais déployé
+(`USDC_ADRESSE` désigne alors le vrai jeton). Le domaine EIP-712 d'un jeton se **lit sur
+le contrat** (`name`, `version`) avant de signer : le nôtre répond « 1 », l'USDC de Circle
+« 2 », et signer avec un domaine deviné donnerait une autorisation refusée sans raison
+lisible.
 
 ---
 
 ## Le jeton BG et le brûlage
 
-**Baby Guy (BG)** : Token-2022, métadonnées sur le mint, six décimales comme USDC (tous
-nos montants restent des entiers sûrs), **1 000 000 000** frappés au wallet POOL, **autorité
-de frappe révoquée dans la même transaction**. L'offre ne peut que baisser.
+**Baby Guy (BG)** : six décimales comme USDC (tous nos montants restent des entiers
+sûrs), **1 000 000 000** frappés au wallet POOL à la création, **sans fonction de frappe**.
+L'offre ne peut que baisser.
 
-**Le brûlage** (`src/solana/brulage.js`) : dès que le wallet FRAIS détient au moins
-`BRULAGE_SEUIL_MICROS` USDC, une transaction **atomique** fait trois choses — les USDC vont
-au pool, les BG en sortent vers les frais, et sont brûlés. Il n'existe aucun état où des BG
-achetés ne sont pas encore brûlés. Chaque rachat est consigné dans `burns` avec sa
-signature et l'offre restante.
+**Le brûlage** (`src/robinhood/brulage.js`) : dès que le wallet FRAIS détient au moins
+`BRULAGE_SEUIL_MICROS` USDC, une transaction **atomique** fait deux choses — les USDC vont
+au pool, et les BG achetés sont brûlés depuis le pool. Il n'existe aucun état où des BG
+achetés ne sont pas encore brûlés. Chaque rachat est consigné dans `burns` avec son hache
+et l'offre restante.
 
-**Le prix, sur devnet, est le nôtre.** Aucun marché n'existe pour un jeton neuf sur
-devnet ; le service tient donc **sa propre réserve de liquidité** (le wallet POOL, BG +
-USDC) et applique la règle des marchés automatisés, le produit constant `x · y = k` :
-pour `u` USDC, il sort `y · u / (x + u)` BG. Le prix monte à chaque rachat, et il se lit
-**sur la chaîne** — ce sont les soldes du pool qui le fixent, pas une constante. Sur mainnet,
-`echanger()` devient un routage Jupiter vers une vraie paire BG/USDC, et rien d'autre ne
-bouge : seuil, journal, `burns`, page de suivi lisent la même chose. Le pool devra être
-**alimenté en USDC** (envoyer au wallet POOL ; le livre le note en `dotation`).
+**Le prix, sur le testnet, est le nôtre.** Aucun marché n'existe pour un jeton neuf ; le
+service tient donc **sa propre réserve de liquidité** (le wallet POOL, BG + USDC) et
+applique la règle des marchés automatisés, le produit constant `x · y = k` : pour `u`
+USDC, il sort `y · u / (x + u)` BG. Le prix monte à chaque rachat, et il se lit **sur la
+chaîne** — ce sont les soldes du pool qui le fixent, pas une constante. Sur mainnet, le
+rachat devient un appel au routeur d'un DEX de Robinhood Chain vers une vraie paire
+BG/USDC, et rien d'autre ne bouge : seuil, journal, `burns`, page de suivi lisent la même
+chose. Le pool devra être **alimenté en USDC** (envoyer au wallet POOL ; le livre le note
+en `dotation`).
 
 ---
 
@@ -154,28 +209,30 @@ le vérifie au commit.
 
 ## Ce qui protège la caisse
 
-**Le navigateur ne parle plus de partie.** `POST /partie/engager` et `POST /partie/regler`
-n'existent plus. Le serveur de jeu — qui a simulé la partie et sait qui a fini où — envoie
-au backend des messages **signés Ed25519** (`/interne/…`) : engager les mises d'un salon,
-régler un classement, annuler. La signature couvre **le mode, la mise, l'effectif, la
-graine de roue et le classement**, plus un horodatage (cinq minutes de validité). C'était
-le trou n° 1 de la liste d'avant-mainnet ; il est fermé.
+**Le navigateur ne parle pas de partie.** Le serveur de jeu — qui a simulé la partie et
+sait qui a fini où — envoie au backend des messages **signés Ed25519** (`/interne/…`) :
+engager les mises d'un salon, régler un classement, annuler. La signature couvre **le
+mode, la mise, l'effectif, la graine de roue et le classement**, plus un horodatage (cinq
+minutes de validité).
 
 **RLS est la barrière côté base.** Le navigateur reçoit la clé `anon`, publique. Les tables
 du grand livre ont RLS activé **et aucune politique** ; le joueur lit son solde par
 `public.mon_solde()`, sans paramètre. `burns` est public en lecture — c'est la promesse du
 jeton ; `chain_tx` ne montre à un joueur que ses propres lignes.
 
-**Le retrait ne prend pas de destination.** Elle est toujours le wallet lié. Relier un
-wallet remet le délai de 24 h à zéro.
+**Le retrait ne prend pas de destination.** Elle est toujours le wallet lié — une adresse
+0x prouvée par `personal_sign`, vérifiée par le backend. Relier un wallet remet le délai
+de 24 h à zéro.
 
-**L'idempotence est une contrainte de base.** Un dépôt est clé par sa signature, une mise
-par `(partie, joueur)`, un règlement par la partie, chaque opération sur la chaîne par
-`(objet, ref)`. Rejouer ne paie pas deux fois : la base le garantit, pas la prudence du code.
+**L'idempotence est une contrainte de base, et une contrainte du contrat.** Un dépôt est
+clé par `hache#index`, une mise par `(partie, joueur)`, un règlement par la partie, chaque
+opération sur la chaîne par `(objet, ref)` — et le contrat refuse un nonce d'autorisation
+déjà vu. Rejouer ne paie pas deux fois : la base et la chaîne le garantissent, pas la
+prudence du code.
 
-**Une seule instance.** Deux processus qui signent depuis les mêmes wallets produisent deux
-transactions concurrentes sur le même solde. Ne pas mettre ce service derrière un
-autoscaler.
+**Une seule instance.** Deux processus qui signent depuis la même caisse se disputent le
+même nonce et peuvent envoyer deux fois le même paiement. Ne pas mettre ce service
+derrière un autoscaler.
 
 ---
 
@@ -183,11 +240,13 @@ autoscaler.
 
 | | |
 |---|---|
-| `GET /moi` · `POST /wallet/lier` · `POST /depots/relever` · `POST /retrait` · `GET /retraits` · `GET /historique` | le joueur, par jeton Supabase |
+| `GET /moi` · `POST /wallet/lier` · `POST /depots/relever` · `POST /robinet` (testnet) · `POST /retrait` · `GET /retraits` · `GET /historique` | le joueur, par jeton Supabase |
 | `POST /interne/ping` · `/interne/soldes` · `/interne/partie/engager` · `/interne/partie/regler` · `/interne/partie/annuler` | le serveur de jeu, par signature |
 | `GET /bareme` · `GET /stats` · `GET /stats/flux` (SSE) · `GET /suivi` · `GET /verification` · `GET /sante` | public |
 
 Le serveur de jeu relaie `/api/…` vers ce service : le navigateur ne connaît qu'une adresse.
+`GET /moi` rend la CHAÎNE (nom, chainId, RPC, explorateur, contrat USDC) : c'est avec elle
+que le lobby ajoute le réseau au wallet du joueur et construit le transfert de dépôt.
 
 ---
 
@@ -198,7 +257,7 @@ Le serveur de jeu relaie `/api/…` vers ce service : le navigateur ne connaît 
 | Client (`tools/feel-lab`, `vite build`) | servi par le serveur de jeu |
 | Base + Auth | Supabase managé |
 | Ce service | Fly.io, **un seul conteneur** |
-| RPC Solana | Helius ou QuickNode — le RPC public limite et perd des transactions |
+| RPC Robinhood Chain | le RPC public pour l'instant ; Alchemy (`robinhood-testnet.g.alchemy.com`) le jour où il limite |
 
 ---
 
@@ -210,11 +269,15 @@ Le serveur de jeu relaie `/api/…` vers ce service : le navigateur ne connaît 
 3. **Géo-restriction effective**, France exclue (spec § 5).
 4. **Gestion de clé sérieuse** pour `CAISSE_CLE`, `GRAINE_DEPOTS`, `FRAIS_CLE`, `POOL_CLE`,
    `SERVEUR_CLE` — KMS ou signataire matériel. Pas des variables d'environnement, ni
-   `wallets/devnet.json`.
-5. **Un vrai marché pour BG** : une paire BG/USDC sur Raydium ou Orca, et `echanger()` sur
-   Jupiter. Tant que le pool est le nôtre, le prix est le nôtre.
-6. **Un RPC payé**, avec abonnements WebSocket pour le guetteur (le tour est O(joueurs)).
-7. **Validation juridique — et elle a changé de nature le 2 septembre 2026.** Depuis que
+   `wallets/testnet.json`.
+5. **Le jeton dans lequel on mise, sur mainnet.** `USDC_ADRESSE` doit désigner un jeton
+   qui implémente EIP-3009 (USDC de Circle le fait). Si le stable retenu sur Robinhood
+   Chain mainnet ne l'implémente pas, il faudra un chemin « la caisse avance le gaz au
+   wallet dérivé » — écrit et testé AVANT, pas le jour J.
+6. **Un vrai marché pour BG** : une paire BG/USDC sur un DEX de Robinhood Chain, et le
+   rachat par son routeur. Tant que le pool est le nôtre, le prix est le nôtre.
+7. **Un RPC payé**, avec abonnements WebSocket pour le guetteur.
+8. **Validation juridique — et elle a changé de nature le 2 septembre 2026.** Depuis que
    la roue tire le montant APRÈS la partie (décision du directeur produit), le produit
    combine un classement au skill et un tirage au sort du gain une fois la mise engagée :
    c'est le motif exact d'une requalification en jeu d'argent. Ce point doit être tranché

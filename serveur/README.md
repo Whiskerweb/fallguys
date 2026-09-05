@@ -228,7 +228,7 @@ rien qui masque un défaut de netcode derrière un adversaire complaisant.
 
 ## L'argent — ce que le serveur dit au backend, et comment il le prouve
 
-Le serveur de jeu **ne connaît aucun solde et ne signe aucune transaction Solana**. Mais il
+Le serveur de jeu **ne connaît aucun solde et ne signe aucune transaction sur la chaîne**. Mais il
 est le seul à savoir qui a pris le départ et qui a fini où. Depuis le 2 septembre 2026, il
 le dit au backend en trois moments, et chaque message est **signé Ed25519** avec
 `SERVEUR_CLE` (`argent.js`, `signature.js`) :

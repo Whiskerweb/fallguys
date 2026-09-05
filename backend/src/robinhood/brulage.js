@@ -3,29 +3,30 @@
  *
  * C'est la promesse du jeton : le rake de chaque partie (10 % du pot en moyenne) n'est pas
  * garde, il sert a racheter des « Baby Guy » sur le marche, qui sont brules aussitot.
- * L'offre — un milliard a la creation, autorite de frappe revoquee — ne peut que baisser,
- * et chaque partie jouee la fait baisser un peu.
+ * L'offre — un milliard a la creation, sans fonction de frappe — ne peut que baisser, et
+ * chaque partie jouee la fait baisser un peu.
  *
- * ─── COMMENT ON ACHETE, ET POURQUOI C'EST DIFFERENT SUR DEVNET ─────────────
+ * ─── COMMENT ON ACHETE, ET POURQUOI C'EST DIFFERENT SUR LE TESTNET ─────────
  *
- * Sur mainnet, un rachat est un swap sur un vrai marche : une paire BG/USDC sur Raydium
- * ou Orca, atteinte par Jupiter. Sur devnet, ce marche n'existe pas pour un jeton neuf,
- * et il n'existera jamais tout seul. Le service tient donc LUI-MEME une reserve de
- * liquidite — le wallet POOL, avec des BG et des USDC — et applique la regle des marches
- * automatises, le PRODUIT CONSTANT : x · y = k. Pour `u` USDC qui entrent, il en sort
+ * Sur mainnet, un rachat est un swap sur un vrai marche : une paire BG/USDC sur un DEX de
+ * Robinhood Chain, atteinte par son routeur. Sur le testnet, ce marche n'existe pas pour
+ * un jeton neuf, et il n'existera jamais tout seul. Le service tient donc LUI-MEME une
+ * reserve de liquidite — le wallet POOL, avec des BG et des USDC — et applique la regle
+ * des marches automatises, le PRODUIT CONSTANT : x · y = k. Pour `u` USDC qui entrent,
+ * il en sort
  *
  *     bg = y · u / (x + u)        (x : USDC du pool, y : BG du pool)
  *
  * Le prix monte a chaque rachat, exactement comme sur un vrai AMM, et il se lit sur la
  * chaine : ce sont les soldes du pool qui le fixent, pas une constante du code.
  *
- * L'ACHAT ET LE BRULAGE SONT UNE SEULE TRANSACTION, atomique : les USDC vont au pool,
- * les BG en sortent vers le wallet des frais, et sont brules — trois instructions, un
+ * L'ACHAT ET LE BRULAGE SONT UNE SEULE TRANSACTION, atomique (contrat Lot) : les USDC
+ * vont des frais au pool, et les BG achetes sont brules DEPUIS le pool — deux appels, un
  * seul bloc. Il n'existe aucun etat ou des BG achetes ne sont pas encore brules.
  *
- * Le jour du mainnet, `echanger()` change de corps (un routage Jupiter a la place des
- * deux virements) et rien d'autre ne bouge : le seuil, le journal, la table `burns`, la
- * page de suivi lisent la meme chose.
+ * Le jour du mainnet, `racheterEtBruler` change de corps (un appel au routeur du DEX a la
+ * place du virement vers le pool) et rien d'autre ne bouge : le seuil, le journal, la
+ * table `burns`, la page de suivi lisent la meme chose.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -48,8 +49,8 @@ export function prixAchat(poolUsdc, poolBg, usdcIn) {
 
 /** L'etat du marche, lu sur la chaine : ce que la page de suivi montre comme « prix ». */
 export async function etatMarche(chaine) {
-  const pool = tresorerie.pool().publicKey.toBase58();
-  const frais = tresorerie.frais().publicKey.toBase58();
+  const pool = tresorerie.pool().address;
+  const frais = tresorerie.frais().address;
   const [poolUsdc, poolBg, fraisUsdc] = await Promise.all([
     chaine.solde(pool, 'usdc'), chaine.solde(pool, 'bg').catch(() => 0), chaine.solde(frais, 'usdc'),
   ]);
@@ -77,14 +78,14 @@ export async function etatMarche(chaine) {
  * @returns {Promise<null | {id: string, usdc: number, bg: number, signature?: string, statut: string}>}
  */
 export async function racheterEtBruler(db, chaine, { seuil = config.brulageSeuil } = {}) {
-  if (!config.mintBg) return null;
+  if (!config.bgAdresse) return null;
   const frais = tresorerie.frais();
   const pool = tresorerie.pool();
-  const usdc = await chaine.solde(frais.publicKey.toBase58(), 'usdc');
+  const usdc = await chaine.solde(frais.address, 'usdc');
   if (usdc < seuil) return null;
 
-  const poolUsdc = await chaine.solde(pool.publicKey.toBase58(), 'usdc');
-  const poolBg = await chaine.solde(pool.publicKey.toBase58(), 'bg');
+  const poolUsdc = await chaine.solde(pool.address, 'usdc');
+  const poolBg = await chaine.solde(pool.address, 'bg');
   /*
    * UN POOL SANS USDC N'A PAS DE PRIX. Le produit constant avec x = 0 donne y · u / u = y :
    * TOUT le pool pour n'importe quelle somme. Un pool amorce en BG mais pas encore en USDC
@@ -110,9 +111,8 @@ export async function racheterEtBruler(db, chaine, { seuil = config.brulageSeuil
   try {
     const r = await chaine.executer({
       operations: [
-        { type: 'virement', de: frais, vers: pool.publicKey.toBase58(), mint: 'usdc', montant: usdc, objet: 'rachat', ref: `${id}:usdc` },
-        { type: 'virement', de: pool, vers: frais.publicKey.toBase58(), mint: 'bg', montant: bg, objet: 'rachat', ref: `${id}:bg` },
-        { type: 'brulage', de: frais, mint: 'bg', montant: bg, objet: 'rachat', ref: `${id}:brulage` },
+        { type: 'virement', de: frais, vers: pool.address, mint: 'usdc', montant: usdc, objet: 'rachat', ref: `${id}:usdc` },
+        { type: 'brulage', de: pool, mint: 'bg', montant: bg, objet: 'rachat', ref: `${id}:brulage` },
       ],
     });
     await consignerRachat(db, chaine, id, r.signature);

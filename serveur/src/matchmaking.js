@@ -319,8 +319,8 @@ export function creerMatchmaking({
 
     /*
      * AVEC DE L'ARGENT, LES MISES PARTENT AVANT LA PARTIE — et la partie ne démarre que si
-     * TOUTES sont parties. Le pont répond en quelques secondes (une transaction Solana par
-     * joueur, en parallèle) ; pendant ce temps le client affiche « Staking… ».
+     * TOUTES sont parties. Le pont répond en une ou deux secondes (UNE transaction sur
+     * Robinhood Chain pour toutes les mises du salon, tout ou rien) ; pendant ce temps le client affiche « Staking… ».
      */
     if (pont && mise > 0) return engagerPuisDemarrer(salon, grille, id);
     return demarrer(salon, grille, id);

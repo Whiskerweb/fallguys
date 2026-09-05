@@ -14,10 +14,12 @@
  *
  * Usage : node test/adresses.mjs
  */
+import { isAddress, getAddress } from 'ethers';
 import { dit, titre, bilan } from './aide.mjs';
 
 process.env.GRAINE_DEPOTS = 'graine-de-test-jamais-utilisee-en-vrai';
-const { adresseDepot, cleDepot } = await import('../src/solana/adresses.js');
+const { adresseDepot, cleDepot } = await import('../src/robinhood/adresses.js');
+const { tresorerie } = await import('../src/robinhood/tresorerie.js');
 
 const alice = '11111111-2222-3333-4444-555555555555';
 const bob = '99999999-8888-7777-6666-555555555555';
@@ -28,12 +30,17 @@ const a1 = adresseDepot(alice);
 const a2 = adresseDepot(alice);
 dit(a1 === a2, `deterministe : deux appels donnent ${a1.slice(0, 12)}...`);
 dit(a1 !== adresseDepot(bob), 'deux joueurs ont deux adresses distinctes');
-dit(a1.length >= 32 && a1.length <= 44, `l'adresse est bien du base58 Solana (${a1.length} caracteres)`);
+dit(isAddress(a1) && a1 === getAddress(a1), `l'adresse est une adresse EVM avec sa somme de controle (${a1.length} caracteres)`);
 
-// La cle privee doit pouvoir signer : c'est elle qui balaie les depots vers la caisse.
+// La cle privee doit pouvoir signer : c'est elle qui autorise les mises et les retraits.
 const cle = cleDepot(alice);
-dit(cle.publicKey.toBase58() === a1, 'la cle derivee correspond bien a l\'adresse publiee');
-dit(cle.secretKey.length === 64, 'la cle privee est complete (64 octets), donc utilisable pour signer');
+dit(cle.address === a1, 'la cle derivee correspond bien a l\'adresse publiee');
+dit(/^0x[0-9a-f]{64}$/.test(cle.privateKey), 'la cle privee est complete (32 octets), donc utilisable pour signer');
+const signature = await cle.signMessage('preuve');
+dit(typeof signature === 'string' && signature.length === 132, 'et elle signe un message (65 octets de signature)');
+
+dit(tresorerie.pot('partie-1').address !== tresorerie.pot('partie-2').address, 'deux parties ont deux pots distincts');
+dit(tresorerie.pot(alice).address !== a1, 'l\'espace des pots ne croise pas celui des joueurs, meme identifiant');
 
 /*
  * Les deux verdicts suivants demandent un AUTRE processus.
@@ -49,7 +56,7 @@ const { execFileSync } = await import('node:child_process');
 const derive = (graine) => execFileSync(
   process.execPath,
   ['--input-type=module', '-e',
-    `const { adresseDepot } = await import('./src/solana/adresses.js');
+    `const { adresseDepot } = await import('./src/robinhood/adresses.js');
      process.stdout.write(adresseDepot('${alice}'));`],
   { env: { ...process.env, GRAINE_DEPOTS: graine }, encoding: 'utf8' },
 );
@@ -61,7 +68,7 @@ try {
   execFileSync(
     process.execPath,
     ['--input-type=module', '-e',
-      `const { adresseDepot } = await import('./src/solana/adresses.js');
+      `const { adresseDepot } = await import('./src/robinhood/adresses.js');
        adresseDepot('${alice}');`],
     { env: { ...process.env, GRAINE_DEPOTS: '' }, encoding: 'utf8', stdio: 'pipe' },
   );

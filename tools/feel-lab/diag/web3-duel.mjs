@@ -1,6 +1,6 @@
 /**
  * UN DUEL PAYANT, POUR DE VRAI — deux comptes, deux navigateurs, le serveur de production,
- * le backend, et Solana devnet.
+ * le backend, et Robinhood Chain testnet.
  *
  *   cd backend && npm start · cd serveur && npm start
  *   node diag/web3-duel.mjs http://127.0.0.1:8080 emailA mdpA emailB mdpB
@@ -81,13 +81,13 @@ dit(stats.parties.reglees === avant + 1, `le backend a réglé la partie (${stat
 const p = stats.dernieresParties[0];
 dit(p && p.mode === 'duel' && Number(p.mise) === 2_000_000 && p.statut === 'reglee', `duel à 2 USDC, ligne ${p?.issue}, pot ${Number(p?.pot) / 1e6}, frais ${Number(p?.rake) / 1e6} — pot ${p?.adresse_pot}`);
 const tx = stats.chaine.dernieres.filter((t) => t.partie === p.id);
-dit(tx.some((t) => t.objet === 'mise') && tx.some((t) => t.objet === 'gain' || t.objet === 'rake') && tx.some((t) => t.objet === 'cloture_pot'),
-  `${tx.length} transactions sur la chaîne pour cette partie : ${[...new Set(tx.map((t) => t.objet))].join(', ')}`);
+dit(tx.some((t) => t.objet === 'mise') && tx.some((t) => t.objet === 'gain' || t.objet === 'rake') && new Set(tx.filter((t) => t.objet === 'mise').map((t) => t.signature)).size === 1,
+  `${tx.length} opérations sur la chaîne pour cette partie, les deux mises dans UNE transaction : ${[...new Set(tx.map((t) => t.objet))].join(', ')}`);
 for (const t of tx) console.log(`      ${t.objet.padEnd(12)} ${t.montant / 1e6} ${t.mint.toUpperCase()} ${t.lien}`);
 
 titre('4. Les soldes ont bougé, sur les deux écrans');
 // Le `reglement` arrive après les virements on-chain : on attend que la barre BOUGE, pas
-// une durée — à ~10 s par confirmation devnet, une durée fixe mesurerait le RPC.
+// une durée — une durée fixe mesurerait le RPC, pas le jeu.
 for (const j of [A, B]) {
   await j.page.waitForFunction((s) => Number(document.getElementById('balance').textContent) !== s, j.solde, { timeout: 60_000 }).catch(() => {});
 }

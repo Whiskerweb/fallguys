@@ -10,7 +10,8 @@
  *   - LES ROUTES DU JOUEUR (`/moi`, `/retrait`…) : identifie par son jeton Supabase, il ne
  *     peut agir que sur lui-meme. AUCUNE ne prend un identifiant de joueur en parametre.
  *     Et depuis le 2 septembre 2026, AUCUNE NE PARLE DE PARTIE : le navigateur ne peut
- *     plus engager une mise ni declarer un rang. Il consulte, il depose, il retire ;
+ *     plus engager une mise ni declarer un rang. Il consulte, il depose, il retire — et
+ *     sur le testnet, il demande des USDC d'essai au robinet ;
  *
  *   - LES ROUTES INTERNES (`/interne/…`) : le serveur de jeu, qui a simule la partie et
  *     sait qui a fini ou, signe chaque message avec sa cle Ed25519. Le backend verifie la
@@ -27,16 +28,17 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
-import nacl from 'tweetnacl';
-import bs58 from 'bs58';
+import { verifyMessage, getAddress, isAddress } from 'ethers';
 import { config, exiger } from '../config.js';
 import { solde, compte } from '../livre.js';
 import { engagerPartie, regler, annulerPartie } from '../match/regler.js';
-import { demander } from '../solana/retraits.js';
-import { adresseDepot } from '../solana/adresses.js';
-import { releverDepots } from '../solana/guetteur.js';
-import { lienExplorateur, lienAdresse } from '../solana/chaine.js';
-import { verifierChaine } from '../solana/reconciliation.js';
+import { demander } from '../robinhood/retraits.js';
+import { adresseDepot } from '../robinhood/adresses.js';
+import { releverDepots } from '../robinhood/guetteur.js';
+import { lienExplorateur, lienAdresse, ChaineEchouee, ChaineIncertaine } from '../robinhood/chaine.js';
+import { verifierChaine } from '../robinhood/reconciliation.js';
+import { RESEAUX } from '../robinhood/reseaux.js';
+import { tresorerie } from '../robinhood/tresorerie.js';
 import { ouvrir } from '../signature.js';
 import { statistiques, invaliderStats, poserVerification } from '../stats.js';
 import { publier, souscrire } from '../evenements.js';
@@ -102,9 +104,16 @@ export function creerServeur(db, { chaine = null } = {}) {
     if (error || !data?.user) throw refus(401, 'JETON_INVALIDE', 'session expiree ou invalide');
 
     const id = data.user.id;
+    /*
+     * L'adresse de depot est DERIVEE, donc recalculable : si celle en base n'est pas celle
+     * de la chaine courante (un profil ne de l'ancienne chaine), on la remplace. Un profil
+     * qui garderait une adresse d'une autre chaine enverrait le joueur deposer dans le vide.
+     */
     await db.query(
       `insert into public.profiles (id, pseudo, adresse_depot)
-       values ($1, $2, $3) on conflict (id) do nothing`,
+       values ($1, $2, $3)
+       on conflict (id) do update set adresse_depot = excluded.adresse_depot
+       where public.profiles.adresse_depot is distinct from excluded.adresse_depot`,
       [id, data.user.user_metadata?.name ?? null, adresseDepot(id)],
     );
     return id;
@@ -149,8 +158,18 @@ export function creerServeur(db, { chaine = null } = {}) {
         solde: await solde(db, compte.joueur(userId)),
         retraitsEnAttente: Number(enAttente),
         reseau: config.reseau,
-        mintUsdc: config.mintUsdc,
-        liens: { wallet: lienAdresse(p.adresse_depot), explorateur: lienExplorateur('').replace(/\/tx\/.*$/, '') },
+        /*
+         * La CHAINE, telle que le navigateur doit la connaitre : de quoi ajouter le reseau
+         * au wallet du joueur (`wallet_addEthereumChain`), le contrat USDC a appeler pour
+         * deposer depuis son propre wallet, et si le robinet d'essai est ouvert.
+         */
+        chaine: {
+          ...RESEAUX[config.reseau], rpc: config.rpc, chainId: config.chainId,
+          usdc: config.usdcAdresse, bg: config.bgAdresse,
+          robinet: config.reseau !== 'mainnet' && Boolean(config.usdcAdresse) && config.robinetMicros > 0,
+          robinetMicros: config.robinetMicros,
+        },
+        liens: { wallet: lienAdresse(p.adresse_depot), explorateur: RESEAUX[config.reseau]?.explorateur ?? null },
         paliers: PALIERS,
         modes: ORDRE_MODES,
         depotMinimum: config.depotMinimum,
@@ -160,12 +179,12 @@ export function creerServeur(db, { chaine = null } = {}) {
     },
 
     /**
-     * Lie un wallet Solana au compte, par PREUVE DE SIGNATURE.
+     * Lie un wallet Robinhood Chain (une adresse EVM) au compte, par PREUVE DE SIGNATURE.
      *
-     * Le joueur signe un message avec sa cle privee ; on verifie que la signature
-     * correspond a l'adresse annoncee. Sans cette verification, n'importe qui declarerait
-     * l'adresse de n'importe qui — et comme c'est la destination imposee des retraits,
-     * ce serait un detournement en une requete.
+     * Le joueur signe un message avec sa cle privee (`personal_sign`) ; on verifie que la
+     * signature correspond a l'adresse annoncee. Sans cette verification, n'importe qui
+     * declarerait l'adresse de n'importe qui — et comme c'est la destination imposee des
+     * retraits, ce serait un detournement en une requete.
      */
     'POST /wallet/lier': async (req) => {
       const userId = await joueurDe(req);
@@ -173,6 +192,7 @@ export function creerServeur(db, { chaine = null } = {}) {
       if (!adresse || !message || !signature) {
         throw refus(400, 'CHAMPS_MANQUANTS', 'adresse, message et signature sont requis');
       }
+      if (!isAddress(adresse)) throw refus(400, 'ADRESSE_INVALIDE', 'adresse Robinhood Chain attendue (0x…)');
       if (!String(message).includes(userId)) {
         throw refus(400, 'MESSAGE_ETRANGER', 'le message signe ne designe pas ce compte');
       }
@@ -183,17 +203,53 @@ export function creerServeur(db, { chaine = null } = {}) {
       }
       let valide = false;
       try {
-        valide = nacl.sign.detached.verify(
-          new TextEncoder().encode(message), bs58.decode(signature), bs58.decode(adresse),
-        );
+        valide = verifyMessage(String(message), String(signature)) === getAddress(adresse);
       } catch { valide = false; }
       if (!valide) throw refus(400, 'SIGNATURE_INVALIDE', 'la signature ne correspond pas a l\'adresse');
 
       // Relier un wallet REMET LE COMPTEUR A ZERO : le delai du premier retrait repart.
+      const wallet = getAddress(adresse);
       await db.query(
-        `update public.profiles set wallet = $2, wallet_lie_le = now() where id = $1`, [userId, adresse],
+        `update public.profiles set wallet = $2, wallet_lie_le = now() where id = $1`, [userId, wallet],
       );
-      return { wallet: adresse, delaiPremierRetraitHeures: config.delaiPremierRetraitHeures };
+      return { wallet, delaiPremierRetraitHeures: config.delaiPremierRetraitHeures };
+    },
+
+    /**
+     * LE ROBINET — des USDC d'essai sur le wallet de jeu du joueur. TESTNET SEULEMENT.
+     *
+     * Sur le testnet, personne ne vend d'USDC : le jeu frappe le sien (`USDCTest`), et
+     * c'est le seul moyen pour un joueur d'en avoir. Un par heure et par joueur, pour que
+     * la caisse ne paie pas le gaz d'un robot. Sur mainnet, la route repond 404 : le vrai
+     * USDC n'a pas de fonction de frappe, et il n'y a rien a ouvrir.
+     */
+    'POST /robinet': async (req) => {
+      if (config.reseau === 'mainnet' || !config.robinetMicros) throw refus(404, 'ROBINET_FERME', 'pas de robinet sur ce reseau');
+      if (!chaine) throw refus(503, 'CHAINE_ABSENTE', 'aucune chaine configuree');
+      const userId = await joueurDe(req);
+      const p = (await db.query(
+        `select adresse_depot, dernier_robinet_le from public.profiles where id = $1`, [userId],
+      )).rows[0];
+      const depuis = p.dernier_robinet_le ? Date.now() - new Date(p.dernier_robinet_le).getTime() : Infinity;
+      if (depuis < config.robinetDelaiMinutes * 60_000) {
+        const reste = Math.ceil((config.robinetDelaiMinutes * 60_000 - depuis) / 60_000);
+        throw refus(429, 'ROBINET_TROP_TOT', `le robinet rouvre dans ${reste} min`);
+      }
+      await db.query(`update public.profiles set dernier_robinet_le = now() where id = $1`, [userId]);
+      const ref = `${userId}:${Date.now()}`;
+      try {
+        // Aucun `userId` sur l'operation : le guetteur doit la voir comme un DEPOT.
+        const r = await chaine.executer({
+          operations: [{ type: 'frappe', vers: p.adresse_depot, mint: 'usdc', montant: config.robinetMicros, objet: 'robinet', ref, metadata: { userId } }],
+        });
+        const vus = await releverDepots(db, { userId, adresse: p.adresse_depot });
+        if (vus.some((v) => !v.deja)) { publier('depot', { n: 1 }); invaliderStats(); }
+        return { signature: r.signature, montant: config.robinetMicros, lien: lienExplorateur(r.signature), solde: await solde(db, compte.joueur(userId)) };
+      } catch (e) {
+        await db.query(`update public.profiles set dernier_robinet_le = null where id = $1`, [userId]);
+        if (e instanceof ChaineEchouee || e instanceof ChaineIncertaine) throw refus(502, e.code, e.message);
+        throw e;
+      }
     },
 
     /** Releve les depots arrives. Appele par le lobby quand le joueur regarde. */
@@ -227,9 +283,9 @@ export function creerServeur(db, { chaine = null } = {}) {
     },
 
     /**
-     * L'historique du joueur : chaque ligne du livre, et la transaction Solana qui la
-     * prouve quand il y en a une. Un depot EST sa signature ; une mise, un gain, une
-     * mise rendue, un retrait ont leur ligne dans `chain_tx`.
+     * L'historique du joueur : chaque ligne du livre, et la transaction qui la prouve
+     * quand il y en a une. Un depot EST son hache ; une mise, un gain, une mise rendue,
+     * un retrait ont leur ligne dans `chain_tx`.
      */
     'GET /historique': async (req) => {
       const userId = await joueurDe(req);
@@ -293,8 +349,9 @@ export function creerServeur(db, { chaine = null } = {}) {
     },
 
     'GET /sante': async () => ({
-      ok: true, reseau: config.reseau, chaine: chaine ? (chaine.reelle ? 'reelle' : 'factice') : 'absente',
-      serveurDeJeu: Boolean(config.serveurPublique), jeton: Boolean(config.mintBg),
+      ok: true, reseau: config.reseau, chainId: config.chainId, chaine: chaine ? (chaine.reelle ? 'reelle' : 'factice') : 'absente',
+      serveurDeJeu: Boolean(config.serveurPublique), jeton: Boolean(config.bgAdresse), lot: Boolean(config.lotAdresse),
+      caisse: tresorerie.adresses().caisse,
     }),
 
     // ------------------------------------------------------------ le serveur de jeu

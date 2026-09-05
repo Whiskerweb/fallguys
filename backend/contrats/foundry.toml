@@ -1,0 +1,13 @@
+# Les contrats du jeu sur Robinhood Chain. `forge build` ici ; `node outils/contrats.mjs
+# --compiler` recopie l'ABI et le bytecode dans src/robinhood/artefacts.js, que le backend
+# charge sans Foundry.
+[profile.default]
+src = "src"
+out = "out"
+libs = []
+solc_version = "0.8.28"
+# Robinhood Chain est un Arbitrum Orbit : `paris` evite PUSH0 et les opcodes recents, pour
+# que le meme bytecode passe sur le testnet, le mainnet et anvil sans surprise.
+evm_version = "paris"
+optimizer = true
+optimizer_runs = 800

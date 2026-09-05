@@ -4,8 +4,8 @@
  * Depuis le 2 septembre 2026, IL N'Y A PLUS DE RECHARGE. Le prototype se donnait 25 USDC
  * fictifs et un bouton TOP UP les remettait ; c'était un portefeuille sans rien derrière,
  * et le directeur produit a demandé qu'il disparaisse du jeu. Le solde est désormais celui
- * du backend — la somme des lignes du grand livre, adossée à un vrai wallet Solana par
- * joueur — ou ZÉRO quand personne n'est connecté. Il entre par un dépôt, il sort par un
+ * du backend — la somme des lignes du grand livre, adossée à un vrai wallet Robinhood
+ * Chain par joueur — ou ZÉRO quand personne n'est connecté. Il entre par un dépôt, il sort par un
  * retrait, et il bouge par les parties. Rien d'autre.
  *
  * ─── L'ARGENT NE PASSE PLUS PAR ICI ─────────────────────────────────────────
@@ -23,7 +23,7 @@
  * `DUEL_TEST`, `DEV`, `BANC`). Ce serveur le dit dans `bienvenue` : pas d'argent derrière,
  * identité facultative. Alors, et seulement alors, un portefeuille de banc de 25 USDC
  * imaginaires existe dans le navigateur — parce qu'un duel payant doit pouvoir se mesurer
- * sans Solana. Ce n'est PAS un mode de jeu : un serveur de production ne l'active jamais,
+ * sans chaîne. Ce n'est PAS un mode de jeu : un serveur de production ne l'active jamais,
  * et il n'existe aucun bouton pour l'activer soi-même.
  *
  * `solde` reste un accesseur SYNCHRONE sur une valeur en cache : l'interface lit un
@@ -159,6 +159,14 @@ export const caisse = {
 
   async retirer(montant) {
     const r = await appeler('/retrait', { montant });
+    soldeDistant = r.solde;
+    prevenir();
+    return r;
+  },
+
+  /** Le robinet d'USDC d'essai (testnet seulement) : le backend frappe, puis crédite. */
+  async robinet() {
+    const r = await appeler('/robinet', {});
     soldeDistant = r.solde;
     prevenir();
     return r;
