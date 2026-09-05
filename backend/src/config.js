@@ -71,6 +71,28 @@ export const config = {
   lotAdresse: lire('LOT_ADRESSE'),
 
   /**
+   * LES AUTRES PORTES D'ENTREE DE L'ARGENT (5 septembre 2026) : USDG, et l'ETH du wallet.
+   *
+   * Demande du directeur produit : un joueur qui n'a que des USDG (le dollar de Paxos,
+   * dont Robinhood est membre du reseau) ou que de l'ETH ne doit pas aller chercher des
+   * USDC ailleurs avant de jouer. Le grand livre, lui, reste en USDC et rien d'autre : le
+   * wallet de jeu doit detenir des USDC pour que la mise parte (EIP-3009 sur le contrat
+   * USDC). Le CHANGE se fait donc dans le wallet DU JOUEUR, avant que l'argent arrive :
+   * le navigateur appelle un routeur de DEX (interface Uniswap V2) avec l'adresse de
+   * depot comme DESTINATION du swap, et le guetteur voit arriver des USDC ordinaires.
+   * Aucun chemin nouveau ici, aucune reserve a tenir, aucun risque de change pour la
+   * maison. Voir `tools/feel-lab/src/compte.js:deposerParSwap`.
+   *
+   * Trois adresses, publiees au navigateur par `GET /moi` → `chaine.usdg` et
+   * `chaine.swap`. VIDES sur le testnet : il n'y a ni USDG ni marche ETH/USDC sur
+   * Robinhood Chain testnet, et le guide de depot le dit au lieu de proposer un bouton
+   * qui echouerait. Le jour du mainnet, les renseigner suffit.
+   */
+  usdgAdresse: lire('USDG_ADRESSE'),
+  swapRouteur: lire('SWAP_ROUTEUR_ADRESSE'),
+  swapWeth: lire('SWAP_WETH_ADRESSE'),
+
+  /**
    * Cle de la CAISSE, en hexadecimal (0x…, 32 octets) : le payeur de GAZ de toutes les
    * transactions du service, et le proprietaire des contrats. Elle ne detient pas les
    * USDC des joueurs — chacun les garde sur son propre wallet derive — mais elle soumet

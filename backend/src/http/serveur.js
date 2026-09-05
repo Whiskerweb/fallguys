@@ -171,6 +171,14 @@ export function creerServeur(db, { chaine = null } = {}) {
           usdc: config.usdcAdresse, bg: config.bgAdresse,
           robinet: config.reseau !== 'mainnet' && Boolean(config.usdcAdresse) && config.robinetMicros > 0,
           robinetMicros: config.robinetMicros,
+          /*
+           * Les autres portes d'entree : USDG et le swap depuis l'ETH, changes DANS le
+           * wallet du joueur par un routeur de DEX, destination = adresse de depot
+           * (`config.js`). `null` tant que le reseau n'a ni l'un ni l'autre — le guide
+           * de depot ne montre alors pas ces chemins, il dit pourquoi.
+           */
+          usdg: config.usdgAdresse ?? null,
+          swap: (config.swapRouteur && config.swapWeth) ? { routeur: config.swapRouteur, weth: config.swapWeth } : null,
         },
         liens: { wallet: lienAdresse(p.adresse_depot), explorateur: RESEAUX[config.reseau]?.explorateur ?? null },
         paliers: PALIERS,

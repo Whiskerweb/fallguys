@@ -361,8 +361,13 @@ export function rafraichirTicket() {
     note.classList.toggle('alerte', !jouable);
     note.textContent = jouable
       ? 'Your stake is committed on-chain at launch'
-      : (caisse.enLigne ? 'Not enough balance — deposit USDC from WALLET' : 'Not enough balance for this table');
+      : (caisse.enLigne ? 'Not enough balance — click here to add funds' : 'Not enough balance for this table');
   }
+  // La note devient une PORTE quand le solde manque : un clic ouvre le guide de dépôt
+  // (`depot.js` l'écoute). Une phrase qui dit « déposez » sans mener nulle part est une
+  // phrase qu'on lit deux fois.
+  note.dataset.action = (!jouable && caisse.enLigne && !liaison.enFile && liaison.etat === 'ouvert' && !doitSeConnecter) ? 'depot' : '';
+  note.classList.toggle('cliquable', note.dataset.action === 'depot');
 
   // Les pastilles de présence suivent le mode : celles des tables changent avec lui.
   majFiles(dernieresFiles);
@@ -764,7 +769,16 @@ export function majBoutique(onChange, { bloquee = null, enCours = null, erreur =
     note.classList.add('ok');
     note.textContent = article.condition === 'post'
       ? 'Unlocked for good. Thanks for the post — see you on the course.'
-      : 'Yours for good. Your USDC went to the fee wallet and burns BG.';
+      : article.condition === 'cadeau'
+        ? 'Your welcome gift. Yours for good — see you on the course.'
+        : 'Yours for good. Your USDC went to the fee wallet and burns BG.';
+  } else if (article.condition === 'cadeau') {
+    // La boîte n'a pas encore été ouverte (ou a été remise à plus tard) : on la rouvre
+    // (`agirBoutique` envoie `tumble-cadeau-ouvrir`, `cadeau.js` l'écoute).
+    bouton.classList.add('reclamer');
+    bouton.disabled = false;
+    bouton.textContent = 'OPEN YOUR GIFT';
+    note.textContent = 'Free. Open the box, and he is on your lobby stage the second after.';
   } else if (article.condition === 'achat') {
     bouton.classList.add('acheter');
     if (enCours === id) {
@@ -1026,6 +1040,13 @@ export function buildPortefeuille(onChangement) {
     try { await travail(); } finally { for (const b of boutons) { const e = el(b); if (e) e.disabled = false; } }
   }
 
+  // ADD FUNDS : le guide (`depot.js`), USDC, USDG ou ETH en trois étapes. Le panneau se
+  // ferme derrière — deux fenêtres l'une sur l'autre pour le même geste, c'est une de trop.
+  el('wallet-guide')?.addEventListener('click', () => {
+    sfx.click();
+    fermer();
+    document.dispatchEvent(new CustomEvent('tumble-depot-ouvrir', { detail: { raison: 'wallet' } }));
+  });
   el('wallet-copier').addEventListener('click', async () => {
     sfx.click();
     const a = caisse.profil?.adresseDepot;

@@ -128,7 +128,37 @@ export const ARTICLES = [
     accroche: 'Three leaves, one mission.',
     detail: 'Paid from your game wallet. Every USDC goes to the fee wallet and burns BG.',
   },
+  /*
+   * LE CADEAU DE BIENVENUE — BabyVlad (`char-tinytrader`), decision du directeur produit
+   * du 5 septembre 2026 : « quand il arrive, il ait un cadeau qui s'affiche, il doit
+   * cliquer pour l'ouvrir et quand il ouvre il unlock le skin babyvlad ».
+   *
+   * Il ne s'achete pas et ne se gagne pas : il s'OUVRE. A la premiere arrivee dans le
+   * lobby, une boite cadeau plein ecran attend un clic (`cadeau.js`) ; l'ouvrir donne le
+   * skin et l'equipe. C'est le premier geste du joueur dans le jeu, et il est fait pour
+   * qu'il GAGNE quelque chose avant qu'on lui parle d'argent — l'ecran d'apres est celui
+   * du depot. Declaratif et local, comme le post : un cosmetique, aucun centime, donc la
+   * memoire du navigateur suffit. Un nouveau navigateur rouvre le cadeau : ce n'est pas
+   * une faille, c'est un skin gratuit.
+   *
+   * Il avait ete mis en vente a 10 USDC quelques minutes plus tot par une autre session,
+   * qui l'ecrivait « decision produit » ; celle-ci est la vraie, et elle l'emporte.
+   * Sans cette ligne il serait gratuit d'office (`estDebloque` rend `true` pour ce qui
+   * n'est pas en boutique) — mais sans cadeau non plus : c'est la ligne qui fait qu'on
+   * l'OFFRE au lieu de le laisser trainer dans la garde-robe.
+   *
+   * En boutique, sa carte dit « OPEN YOUR GIFT » tant que la boite n'est pas ouverte, et
+   * la rouvre. Dernier de la vitrine : on n'y vend rien, on y rappelle qu'on l'a recu.
+   */
+  {
+    id: 'char-tinytrader', condition: 'cadeau', prix: 'GIFT',
+    accroche: 'Your welcome gift.',
+    detail: 'Every new player gets him. Open the box and he is yours for good.',
+  },
 ];
+
+/** L'article offert a l'arrivee. `cadeau.js` et la boutique le nomment par ici, jamais en dur. */
+export const CADEAU = 'char-tinytrader';
 
 /** Les articles qui coûtent des USDC — ceux que le backend encaisse et dont il dit la possession. */
 export const PAYANTS = ARTICLES.filter((a) => a.condition === 'achat').map((a) => a.id);
@@ -286,6 +316,25 @@ export function reclamer(id, maintenant = Date.now()) {
   enregistrer();
   return { ok: true };
 }
+
+/**
+ * Reçoit le cadeau de bienvenue. Rend `{ ok }`, `{ ok, deja }`, ou `{ ok: false, raison }`.
+ *
+ * Le seul chemin par lequel un article `cadeau` se débloque : l'écran de la boîte
+ * (`cadeau.js`) l'appelle à l'ouverture. Pas de délai, pas de preuve — il n'y a rien à
+ * prouver, on OFFRE.
+ */
+export function recevoirCadeau(id = CADEAU) {
+  const article = articleDe(id);
+  if (!article || article.condition !== 'cadeau') return { ok: false, raison: 'inconnu' };
+  if (estDebloque(id)) return { ok: true, deja: true };
+  etat.debloques.push(id);
+  enregistrer();
+  return { ok: true };
+}
+
+/** Le cadeau attend-il encore d'être ouvert ? */
+export const cadeauEnAttente = (id = CADEAU) => Boolean(articleDe(id)) && !estDebloque(id);
 
 /**
  * LE DOSSIER DE POSSESSION D'UN BANC, prêt à poser dans la mémoire d'un navigateur.

@@ -12,10 +12,16 @@
   "map-course",
   "map-dalles",
   "map-doors",
+  "map-hexagone",
   "map-rondin",
   "port-char-babytrump",
   "port-char-captainleeky",
   "port-char-diplomate",
   "port-char-grenouille",
-  "port-char-techtitan"
+  "port-char-techtitan",
+  "port-char-tinytrader",
+  "robinhood",
+  "robinhood-plume",
+  "robinhood-plume-blanc",
+  "robinhood-plume-vert"
 ]

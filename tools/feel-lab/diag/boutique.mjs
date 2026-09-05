@@ -49,13 +49,19 @@ const dit = (ok, texte) => {
 };
 
 console.log('\n\x1b[1mLe catalogue de la boutique\x1b[0m');
-dit(B.ARTICLES.length === 4, `quatre articles : ${B.ARTICLES.map((a) => a.id).join(', ')}`);
+dit(B.ARTICLES.length === 5, `cinq articles : ${B.ARTICLES.map((a) => a.id).join(', ')}`);
 dit(B.ARTICLES[0].id === 'char-babytrump' && B.ARTICLES[0].condition === 'post' && B.ARTICLES[0].prix === 'FREE',
   'BabyTrump en tete, contre un post, sans prix');
 const payants = B.ARTICLES.filter((a) => a.condition === 'achat');
 dit(payants.length === 3 && payants.every((a) => a.prixMicros >= 10_000_000 && a.prixMicros <= 15_000_000),
   `trois skins payants entre 10 et 15 USDC : ${payants.map((a) => `${a.id} ${a.prix}`).join(', ')}`);
 dit(String(B.PAYANTS) === 'char-techtitan,char-diplomate,char-captainleeky', `les payants, pour le serveur : ${B.PAYANTS.join(', ')}`);
+// LE CADEAU DE BIENVENUE (5 septembre 2026) : BabyVlad ne se vend pas, il s'ouvre.
+dit(B.CADEAU === 'char-tinytrader' && B.articleDe(B.CADEAU)?.condition === 'cadeau' && B.articleDe(B.CADEAU)?.prix === 'GIFT',
+  `BabyVlad est le cadeau de bienvenue : ${B.CADEAU}, GIFT, pas un prix`);
+dit(B.ARTICLES[B.ARTICLES.length - 1].id === B.CADEAU, 'et il ferme la vitrine : on n\'y vend rien, on y rappelle qu\'on l\'a recu');
+dit(MODELS.find((m) => m.id === B.CADEAU)?.name === 'BabyVlad' && MODELS.find((m) => m.id === B.CADEAU)?.rarity === 'epic',
+  'au catalogue il s\'appelle BabyVlad, et il est EPIC — un cadeau « common » n\'en est pas un');
 dit(B.articleDe('char-grenouille') === null, 'Pepe n\'est pas en boutique : on l\'a en arrivant');
 dit(MODELS[0].id === 'char-grenouille' && MODELS[0].name === 'Pepe', 'Pepe ouvre le catalogue');
 dit(MODELS.find((m) => m.id === 'char-captainleeky')?.name === 'CyberLeek', 'Captain Leeky s\'appelle desormais CyberLeek');
@@ -79,7 +85,21 @@ for (const id of B.PAYANTS) dit(B.estDebloque(id) === false, `${id} : verrouille
 dit(B.estDebloque('char-grenouille') === true, 'Pepe : libre, il n\'a jamais ete en boutique');
 dit(B.estDebloque('char-inconnu-relaye-par-le-serveur') === true,
   'un identifiant inconnu passe : le verrou porte sur ce que J\'EQUIPE, pas sur ce qu\'un adversaire affiche');
-dit(B.verrouilles().length === 4, `il reste 4 articles a prendre : ${B.verrouilles().join(', ')}`);
+dit(B.verrouilles().length === 5, `il reste 5 articles a prendre : ${B.verrouilles().join(', ')}`);
+
+console.log('\n\x1b[1mLe cadeau : une boite, un clic, et il est a lui\x1b[0m');
+{
+  dit(B.cadeauEnAttente() === true && B.estDebloque(B.CADEAU) === false, 'au premier lancement, la boite attend d\'etre ouverte');
+  dit(cosmetics.setModel(B.CADEAU) === false, 'et le catalogue refuse de l\'equiper avant');
+  dit(B.recevoirCadeau('char-techtitan').ok === false, 'recevoir un skin PAYANT en cadeau : refuse, ce n\'est pas un cadeau');
+  const r = B.recevoirCadeau();
+  dit(r.ok === true && r.deja === undefined && B.estDebloque(B.CADEAU) === true, 'ouvrir la boite : recu, tout de suite, sans delai ni preuve');
+  dit(B.recevoirCadeau().deja === true, 'l\'ouvrir a nouveau : deja recu');
+  dit(B.cadeauEnAttente() === false, 'la boite n\'attend plus');
+  dit(cosmetics.setModel(B.CADEAU) === true && cosmetics.model === B.CADEAU, 'le catalogue accepte maintenant BabyVlad');
+  dit(B.verrouilles().length === 4, `il reste 4 articles : ${B.verrouilles().join(', ')}`);
+  cosmetics.setModel('char-grenouille');
+}
 
 console.log('\n\x1b[1mLe defaut du catalogue est Pepe\x1b[0m');
 dit(cosmetics.model === 'char-grenouille', `sans choix memorise, on porte ${cosmetics.model}`);
@@ -131,14 +151,15 @@ console.log('\n\x1b[1mLa reclamation, et ses trois refus\x1b[0m');
   const ok = B.reclamer('char-babytrump', T + 8000);
   dit(ok.ok === true && B.estDebloque('char-babytrump') === true, 'reclamer a 8 s : accepte, BabyTrump debloque');
   dit(B.reclamer('char-babytrump', T + 9000).deja === true, 'reclamer une seconde fois : deja possede');
-  dit(B.verrouilles().length === 3, `il reste les trois skins payants : ${B.verrouilles().join(', ')}`);
+  // La memoire a ete remise a neuf plus haut : le cadeau attend a nouveau, avec les trois payants.
+  dit(B.verrouilles().length === 4, `il reste les trois skins payants et le cadeau : ${B.verrouilles().join(', ')}`);
   dit(cosmetics.setModel('char-babytrump') === true && cosmetics.model === 'char-babytrump', 'le catalogue accepte maintenant de l\'equiper');
 }
 
 console.log('\n\x1b[1mLa memoire, et le banc\x1b[0m');
 {
   const d = B.dossierDeBanc();
-  dit(d.cle === 'tumble-boutique' && JSON.parse(d.valeur).debloques.length === 4, 'le dossier de banc possede les quatre articles');
+  dit(d.cle === 'tumble-boutique' && JSON.parse(d.valeur).debloques.length === 5, 'le dossier de banc possede les cinq articles');
   B.reinitialiser();
   dit(B.estDebloque('char-babytrump') === false && localStorage.getItem('tumble-boutique') === '{"debloques":[],"envois":{}}',
     'reinitialiser : la campagne se rejoue, la memoire locale le dit');

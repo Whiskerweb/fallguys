@@ -69,6 +69,26 @@ export const MODELS = [
     desc: 'Three leaves for hair, blue jersey, determined brows. He runs and he walks.',
     season: 'Limited edition',
   },
+  /*
+   * BABYVLAD EST LE CADEAU DE BIENVENUE (directeur produit, 5 septembre 2026) : la boite
+   * s'ouvre a la premiere arrivee dans le lobby et l'equipe (`cadeau.js`, article
+   * `cadeau` de `boutique.js`). Le fichier s'appelle `tinytrader` — le petit courtier a la
+   * chevelure longue et a la veste de soie, zero commission ; EPIC, parce qu'un cadeau
+   * « common » n'en est pas un.
+   *
+   * Le PREMIER a livrer son propre clip d'attente. Les cinq autres portent un `idle`
+   * greffe apres coup (README, « Greffer l'animation d'attente ») parce que Meshy n'en
+   * fournissait pas ; celui-ci est arrive avec, il n'y a rien a lui greffer.
+   *
+   * Il n'a EN REVANCHE pas de danse de podium — les cinq autres en ont une, toutes
+   * differentes. Sans `danse-tinytrader.glb`, `montrerVainqueur` retombe proprement sur
+   * sa pose d'attente, sans erreur ; le fichier suffira a la lui donner.
+   */
+  {
+    id: 'char-tinytrader', name: 'BabyVlad', rigged: true, rarity: 'epic', accent: 0x2fb36a,
+    desc: 'Long hair, goatee, silk blazer over the diaper, zero commission. He runs, he walks and he waits with his own animations.',
+    season: 'Welcome gift',
+  },
 ];
 
 export const RARITY = {

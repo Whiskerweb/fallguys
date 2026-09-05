@@ -47,6 +47,13 @@ export function evaluerPorte() {
   porte.classList.toggle('hidden', !ouverte);
   document.body.classList.toggle('porte-ouverte', ouverte);
   if (ouverte) setTimeout(() => el('porte-mail')?.focus(), 50);
+  /*
+   * Ce que la porte vient de décider, dit à qui veut l'entendre — le cadeau de bienvenue
+   * (`cadeau.js`) s'ouvre quand elle se FERME sur une session, avec de l'argent derrière
+   * le serveur. Un événement plutôt qu'un import : la porte ne connaît pas la suite, et
+   * la suite peut changer sans qu'elle bouge.
+   */
+  document.dispatchEvent(new CustomEvent('tumble-porte', { detail: { ouverte, session: sessionOuverte, argent: caisse.argent } }));
 }
 
 export function buildPorte() {

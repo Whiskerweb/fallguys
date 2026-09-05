@@ -21,6 +21,8 @@ import { creerRoue } from './roue.js';
 import { caisse } from './caisse.js';
 import { surSession } from './compte.js';
 import { buildPorte } from './porte.js';
+import { buildCadeau, evaluerCadeau } from './cadeau.js';
+import { buildDepot, ouvrirDepot } from './depot.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -1881,14 +1883,42 @@ async function boot() {
   buildCompte();
   // Le portefeuille : déposer, retirer, relire l'historique on-chain. Connecté seulement.
   buildPortefeuille(() => majBarre());
+  /*
+   * L'ARRIVÉE (5 septembre 2026) : une session ouverte, de l'argent derrière le serveur →
+   * le CADEAU (une boîte, un clic, BabyVlad équipé) → sans clic, le GUIDE DE DÉPÔT.
+   *
+   * POUR TOUT LE MONDE, y compris les joueurs inscrits AVANT que ce parcours existe
+   * (directeur produit, 5 septembre 2026) : un ancien compte qui revient voit la boîte
+   * comme un nouveau, et le guide ensuite — même avec un solde, le guide le dit alors et
+   * se ferme en un clic. Ce qui distingue « déjà vu » de « jamais vu » n'est pas la date
+   * d'inscription, c'est la boîte ouverte dans ce navigateur. `?cadeau` force les deux,
+   * pour les harnais.
+   */
+  buildDepot(() => majBarre());
+  buildCadeau({
+    peutMontrer: () => game?.mode === 'lobby',
+    onEquipe: onCosmeticChange,
+    onFin: () => {
+      const force = new URLSearchParams(location.search).has('cadeau');
+      if (force || caisse.enLigne) ouvrirDepot({ raison: 'bienvenue' });
+    },
+  });
   // La porte : connexion plein page, avant le lobby, dès que le serveur dit qu'il y a de
   // l'argent derrière lui et qu'aucune session n'existe (porte.js).
   buildPorte();
   // Le lobby en ligne : il trouve le serveur, s'y connecte, et pose `game.jouer`. Sans
   // `await` : un serveur absent ne doit pas empecher la page de s'afficher.
   brancherMatchmaking(game).catch((e) => console.error('matchmaking :', e));
-  caisse.rafraichir().then(() => majBarre());
-  surSession(() => caisse.rafraichir().then(() => majBarre()));
+  /*
+   * Le cadeau a un second déclencheur, en plus de la porte : le backend vient de
+   * reconnaître la session. Une session déjà ouverte au chargement (un joueur qui
+   * revient) ne fait pas « fermer » la porte, et l'ordre entre `bienvenue` (le serveur
+   * dit l'argent) et la session (le compte) n'est pas garanti ; les deux chemins
+   * appellent `evaluerCadeau`, qui ne montre la boîte qu'une fois et seulement au lobby.
+   */
+  const apresCompte = () => { majBarre(); if (caisse.enLigne && caisse.argent) evaluerCadeau(); };
+  caisse.rafraichir().then(apresCompte);
+  surSession(() => caisse.rafraichir().then(apresCompte));
 
   el('loading').style.display = 'none';
 

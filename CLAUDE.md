@@ -204,6 +204,38 @@ qu'on porte si ce n'est plus permis. Et le SERVEUR DE JEU ne relaie un skin paya
 qui l'a payé : à `rejoindre`, avec un pont, il demande `/interne/possessions` — une
 mémoire locale bricolée ne fait pas porter BabyMusk aux yeux des autres.
 
+**BABYVLAD EST LE CADEAU DE BIENVENUE, et il ne se vend pas (directeur produit, 5 septembre
+2026).** Le modèle s'appelle `char-tinytrader` (Vlad Tenev, le patron de Robinhood). À la
+première arrivée dans le lobby — la porte vient de se fermer sur une session, avec de
+l'argent derrière le serveur —, une boîte plein écran attend un clic (`cadeau.js`) ;
+l'ouvrir reçoit le skin (`boutique.js:recevoirCadeau`, article `condition: 'cadeau'`,
+prix `GIFT`) et l'ÉQUIPE. Puis, SANS CLIC, le guide de dépôt s'ouvre — pour TOUT LE
+MONDE, anciens inscrits compris (demande du 5 septembre 2026) : ce qui distingue « déjà
+vu » n'est pas la date d'inscription mais la boîte ouverte dans ce navigateur ; avec un
+solde, le guide le dit et se ferme en un clic. Deux déclencheurs : la porte qui se ferme,
+et le backend qui reconnaît la session (`main.js:apresCompte`), parce qu'une session
+déjà ouverte au chargement ne ferme aucune porte. Une autre session l'avait mis en vente à 10 USDC quelques minutes avant cette
+décision : **ne pas le remettre en boutique payante**, c'est un choix produit. Déclaratif
+et local comme le post (un cosmétique, aucun centime) ; `?cadeau` force la boîte sur un
+banc, et `diag/cadeau-ecran.mjs` joue l'arrivée entière. La boîte FLOTTE : Playwright
+la clique avec `force: true`.
+
+**LE GUIDE DE DÉPÔT (`depot.js`, « ADD FUNDS ») : USDC, USDG ou ETH, en trois étapes,
+et le change se fait DANS LE WALLET DU JOUEUR.** Le grand livre reste en USDC et le
+wallet de jeu doit en détenir pour que la mise parte : USDG et ETH passent par un
+routeur de DEX (interface Uniswap V2) appelé depuis le navigateur avec l'ADRESSE DE
+DÉPÔT comme destination du swap (`compte.js:deposerParSwap`, `swapETHForExactTokens` /
+`swapTokensForExactTokens` : le joueur choisit la SORTIE en USDC, on calcule l'entrée par
+`getAmountsIn`, 1 % de marge rendue par le routeur). Le guetteur voit arriver des USDC
+ordinaires ; le backend n'a rien de nouveau à tenir. Les adresses (`USDG_ADRESSE`,
+`SWAP_ROUTEUR_ADRESSE`, `SWAP_WETH_ADRESSE`) partent par `/moi` → `chaine.usdg`,
+`chaine.swap` ; VIDES sur le testnet, où ces deux chemins sont grisés avec la raison et
+où le robinet est en tête. Les soldes du wallet sont lus sur le RPC public et le jeton
+le mieux garni est pré-choisi ; 10 USDC par défaut. Après la signature, le guide
+interroge `releverDepots` toutes les quatre secondes jusqu'au crédit, puis PLAY. Le
+panneau WALLET garde le chemin expert et ouvre le guide par ADD FUNDS ; la note sous
+PLAY l'ouvre aussi quand le solde manque.
+
 **Le post porte le lien PUBLIÉ du jeu, `https://play.babyguy.dev`, et rien d'autre.**
 `LIEN` est renseigné dans `boutique.js` depuis que le domaine pointe sur le jeu
 (4 septembre 2026) ; il est resté vide avant, parce qu'une URL bidon aurait envoyé les
@@ -687,6 +719,7 @@ cd tools/feel-lab     && node diag/economie.mjs #  87 — les dix lignes, les ro
 cd tools/feel-lab     && node diag/duel.mjs   #  53 — DEUX navigateurs, un duel payant
 cd tools/feel-lab     && node diag/boutique.mjs #  la boutique : quatre articles, prix = backend, possession, le post, sans navigateur
 cd tools/feel-lab     && node diag/boutique-ecran.mjs # le deblocage CLIQUE, l'achat ARME puis refuse sans compte, la fenetre vers X interceptee
+cd tools/feel-lab     && node diag/cadeau-ecran.mjs   # 41 — l'ARRIVÉE : la boîte, BabyVlad équipé, le guide de dépôt sans clic (mainnet et testnet, wallet et RPC factices)
 cd tools/feel-lab     && node diag/bascule.mjs #  DEUX navigateurs : présence, suggestion, SWITCH
 cd tools/feel-lab     && node diag/partie.mjs #  le BANC solo (hors produit), trois manches
 cd tools/feel-lab     && node diag/franchir-rondin.mjs # 37 — un VRAI franchissement vu par le serveur, deux navigateurs
