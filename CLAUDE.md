@@ -256,6 +256,23 @@ objet de boutique vaudra de l'argent, la porte se ferme AVANT.
 **Meshy pour le décor, procédural pour tout ce qui porte un collider.** Une hitbox qui ne
 correspond pas au visuel est disqualifiante dans un jeu à mises.
 
+**UNE SEULE PORTE D'ARRIVÉE, la même sur les quatre courses, les pieds au sol
+(`src/arrivee.js`, directeur produit, 6 septembre 2026 : « plus de truc qui vole on ne
+sait comment, propre, comme Fall Guys »).** Deux piliers rayés aux couleurs de la carte,
+une enseigne « FINISH » suspendue à deux poutres, un damier au sol. Trois règles : RIEN
+NE FLOTTE (chaque pièce est accrochée à la suivante jusqu'au sol — plus de guirlande
+tendue en l'air, c'est elle qui « volait » sur trois cartes) ; le damier est centré sur
+`finishZ`, LA cote que `main.js` compare (sur Les Dalles l'ancienne arche était deux
+mètres derrière la ligne) ; et les piliers sont DANS l'emprise de la piste — sur La
+Course elle vole à dix-neuf mètres au-dessus du relief, un pilier « à côté » n'a rien
+sous lui. L'appelant donne l'ENTRAXE et répond de ce qu'il y a dessous ;
+`diag/arrivees.mjs` sonde le sol sous chaque pied au rayon. L'enseigne est une texture
+PEINTE (`finish-sign.jpg`, OpenRouter, choisie à l'œil parmi quatre), avec un repli au
+canevas ; les piliers prennent `candyStripes`, et PAS `hazardStripes` : celle-ci rend la
+texture peinte orange dès que le fichier existe, quelles que soient les couleurs
+demandées. Les modèles Meshy `finish-arch` et `jungle-finish-gate` ne sont plus dans le
+manifeste — les fichiers restent sur le disque.
+
 **Les secrets ne sortent jamais.** `.env` est ignoré par git. Ne jamais afficher une valeur
 — seulement des noms de variables et un statut renseigné/vide. Les wallets de trésorerie
 sont NOTÉS avec leurs secrets dans `backend/wallets/<réseau>.json`, ignoré lui aussi ;
@@ -732,6 +749,7 @@ cd tools/feel-lab     && node diag/boutique.mjs #  la boutique : quatre articles
 cd tools/feel-lab     && node diag/boutique-ecran.mjs # le deblocage CLIQUE, l'achat ARME puis refuse sans compte, la fenetre vers X interceptee
 cd tools/feel-lab     && node diag/wallets.mjs        # 11 — deux extensions wallet installees : le jeu parle a la CHOISIE, jamais a window.ethereum
 cd tools/feel-lab     && node diag/cadeau-ecran.mjs   # 41 — l'ARRIVÉE : la boîte, BabyVlad équipé, le guide de dépôt sans clic (mainnet et testnet, wallet et RPC factices)
+cd tools/feel-lab     && node diag/arrivees.mjs       # 33 — les LIGNES D'ARRIVÉE des quatre courses : une porte, sur finishZ, les deux pieds au sol (rayon), aucune guirlande libre, enseigne peinte
 cd tools/feel-lab     && node diag/bascule.mjs #  DEUX navigateurs : présence, suggestion, SWITCH
 cd tools/feel-lab     && node diag/partie.mjs #  le BANC solo (hors produit), trois manches
 cd tools/feel-lab     && node diag/franchir-rondin.mjs # 37 — un VRAI franchissement vu par le serveur, deux navigateurs

@@ -4,13 +4,14 @@ import { toonMaterial } from '../world.js';
 import { ConfettiField, PuffSystem } from '../effects.js';
 import { buildEchine, ECHINE_CRETE_TH } from '../rondin.js';
 import {
-  pill, roundedBox, bunting, updateFlags, banner,
+  pill, roundedBox, bunting, updateFlags,
   areteEcorce, baril, pierreDeGue, pontDeCordes,
 } from '../props.js';
 import { createRivage } from '../terrain.js';
+import { porteArrivee } from '../arrivee.js';
 import {
   lagoonWater,
-  boisLisse, sentierBois, anneauxBois, plankBridge, riverStone, finishChecker,
+  boisLisse, sentierBois, anneauxBois, plankBridge, riverStone,
 } from '../textures.js';
 
 /**
@@ -1030,16 +1031,16 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
   checkpoints.push(new THREE.Vector3(0, CRETE + 1.6, ARRIVEE_Z + 2));
 
   // ── Ligne d'arrivée ────────────────────────────────────────────────────────────────
-  // Un damier posé à plat, juste avant le portique. C'est le seul repère qui dit « c'est
-  // ici que ça s'arrête » : sans lui le joueur ralentit en approchant du portique, faute
-  // de savoir où exactement la manche se termine.
+  // La porte d'arrivée (`arrivee.js`) et son damier, centrés sur `finishZ` — le seul
+  // repère qui dit « c'est ici que ça s'arrête ». Le portique de jungle Meshy (dix-huit
+  // mètres, enseigne muette, posé un mètre derrière la ligne) est parti. L'îlot d'arrivée
+  // est un disque de rayon ILOT_R centré deux mètres derrière la ligne : à finishZ, sa
+  // corde fait 2·√(7,5² − 2²) ≈ 14,5 m, et les pieds des piliers (rayon 1,08) restent
+  // dessus avec un entraxe de 12,2.
   {
-    const damier = new THREE.Mesh(
-      new THREE.PlaneGeometry(16, 2.4),
-      new THREE.MeshBasicMaterial({ map: finishChecker({ repeat: [8, 1.2] }), toneMapped: false }));
-    damier.rotation.x = -Math.PI / 2;
-    damier.position.set(0, CRETE + 0.03, finishZ);
-    group.add(damier);
+    const porte = porteArrivee({ entraxe: 12.2, accent: C.areteA, bande: C.areteB, sol: { largeur: 13.6 } });
+    porte.position.set(0, CRETE, finishZ);
+    group.add(porte);
   }
 
   // ── Le lagon et ses berges ─────────────────────────────────────────────────────────
@@ -1105,14 +1106,11 @@ export function buildRondin(RAPIER, assets, { seed = 1 } = {}) {
         { rot: rand() * 6.28 });
     }
 
-        // Totems de part et d'autre de la ligne d'arrivée, et guirlandes au départ.
+    // Totems DERRIÈRE la porte, sur l'îlot (à 6,7 m du centre pour un rayon de 7,5),
+    // de part et d'autre de la sortie : ils encadrent sans se mêler aux piliers, qui sont
+    // à ±6,1 sur la ligne. Et la guirlande du départ.
     for (const sx of [-1, 1]) {
-      prop('jungle-totem', 9, sx * 7.5, CRETE, finishZ + 0.5);
-    }
-    if (!prop('jungle-finish-gate', 18, 0, CRETE, ARRIVEE_Z + 1)) {
-      const b = banner(12, C.arrivee, null);
-      b.position.set(0, CRETE + 5, ARRIVEE_Z + 1);
-      group.add(b);
+      prop('jungle-totem', 9, sx * 5.2, CRETE, ARRIVEE_Z - 4.2);
     }
     const g = bunting(18, 9, [0xd93a2b, 0x2e6fd0, 0xf0c75a]);
     g.position.set(0, CRETE + 5.5, DEPART_Z - 2);

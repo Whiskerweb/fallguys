@@ -55,6 +55,9 @@ export const TEXTURE_SLOTS = [
    * sont procéduraux, plus bas dans ce fichier.
    */
   'slime-pink', 'candy-hills', 'sky-triangles',
+  // L'enseigne « FINISH » de la porte d'arrivée (`arrivee.js`) : une image, pas un
+  // motif — elle ne se répète jamais, et `seamless.mjs` ne doit pas y toucher.
+  'finish-sign',
 ];
 
 export async function loadExternalTextures(onProgress = () => {}) {
@@ -100,9 +103,11 @@ function make(key, size, draw, repeat) {
   // La cle reste attachee au canevas : les scripts de diagnostic peuvent ainsi savoir
   // QUELLE texture porte un materiau, ce que l'uuid ne dit pas.
   c.dataset.cle = k;
-  c.width = c.height = size;
+  // `size` est un côté (canevas carré, le cas de tous les motifs) ou `[largeur, hauteur]`
+  // pour une IMAGE qui a un rapport, comme l'enseigne d'arrivée.
+  [c.width, c.height] = Array.isArray(size) ? size : [size, size];
   const ctx = c.getContext('2d');
-  draw(ctx, size);
+  draw(ctx, c.width, c.height);
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(repeat[0], repeat[1]);
@@ -203,6 +208,43 @@ export function softChecker({ a = '#ffffff', b = '#e6e6e6', cells = 4, repeat = 
       }
     }
     grain(ctx, s, 13, 0.028);
+  }, repeat);
+}
+
+/**
+ * SIGNAL — rayures de sucre d'orge, diagonales, dans les DEUX couleurs demandées.
+ *
+ * `hazardStripes` rend la texture PEINTE dès que `hazard-stripes.jpg` existe, quelles
+ * que soient les couleurs qu'on lui passe : les piliers de la porte d'arrivée demandaient
+ * du blanc et rouge et sortaient orange et jaune sur les quatre cartes. Celle-ci n'a pas
+ * de repli peint, exprès. Et elle est raccordable PAR CONSTRUCTION : chaque bande est le
+ * lieu des points où (x − y) tombe dans un intervalle, de période s / bands — une
+ * translation de s en x ou en y retombe donc exactement sur la même bande, ce qu'une
+ * rotation de 45° d'un remplissage ne garantit jamais.
+ */
+export function candyStripes({ a = '#ffffff', b = '#ff3d8b', bands = 6, repeat = [1, 1] } = {}) {
+  return make(`candy-${a}-${b}-${bands}`, 512, (ctx, s) => {
+    ctx.fillStyle = a;
+    ctx.fillRect(0, 0, s, s);
+    ctx.fillStyle = b;
+    const p = s / bands;
+    for (let k = -bands - 1; k <= bands + 1; k++) {
+      const d = k * p;
+      ctx.beginPath();
+      ctx.moveTo(d, 0);
+      ctx.lineTo(d + p / 2, 0);
+      ctx.lineTo(d + p / 2 + s, s);
+      ctx.lineTo(d + s, s);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // Un reflet le long du tube, comme sur les bandes gonflées : ça dit « vinyle ».
+    const gl = ctx.createLinearGradient(0, 0, s, 0);
+    gl.addColorStop(0, 'rgba(255,255,255,0.18)');
+    gl.addColorStop(0.5, 'rgba(255,255,255,0.0)');
+    gl.addColorStop(1, 'rgba(0,0,0,0.08)');
+    ctx.fillStyle = gl;
+    ctx.fillRect(0, 0, s, s);
   }, repeat);
 }
 
@@ -1561,4 +1603,72 @@ export function skyTriangles({ repeat = [1, 1] } = {}) {
       }
     }
   }, repeat);
+}
+
+// ─────────────────────────── L'enseigne d'arrivée ───────────────────────────
+
+/**
+ * SIGNAL — l'enseigne « FINISH » de la porte d'arrivée, la même sur les quatre courses.
+ *
+ * Peinte de préférence (`finish-sign.jpg`, 1376 × 768, générée via OpenRouter le
+ * 6 septembre 2026 et choisie à l'œil parmi quatre candidates : la seule qui remplit
+ * l'image bord à bord, sans fond blanc à rogner). Le repli au canevas dessine la même
+ * chose — planche magenta, liseré clair, ampoules, lettres jaunes cerclées de blanc —
+ * avec la police arrondie de l'interface, pour que le jeu tourne sans le fichier. Sur
+ * le serveur, le canevas est doublé et rien de ceci n'est jamais dessiné.
+ */
+export function finishSign({ texte = 'FINISH' } = {}) {
+  const hand = painted('finish-sign', [1, 1]);
+  if (hand) return hand;
+  return make(`finish-sign-${texte}`, [1376, 768], (ctx, w, h) => {
+    const arrondi = (x, y, ww, hh, r) => {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + ww - r, y); ctx.quadraticCurveTo(x + ww, y, x + ww, y + r);
+      ctx.lineTo(x + ww, y + hh - r); ctx.quadraticCurveTo(x + ww, y + hh, x + ww - r, y + hh);
+      ctx.lineTo(x + r, y + hh); ctx.quadraticCurveTo(x, y + hh, x, y + hh - r);
+      ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    };
+    ctx.fillStyle = '#ff1a8c';
+    ctx.fillRect(0, 0, w, h);
+    // Le liseré clair, et la planche intérieure un ton plus sombre.
+    ctx.lineWidth = 30;
+    ctx.strokeStyle = '#ffd3ea';
+    arrondi(56, 56, w - 112, h - 112, 70);
+    ctx.stroke();
+    ctx.fillStyle = '#ee1a80';
+    arrondi(100, 100, w - 200, h - 200, 50);
+    ctx.fill();
+    // Les ampoules, une tous les 64 px le long du liseré.
+    ctx.fillStyle = '#ffe23d';
+    const pas = 64, r = 13;
+    for (let x = 120; x <= w - 120; x += pas) {
+      ctx.beginPath(); ctx.arc(x, 56, r, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, h - 56, r, 0, Math.PI * 2); ctx.fill();
+    }
+    for (let y = 120; y <= h - 120; y += pas) {
+      ctx.beginPath(); ctx.arc(56, y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(w - 56, y, r, 0, Math.PI * 2); ctx.fill();
+    }
+    // Les lettres : on descend la taille jusqu'à ce que le mot tienne dans 70 % de la
+    // largeur. `measureText` rend 0 sur le serveur, où l'on ne dessine rien de toute façon.
+    const famille = 'ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI", system-ui, sans-serif';
+    let taille = 360;
+    ctx.font = `900 ${taille}px ${famille}`;
+    while (taille > 80 && ctx.measureText(texte).width > w * 0.7) {
+      taille -= 10;
+      ctx.font = `900 ${taille}px ${famille}`;
+    }
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.fillStyle = '#b8155e';                      // l'ombre portée
+    ctx.fillText(texte, w / 2 + 8, h / 2 + 12);
+    ctx.lineWidth = 22;
+    ctx.strokeStyle = '#ffffff';
+    ctx.strokeText(texte, w / 2, h / 2);
+    ctx.fillStyle = '#ffd83d';
+    ctx.fillText(texte, w / 2, h / 2);
+  }, [1, 1]);
 }

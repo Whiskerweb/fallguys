@@ -3,6 +3,7 @@ import { TUNING } from '../tuning.js';
 import { toonMaterial } from '../world.js';
 import { ConfettiField, PaperBurst } from '../effects.js';
 import { createTerrain } from '../terrain.js';
+import { porteArrivee } from '../arrivee.js';
 import {
   pill, rimGlow, inflatableArch, balloon, bunting, updateFlags, slabMesh,
   paperPanel, dechirerPanneau, grandstand,
@@ -512,24 +513,24 @@ export function buildDoors(RAPIER, assets, { seed = 1 } = {}) {
   }
 
   function dressFinish() {
-    // Sur la ligne : une arche qu'on FRANCHIT. Le château gonflable y avait d'abord été
-    // posé, et mesuré au banc il remplissait tout l'écran d'un aplat rose dès vingt
-    // mètres — on ne voyait plus ni la ligne, ni son propre personnage. Un objet massif
-    // se place derrière l'arrivée, jamais dessus.
-    const arche = assets.getFitted('finish-arch', { x: LARGEUR * 0.75, y: 8 });
-    if (arche) { arche.position.set(0, 0, finishZ); group.add(arche); }
-    else {
-      const a = inflatableArch(LARGEUR * 0.7, 7, 0.6, C.arrivee);
-      a.position.set(0, 0, finishZ);
-      group.add(a);
-    }
-    const flags = bunting(LARGEUR * 0.7, 14);
-    flags.position.set(0, 8.6, finishZ + 2);
-    group.add(flags);
+    // Sur la ligne : la porte d'arrivée (`arrivee.js`), d'un muret à l'autre — les
+    // piliers sur le dernier palier (y = 0), le damier d'un muret à l'autre. Le château gonflable
+    // y avait d'abord été posé, et mesuré au banc il remplissait tout l'écran d'un aplat
+    // rose dès vingt mètres — on ne voyait plus ni la ligne, ni son propre personnage. Un
+    // objet massif se place derrière l'arrivée, jamais dessus. La guirlande qui flottait
+    // au-dessus est partie avec l'arche Meshy.
+    // Seize mètres d'entraxe pour un couloir de vingt et un : d'un muret à l'autre, les
+    // poutres de l'enseigne faisaient cinq mètres et se lisaient comme des fils.
+    const porte = porteArrivee({ entraxe: 16, accent: C.mur, sol: { largeur: LARGEUR - 0.4 } });
+    porte.position.set(0, 0, finishZ);
+    group.add(porte);
 
-    // Décor de fond, bien au-delà de la ligne : il donne un but à viser de loin.
+    // Décor de fond, bien au-delà de la ligne et DÉCALÉ : posé dans l'axe, le château
+    // (magenta lui aussi) se retrouvait pile derrière l'enseigne et l'avalait dès qu'on
+    // regardait la porte de loin. À droite de l'axe, il reste un but à viser, et
+    // l'enseigne se lit sur le ciel.
     const castle = assets.getFitted('finish-line-bouncy-castle', { x: 34, y: 15 });
-    if (castle) { castle.position.set(0, 0, finishZ - 26); group.add(castle); }
+    if (castle) { castle.position.set(22, 0, finishZ - 36); castle.rotation.y = -0.35; group.add(castle); }
     const trophee = assets.get('giant-trophy', 9);
     if (trophee) { trophee.position.set(-16, 0, finishZ - 14); group.add(trophee); }
   }

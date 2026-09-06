@@ -3,6 +3,7 @@ import { TUNING } from '../tuning.js';
 import { toonMaterial } from '../world.js';
 import { ConfettiField } from '../effects.js';
 import { createTerrain } from '../terrain.js';
+import { porteArrivee } from '../arrivee.js';
 import {
   roundedBox, pill, banner, inflatableArch, balloon, ballMesh, bollard, bunting,
   updateFlags, bollardField,
@@ -882,19 +883,18 @@ export function buildCourse(RAPIER, assets, { seed = 1 } = {}) {
     group.add(flags);
   }
 
+  /**
+   * La porte d'arrivée (`arrivee.js`), posée sur la ligne et tournée avec la piste.
+   * Les piliers sont 55 cm EN DEDANS du bord : la piste vole à dix-neuf mètres au-dessus
+   * du relief, un pilier « à côté » n'aurait rien sous lui. Plus d'arche Meshy ni de
+   * guirlande tendue en l'air à trois mètres derrière — c'était le « truc qui vole ».
+   */
   function dressFinish() {
     const f = FINALE.atZ(finishZ);
-    const arch = partager(assets.getFitted('finish-arch', { x: 11.5, y: 5.4 }));
-    if (arch) { arch.position.set(f.x, f.y, f.z); arch.rotation.y = f.yaw; group.add(arch); }
-    else {
-      const a = inflatableArch(12, 6, 0.6, C.finish);
-      a.position.set(f.x, f.y, f.z);
-      a.rotation.y = f.yaw;
-      group.add(a);
-    }
-    const flags = bunting(13, 12);
-    flags.position.set(f.x, f.y + 6.6, f.z - 3);
-    group.add(flags);
+    const porte = porteArrivee({ entraxe: f.w - 1.1, accent: C.pink, sol: { largeur: f.w - 0.2 } });
+    porte.position.set(f.x, f.y, f.z);
+    porte.rotation.y = f.yaw;
+    group.add(porte);
   }
 
   /**

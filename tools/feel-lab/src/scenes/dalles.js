@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { TUNING } from '../tuning.js';
 import { toonMaterial } from '../world.js';
 import { ConfettiField, PuffSystem } from '../effects.js';
-import { pill, bunting, updateFlags, pennant, banner } from '../props.js';
+import { pill, bunting, updateFlags, pennant } from '../props.js';
+import { porteArrivee } from '../arrivee.js';
 import { tileFace, skyMeadow, cloudBank } from '../textures.js';
 
 /**
@@ -522,13 +523,19 @@ export function buildDalles(RAPIER, assets, { seed = 1 } = {}) {
     g.position.set(0, SOL + 5.2, DEPART_Z - 4);
     group.add(g);
 
-    if (!prop('finish-arch', 14, 0, SOL, ARRIVEE_Z - 4)) {
-      const b = banner(12, C.arrivee, null);
-      b.position.set(0, SOL + 5, ARRIVEE_Z - 4);
-      group.add(b);
-    }
   }
   dressScenery();
+
+  // La porte d'arrivée (`arrivee.js`), SUR la ligne — l'arche Meshy était posée à
+  // ARRIVEE_Z − 4 quand la course se gagne à finishZ = ARRIVEE_Z − 2 : on la franchissait
+  // deux mètres après avoir gagné. Les piliers restent sur le palier (au plus quinze
+  // mètres d'entraxe, et jamais à moins de 70 cm du bord : au-delà, c'est le vide) ; le
+  // damier, lui, va d'un bord à l'autre.
+  {
+    const porte = porteArrivee({ entraxe: Math.min(LARGE_MAX - 1.4, 15), accent: C.fanionA, bande: C.fanionB, sol: { largeur: LARGE_MAX - 0.4 } });
+    porte.position.set(0, SOL, finishZ);
+    group.add(porte);
+  }
 
   // ── La chute d'une dalle ───────────────────────────────────────────────────────────
   const G_DALLE = 26;
