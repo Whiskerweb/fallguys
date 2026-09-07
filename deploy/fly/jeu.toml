@@ -10,6 +10,10 @@ primary_region = "cdg"
   SERVEUR_PORT = "8080"
   POLITIQUE = "PRODUCTION"
 
+# Le temps laisse au serveur pour annuler les parties payantes en cours avant d'etre tue
+# (5 s par defaut, trop court pour un aller-retour signe vers le backend).
+kill_timeout = 30
+
 [http_service]
   internal_port = 8080
   force_https = true

@@ -466,6 +466,22 @@ export async function rattraperChaine(db, chaine) {
     try { await payerSurChaine(db, chaine, id); bilan.reglees++; } catch (e) { bilan.erreurs.push(`${id} : ${e.message}`); }
   }
 
+  /*
+   * LE FILET : une partie ENGAGÉE sans règlement depuis 45 minutes n'existe plus nulle
+   * part — le serveur de jeu l'a perdue (redémarrage, panne) et personne ne la réglera.
+   * Aucune partie ne dure autant. On l'annule : chaque mise revient à son joueur.
+   */
+  const perdues = await db.query(
+    `select id from public.matches where statut = 'engagee' and mise_micros > 0 and engagee_le < now() - interval '45 minutes' limit 20`,
+  );
+  for (const { id } of perdues.rows) {
+    try {
+      await annulerPartie(db, chaine, { partie: id, raison: 'aucun reglement 45 minutes apres le depart : partie perdue par le serveur de jeu, mises rendues' });
+      bilan.annulees++;
+      console.warn(`partie ${id} engagee depuis plus de 45 minutes : annulee, mises rendues`);
+    } catch (e) { bilan.erreurs.push(`${id} : ${e.message}`); }
+  }
+
   const annulees = await db.query(
     `select m.id from public.matches m
       where m.statut = 'annulee'

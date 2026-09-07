@@ -217,6 +217,26 @@ titre('4. Le reseau coupe pendant les mises');
 }
 
 // ===========================================================================
+titre('4b. Une partie engagee et oubliee par le serveur de jeu est annulee par le tour de fond');
+// ===========================================================================
+{
+  const e = await joueurDote(chaine, 'oub-e', 10);
+  const f = await joueurDote(chaine, 'oub-f', 10);
+  const partie = 'duel-oublie';
+  const r = await engagerPartie(db, chaine, { partie, mode: 'duel', mise: 2 * MICROS, joueurs: [{ userId: e, nom: 'e' }, { userId: f, nom: 'f' }] });
+  dit(r.annulee === false && await chaine.solde(tresorerie.pot(partie).address) === 4 * MICROS, 'les deux mises sont dans le pot');
+  const rien = await rattraperChaine(db, chaine);
+  dit(rien.annulees === 0 && await solde(db, compte.joueur(e)) === 8 * MICROS, 'quelques secondes apres le depart, le tour de fond ne touche a rien');
+  await db.query(`update public.matches set engagee_le = now() - interval '46 minutes' where id = $1`, [partie]);
+  const bilanOubli = await rattraperChaine(db, chaine);
+  dit(bilanOubli.annulees === 1, 'passe 45 minutes sans reglement, la partie est annulee');
+  dit(await solde(db, compte.joueur(e)) === 10 * MICROS && await chaine.solde(adresse(e)) === 10 * MICROS
+    && await solde(db, compte.joueur(f)) === 10 * MICROS && await chaine.solde(adresse(f)) === 10 * MICROS,
+  'et chaque mise est revenue, au livre et sur la chaine');
+  dit((await db.query(`select statut from public.matches where id = $1`, [partie])).rows[0].statut === 'annulee', 'la partie est « annulee »');
+}
+
+// ===========================================================================
 titre('5. Le brulage : les frais achetent des BG, qui sont detruits');
 // ===========================================================================
 {

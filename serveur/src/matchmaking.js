@@ -97,6 +97,8 @@ export function creerMatchmaking({
   const salonsOuverts = new Map();     // "mode:mise" -> [salon]
   /** Les parties en cours. */
   const instances = new Map();         // id -> instance
+  /** Les parties dont les MISES SONT PARTIES et qui ne sont pas encore réglées : id -> { mise, mode }. */
+  const engagees = new Map();
   /** Où se trouve chaque joueur : dans quel salon (et sous quelle identité), ou dans quelle partie. */
   const ou = new Map();                // nom -> { salon, joueur } | { instance }
   /** La dernière suggestion envoyée à chacun, pour ne renvoyer que ce qui change. */
@@ -382,6 +384,7 @@ export function creerMatchmaking({
       horloge,
       surFin: (resultat) => {
         instances.delete(id);
+        engagees.delete(id);
         // Seulement ceux qui sont ENCORE dans cette partie : un joueur qui l'a quittée en
         // route est peut-être déjà dans une nouvelle file, et l'en sortir ici le ferait
         // disparaître d'un salon qui l'attend.
@@ -400,6 +403,7 @@ export function creerMatchmaking({
     });
 
     instances.set(id, instance);
+    if (pont && mise > 0) engagees.set(id, { mise, mode });
     for (const j of grille.inscrits) if (!j.estBot) { ou.set(j.nom, { instance }); oublierSuggestion(j.nom); }
 
     instance.demarrer();
@@ -607,8 +611,27 @@ export function creerMatchmaking({
       };
     },
 
-    /** Arrête tout — le serveur s'éteint. */
-    arreter() {
+    /**
+     * Arrête tout — le serveur s'éteint.
+     *
+     * LES PARTIES PAYANTES EN COURS SONT ANNULÉES AVANT, et leurs mises rendues. Le
+     * serveur garde les parties en mémoire : un redéploiement en pleine partie les
+     * faisait disparaître sans règlement ni annulation, et les mises restaient dans le
+     * pot — vécu le 7 septembre 2026, sur mainnet, deux joueurs, 4 USDG bloqués. On
+     * demande donc au backend d'annuler chacune (le message est signé), en parallèle,
+     * sans attendre plus de quinze secondes : Fly ne laisse que `kill_timeout` avant de
+     * tuer le processus. Le backend a de son côté un filet : une partie engagée sans
+     * règlement depuis 45 minutes est annulée par son tour de fond.
+     */
+    async arreter() {
+      if (pont && engagees.size) {
+        const raison = 'serveur de jeu arrete pendant la partie : mises rendues';
+        await Promise.allSettled([...engagees.keys()].map((id) =>
+          Promise.race([pont.annuler(id, raison), new Promise((r) => setTimeout(r, 15_000))])
+            .then(() => console.log(`  partie ${id} annulee : mises rendues`))
+            .catch((e) => console.error(`  partie ${id} : annulation echouee (${e.message}) — le backend la rattrapera`))));
+        engagees.clear();
+      }
       for (const i of instances.values()) i.arreter();
       instances.clear();
       salonsOuverts.clear();

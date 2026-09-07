@@ -370,7 +370,7 @@ export async function demarrerServeur({
     get joueurs() { return liens.size; },
     async arreter() {
       clearInterval(battement);
-      mm.arreter();
+      await mm.arreter();
       for (const ws of liens.values()) { try { ws.close(); } catch {} }
       liens.clear();
       wss.close();
