@@ -1,8 +1,8 @@
 # Le backend — comptes, grand livre, USDC sur Robinhood Chain, et le jeton BG
 
-> **Ce service est sur le testnet de Robinhood Chain. Il ne doit pas toucher de mainnet.**
-> La liste des conditions à remplir avant d'y penser est en bas de page, et elle n'est pas
-> facultative.
+> **Ce service est sur le testnet de Robinhood Chain.** Le code est prêt pour le mainnet
+> (section « Passer en mainnet » ci-dessous) ; le basculement est un geste à part, confirmé
+> à la main, et la liste du bas de page dit ce qui reste ouvert ce jour-là.
 
 Le jeu ne connaît aucun solde et ne déclenche aucun paiement. Le serveur de jeu produit un
 résultat de partie **signé** ; ce service le convertit en mouvements comptables **et en
@@ -262,6 +262,47 @@ que le lobby ajoute le réseau au wallet du joueur et construit le transfert de 
 
 ---
 
+## Passer en mainnet
+
+Robinhood Chain mainnet : chainId **4663**, RPC public `https://rpc.mainnet.chain.robinhood.com`,
+explorateur `https://robinhoodchain.blockscout.com`. **Le dollar y est l'USDG** de Paxos
+(« Global Dollar », `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, six décimales) — il n'y a
+pas d'USDC natif : l'USDC envoyé par le pont Robinhood arrive en USDG. Vérifié sur son
+contrat le 7 septembre 2026 : il implémente EIP-3009 (`transferWithAuthorization`, le même
+typehash que le nôtre, `authorizationState`), sans `version()` — son domaine EIP-712 est
+`{ name: "Global Dollar", version: "1" }`, et `chaine.js` le retrouve en recalculant
+`DOMAIN_SEPARATOR`. Le jeu s'écrit « USDC » ; sur mainnet il se renomme « USDG » partout
+(`STABLE_SYMBOLE`, servi par `/moi`, `/etat` et `/stats`, appliqué par `devise.js`).
+
+Dans l'ordre, et rien ne se saute :
+
+1. **Une trésorerie NEUVE.** `node outils/tresorerie.mjs --reseau mainnet --nouvelles` écrit
+   `wallets/mainnet.json` sans toucher au `.env`. Les clés du testnet ne servent jamais sur
+   mainnet. (Fait le 7 septembre 2026 ; les adresses sont dans le fichier.)
+2. **De l'ETH sur la caisse mainnet** — un geste humain : bridger depuis Ethereum ou
+   Arbitrum (`portal.arbitrum.io`, Across). Quelques millièmes suffisent : le gaz d'un
+   Orbit se compte en centièmes de centime, les trois déploiements coûtent moins de 0,001 ETH.
+3. **Des USDG sur le pool** (adresse `pool` de `wallets/mainnet.json`) : c'est la
+   liquidité contre laquelle les frais achètent le BG à brûler. Sans elle, le brûlage
+   attend et le dit. Le prix de départ du BG, c'est ce montant divisé par un milliard.
+4. **Le `.env`** : `ROBINHOOD_RESEAU=mainnet`, `USDC_ADRESSE=` l'USDG ci-dessus,
+   `CAISSE_CLE`, `FRAIS_CLE`, `POOL_CLE` recopiées depuis `wallets/mainnet.json`,
+   `LOT_ADRESSE=` et `BG_ADRESSE=` VIDES, `ORIGINE_AUTORISEE=https://play.babyguy.dev`.
+5. **Les contrats** : `npm run contrats` déploie Lot et BabyGuy (un milliard au pool, sans
+   frappe) et écrit leurs adresses. L'USDC d'essai n'est jamais déployé sur mainnet.
+6. **La preuve** : `npm run cycle` joue un duel réel à 2 USDG entre deux joueurs d'essai —
+   il faut leur avoir envoyé quelques USDG (les adresses s'affichent). Sept transactions,
+   zéro écart, ou on n'y va pas.
+7. **La base** : `npm run purger -- --oui` AVANT de basculer le `.env` (l'outil refuse sur
+   mainnet) : on ne migre pas de l'argent d'essai. Les comptes restent.
+8. **Fly** : `JE_CONFIRME_MAINNET=oui APPLIQUER_SCHEMA=1 bash deploy/fly/deployer.sh`. Le
+   backend refuse de démarrer sur mainnet avec une clé de test, une origine `*` ou un RPC
+   inconnu, et prévient si le pool est vide. Le robinet répond 404 par construction.
+9. **Le site** (`babysite`, dépôt séparé) : `NETWORK` et les mentions « test » bougent le
+   même jour.
+
+Ce que le passage ne règle PAS, et qui reste à trancher AVANT : la liste ci-dessous.
+
 ## Le verrou avant le mainnet
 
 1. ~~Serveur de jeu autoritatif, résultats signés.~~ **Fait le 2 septembre 2026** : le
@@ -271,10 +312,9 @@ que le lobby ajoute le réseau au wallet du joueur et construit le transfert de 
 4. **Gestion de clé sérieuse** pour `CAISSE_CLE`, `GRAINE_DEPOTS`, `FRAIS_CLE`, `POOL_CLE`,
    `SERVEUR_CLE` — KMS ou signataire matériel. Pas des variables d'environnement, ni
    `wallets/testnet.json`.
-5. **Le jeton dans lequel on mise, sur mainnet.** `USDC_ADRESSE` doit désigner un jeton
-   qui implémente EIP-3009 (USDC de Circle le fait). Si le stable retenu sur Robinhood
-   Chain mainnet ne l'implémente pas, il faudra un chemin « la caisse avance le gaz au
-   wallet dérivé » — écrit et testé AVANT, pas le jour J.
+5. ~~**Le jeton dans lequel on mise, sur mainnet.**~~ **Réglé le 7 septembre 2026** : l'USDG
+   de Paxos implémente EIP-3009, vérifié sur le contrat ; `chaine.js` retrouve son domaine
+   EIP-712 sans `version()`.
 6. **Un vrai marché pour BG** : une paire BG/USDC sur un DEX de Robinhood Chain, et le
    rachat par son routeur. Tant que le pool est le nôtre, le prix est le nôtre.
 7. **Un RPC payé**, avec abonnements WebSocket pour le guetteur.

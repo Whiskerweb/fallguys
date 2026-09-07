@@ -8,7 +8,8 @@ primary_region = "cdg"
 
 [env]
   PORT = "8787"
-  ROBINHOOD_RESEAU = "testnet"
+  # Le reseau vient du .env par deployer.sh (secret ROBINHOOD_RESEAU) : une seule source, le
+  # jour du passage en mainnet on change le .env et rien ici.
 
 [[vm]]
   size = "shared-cpu-1x"

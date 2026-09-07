@@ -71,6 +71,15 @@ export const config = {
   lotAdresse: lire('LOT_ADRESSE'),
 
   /**
+   * LE NOM DU DOLLAR. Le jeu est ecrit en « USDC » ; sur Robinhood Chain mainnet, le dollar
+   * natif est l'USDG de Paxos (« Global Dollar », six decimales, EIP-3009 — on l'a
+   * verifie sur son contrat), et c'est lui que `USDC_ADRESSE` designe alors. Le symbole
+   * part vers le navigateur, qui renomme ce qu'il affiche : on ne fait pas miser des
+   * USDG a quelqu'un en lui ecrivant USDC.
+   */
+  stableSymbole: lire('STABLE_SYMBOLE', reseau === 'mainnet' ? 'USDG' : 'USDC'),
+
+  /**
    * LES AUTRES PORTES D'ENTREE DE L'ARGENT (5 septembre 2026) : USDG, et l'ETH du wallet.
    *
    * Demande du directeur produit : un joueur qui n'a que des USDG (le dollar de Paxos,

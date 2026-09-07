@@ -66,7 +66,10 @@ try {
 if (pont) {
   try {
     const r = await pont.ping();
-    console.log(`  backend ${pont.url} · reseau ${r.reseau} · signature reconnue`);
+    // Ce que le backend dit de la chaine (reseau, dollar) : `/etat` le repete au navigateur,
+    // qui renomme ce qu'il affiche — USDC sur le testnet, USDG sur mainnet.
+    pont.chaine = { reseau: r.reseau ?? null, chainId: r.chainId ?? null, stable: r.stable ?? 'USDC' };
+    console.log(`  backend ${pont.url} · reseau ${r.reseau} · dollar ${pont.chaine.stable} · signature reconnue`);
   } catch (e) {
     console.error(`  backend ${pont.url} : ${e.code} — ${e.message}`);
     console.error('  Le backend doit tourner (cd backend && npm start) et SERVEUR_PUBLIQUE doit être la moitié publique de SERVEUR_CLE.');

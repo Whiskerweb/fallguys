@@ -151,6 +151,8 @@ export async function demarrerServeur({
       res.end(JSON.stringify({
         joueurs: liens.size, ...mm.etat(),
         argent: Boolean(pont), identite: IDENTITE_CONFIGUREE,
+        // La chaine derriere ce serveur, telle que le backend l'a dite au demarrage.
+        chaine: pont?.chaine ?? null,
       }));
       return;
     }

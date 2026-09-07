@@ -3,6 +3,11 @@
  *
  *   node outils/tresorerie.mjs            # montre ce qui existe, genere ce qui manque
  *   node outils/tresorerie.mjs --ecrire   # et ajoute les cles manquantes au .env de la racine
+ *   node outils/tresorerie.mjs --reseau mainnet --nouvelles
+ *                                         # une tresorerie NEUVE pour un autre reseau, notee dans
+ *                                         # wallets/mainnet.json et NULLE PART AILLEURS : les cles du
+ *                                         # testnet ne servent jamais sur mainnet, et le .env ne
+ *                                         # bascule que le jour du passage (README, « Passer en mainnet »)
  *
  * Quatre cles :
  *   CAISSE_CLE       le payeur de gaz, le proprietaire des contrats (Lot, USDC d'essai)
@@ -41,14 +46,17 @@ function lireEnv() {
 }
 
 const env = lireEnv();
-const reseau = env.ROBINHOOD_RESEAU || 'testnet';
-const ecrire = process.argv.includes('--ecrire');
+const argReseau = process.argv.indexOf('--reseau');
+const reseau = argReseau >= 0 ? process.argv[argReseau + 1] : (env.ROBINHOOD_RESEAU || 'testnet');
+const nouvelles_ = process.argv.includes('--nouvelles');
+const ecrire = process.argv.includes('--ecrire') && !nouvelles_;
+if (nouvelles_ && argReseau < 0) { console.error('--nouvelles demande --reseau <nom> : on ne regenere pas la tresorerie du reseau courant par accident'); process.exit(1); }
 
 const nouvelles = {};
 const wallets = {};
 
 function evm(nomEnv, role) {
-  let secrete = env[nomEnv];
+  let secrete = nouvelles_ ? null : env[nomEnv];
   let w;
   if (secrete && /^0x[0-9a-fA-F]{64}$/.test(secrete)) {
     w = new Wallet(secrete);
@@ -69,6 +77,7 @@ evm('FRAIS_CLE', 'Frais : recoit le rake (10 % en moyenne) de chaque partie, sur
 evm('POOL_CLE', 'Pool : la liquidite BG/USDC. Recoit le milliard de BG ; les frais y achetent des BG, qui sont brules.');
 
 {
+  // La cle du serveur de jeu ne detient rien : elle reste la meme d'un reseau a l'autre.
   let secrete = env.SERVEUR_CLE;
   let publique;
   if (secrete) publique = publiqueDe(secrete);
@@ -98,6 +107,11 @@ for (const [nom, w] of Object.entries(wallets)) {
   console.log(`           ${w.role}`);
 }
 console.log(`\n  Note complete (avec les secrets) : ${path.relative(RACINE, fichier)}`);
+if (nouvelles_) {
+  console.log(`\n  Tresorerie ${reseau} NEUVE, notee dans ${path.relative(RACINE, fichier)} seulement. Le .env n'a pas bouge :`);
+  console.log(`  au jour du passage, recopier CAISSE_CLE, FRAIS_CLE, POOL_CLE depuis ce fichier (README, « Passer en mainnet »).\n`);
+  process.exit(0);
+}
 
 const manquantes = Object.entries(nouvelles);
 if (manquantes.length) {

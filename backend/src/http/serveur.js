@@ -169,6 +169,8 @@ export function creerServeur(db, { chaine = null } = {}) {
         chaine: {
           ...RESEAUX[config.reseau], rpc: config.rpc, chainId: config.chainId,
           usdc: config.usdcAdresse, bg: config.bgAdresse,
+          // Le nom du dollar dans lequel on mise : USDC sur le testnet (le notre), USDG sur mainnet.
+          stable: config.stableSymbole,
           robinet: config.reseau !== 'mainnet' && Boolean(config.usdcAdresse) && config.robinetMicros > 0,
           robinetMicros: config.robinetMicros,
           /*
@@ -390,7 +392,7 @@ export function creerServeur(db, { chaine = null } = {}) {
     },
 
     'GET /sante': async () => ({
-      ok: true, reseau: config.reseau, chainId: config.chainId, chaine: chaine ? (chaine.reelle ? 'reelle' : 'factice') : 'absente',
+      ok: true, reseau: config.reseau, chainId: config.chainId, stable: config.stableSymbole, chaine: chaine ? (chaine.reelle ? 'reelle' : 'factice') : 'absente',
       serveurDeJeu: Boolean(config.serveurPublique), jeton: Boolean(config.bgAdresse), lot: Boolean(config.lotAdresse),
       caisse: tresorerie.adresses().caisse,
     }),
@@ -398,7 +400,7 @@ export function creerServeur(db, { chaine = null } = {}) {
     // ------------------------------------------------------------ le serveur de jeu
 
     /** Le serveur de jeu verifie au demarrage que sa cle est bien celle qu'on attend. */
-    'POST /interne/ping': interne('ping', async () => ({ ok: true, reseau: config.reseau })),
+    'POST /interne/ping': interne('ping', async () => ({ ok: true, reseau: config.reseau, chainId: config.chainId, stable: config.stableSymbole })),
 
     /** Les soldes de plusieurs joueurs : pour refuser une file a qui ne peut pas la payer. */
     'POST /interne/soldes': interne('soldes', async ({ userIds }) => {

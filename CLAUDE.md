@@ -293,6 +293,26 @@ par `GET /moi` : une seule source, sinon le jeu et le wallet du joueur finissent
 chaînes. **Aucune trace de Solana ne doit revenir** : pas de base58 d'adresse, pas de
 Phantom, pas de « devnet » — le testnet s'appelle testnet.
 
+**LE MAINNET SE PRÉPARE DANS LE CODE, MAIS SE BASCULE À LA MAIN (7 septembre 2026).** Le
+directeur produit a demandé le passage en mainnet ; le code est prêt et le basculement
+suit `backend/README.md` « Passer en mainnet », dans l'ordre, avec trois gestes humains
+(ETH sur la caisse mainnet, USDG sur le pool, USDG aux joueurs d'essai) et une
+confirmation explicite (`JE_CONFIRME_MAINNET=oui`). **Le dollar du mainnet est l'USDG de
+Paxos** (`0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, « Global Dollar »), pas l'USDC : il
+implémente EIP-3009 (vérifié sur le contrat : même typehash que le nôtre) mais n'a pas de
+`version()` — `chaine.js:domaineDe` retrouve `{ name: "Global Dollar", version: "1" }` en
+recalculant `DOMAIN_SEPARATOR`. **Le jeu est écrit « USDC » et se renomme tout seul** :
+`STABLE_SYMBOLE` (USDG sur mainnet par défaut) voyage par `/interne/ping` → `/etat` →
+`devise.js`, qui renomme chaque nœud de texte qui dit USDC, présents et à venir
+(MutationObserver) — un mécanisme plutôt que deux cents littéraux dans des fichiers que
+plusieurs mains éditent ; il ne fait rien tant que le nom est USDC. **Une trésorerie
+mainnet NEUVE** est notée dans `backend/wallets/mainnet.json` (`tresorerie.mjs --reseau
+mainnet --nouvelles`), le `.env` n'a pas bougé : les clés du testnet ne servent jamais sur
+mainnet. Le backend REFUSE de démarrer sur mainnet avec une clé de test, une origine `*`
+ou un RPC inconnu ; `deployer.sh` refuse sans confirmation ; `purger.mjs` refuse tout
+court. Ce que le passage ne règle pas — juridique, géo-restriction, KMS, DEX pour BG —
+reste en bas de `backend/README.md`, et aucun code ne le tranche.
+
 **Le navigateur ne parle pas de partie au backend.** C'est le SERVEUR DE JEU qui fait
 engager les mises avant le départ et régler le classement à la fin, par des messages
 **signés Ed25519** (`serveur/src/argent.js` → `backend /interne/…`). Le backend ne croit

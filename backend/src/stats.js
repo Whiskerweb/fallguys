@@ -82,7 +82,7 @@ export async function statistiques(db, chaine) {
   cache = {
     reseau: config.reseau,
     // `chaine`, plus bas, compte les transactions : le reseau porte un autre nom, sinon l'un ecrase l'autre.
-    reseauDetail: { nom: RESEAUX[config.reseau]?.nom ?? config.reseau, chainId: config.chainId, explorateur: RESEAUX[config.reseau]?.explorateur ?? null },
+    reseauDetail: { nom: RESEAUX[config.reseau]?.nom ?? config.reseau, chainId: config.chainId, explorateur: RESEAUX[config.reseau]?.explorateur ?? null, stable: config.stableSymbole },
     a: new Date().toISOString(),
     contrats: { usdc: config.usdcAdresse ?? null, bg: config.bgAdresse ?? null, lot: config.lotAdresse ?? null },
     adresses,

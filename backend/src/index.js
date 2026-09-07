@@ -70,13 +70,32 @@ try {
   const codes = await Promise.all([config.usdcAdresse, config.lotAdresse, config.bgAdresse].map((a) => (a ? co.getCode(a) : Promise.resolve('0x'))));
   contratsOk = { usdc: codes[0] !== '0x', lot: codes[1] !== '0x', bg: codes[2] !== '0x' };
 } catch { /* RPC muet */ }
-console.log(`grand livre equilibre · ${reseau.nom} (chainId ${config.chainId}) · USDC ${config.usdcAdresse} · BG ${config.bgAdresse ?? 'PAS ENCORE CREE'} · Lot ${config.lotAdresse}`);
+console.log(`grand livre equilibre · ${reseau.nom} (chainId ${config.chainId}) · ${config.stableSymbole} ${config.usdcAdresse} · BG ${config.bgAdresse ?? 'PAS ENCORE CREE'} · Lot ${config.lotAdresse}`);
 console.log(`  caisse ${adresses.caisse} · ${ethCaisse === null ? 'ETH inconnu (RPC muet)' : `${ethCaisse.toFixed(5)} ETH`}`);
 console.log(`  frais  ${adresses.frais}`);
 console.log(`  pool   ${adresses.pool}`);
 if (contratsOk && (!contratsOk.usdc || !contratsOk.lot)) {
   console.error(`  CONTRAT ABSENT sur ${reseau.nom} : USDC ${contratsOk.usdc ? 'ok' : 'MANQUE'}, Lot ${contratsOk.lot ? 'ok' : 'MANQUE'} — lancez « node outils/contrats.mjs »`);
   process.exit(1);
+}
+/*
+ * MAINNET : de l'argent reel. On refuse de demarrer sur ce qui serait une faute, pas une
+ * imprudence : une origine ouverte a tout le web, les cles de test, ou un pool sans
+ * dollars (le brulage vendrait tout le BG pour un centime — il refuse, mais autant le
+ * savoir au demarrage). Chaque refus dit quoi faire.
+ */
+if (config.reseau === 'mainnet') {
+  const fautes = [];
+  if (!config.origine || config.origine === '*') fautes.push('ORIGINE_AUTORISEE vaut « * » : poser l\'adresse publiee du jeu');
+  const cleDeTest = (octet) => '0x' + Buffer.alloc(32, octet).toString('hex');
+  if ([1, 2, 3, 0x11, 0x22, 0x33].some((o) => [config.caisseCle, config.fraisCle, config.poolCle].includes(cleDeTest(o)))) fautes.push('une cle de TEST est en service : npm run tresorerie -- --nouvelles');
+  if (!/^https?:\/\/[^/]*alchemy|^https?:\/\/[^/]*robinhood\.com/.test(config.rpc)) fautes.push(`RPC inattendu pour mainnet : ${config.rpc}`);
+  if (fautes.length) { for (const f of fautes) console.error(`  MAINNET REFUSE : ${f}`); process.exit(1); }
+  try {
+    const pool = Number(await chaine.solde(adresses.pool, 'usdc'));
+    if (pool <= 0) console.warn(`  ATTENTION : le pool ${adresses.pool} n'a pas de ${config.stableSymbole} — le brulage attendra qu'il soit dote`);
+  } catch { /* RPC muet : deja dit */ }
+  console.log(`  MAINNET · dollar ${config.stableSymbole} · robinet ferme · USDC d'essai jamais deploye ici`);
 }
 if (ethCaisse !== null && ethCaisse < 0.002) {
   console.warn(`  ATTENTION : la caisse manque d'ETH pour payer le gaz.${reseau.faucet ? ` Testnet : ${reseau.faucet}` : ''}`);

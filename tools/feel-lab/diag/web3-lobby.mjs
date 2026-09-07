@@ -111,6 +111,8 @@ titre('4. La page de suivi, relayée par le serveur de jeu');
   const r = await fetch(`${BASE}/api/stats`);
   const s = await r.json();
   dit(r.ok && s.reseau === 'testnet' && s.reseauDetail?.chainId === 46630, `/api/stats répond : réseau ${s.reseau} (chainId ${s.reseauDetail?.chainId}), ${s.parties.reglees} parties, ${s.brulage.rachats} rachats`);
+  const etat = await (await fetch(`${BASE}/etat`)).json();
+  dit(etat.chaine?.stable === 'USDC' && etat.chaine?.reseau === 'testnet', `le serveur de jeu dit la chaîne au navigateur : ${etat.chaine?.reseau}, dollar ${etat.chaine?.stable}`);
   const p = await fetch(`${BASE}/api/suivi`);
   dit(p.ok && /Tumble · on-chain/.test(await p.text()), '/api/suivi sert la page de suivi');
 }

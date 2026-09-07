@@ -51,7 +51,7 @@
 
 import { randomUUID } from 'node:crypto';
 import {
-  JsonRpcProvider, Contract, Interface, AbiCoder, Signature, keccak256, toUtf8Bytes, getAddress, isAddress,
+  JsonRpcProvider, Contract, Interface, AbiCoder, Signature, TypedDataEncoder, keccak256, toUtf8Bytes, getAddress, isAddress,
 } from 'ethers';
 import { config } from '../config.js';
 import { tresorerie } from './tresorerie.js';
@@ -83,6 +83,7 @@ export class ChaineIncertaine extends Error {
 export const ABI_JETON = [
   'function name() view returns (string)',
   'function version() view returns (string)',
+  'function DOMAIN_SEPARATOR() view returns (bytes32)',
   'function decimals() view returns (uint8)',
   'function balanceOf(address) view returns (uint256)',
   'function totalSupply() view returns (uint256)',
@@ -134,16 +135,28 @@ export function jeton(quoi) {
 }
 
 /*
- * Le domaine EIP-712 d'un jeton se LIT sur le contrat (nom, version) : le notre repond
- * « 1 », l'USDC de Circle « 2 ». Signer avec un domaine devine donnerait une autorisation
- * que le contrat refuse, et l'erreur ne dirait pas pourquoi.
+ * Le domaine EIP-712 d'un jeton se LIT sur le contrat, et se VERIFIE : le nom vient de
+ * `name()`, la version de `version()` quand elle existe (le notre repond « 1 », l'USDC de
+ * Circle « 2 ») — mais l'USDG de Paxos n'a pas de `version()`. On calcule donc le
+ * separateur de domaine pour chaque version plausible et on garde celle qui redonne
+ * `DOMAIN_SEPARATOR()` tel que le contrat le publie. Signer avec un domaine devine
+ * donnerait une autorisation que le contrat refuse, et l'erreur ne dirait pas pourquoi.
  */
 const domaines = new Map();
 async function domaineDe(quoi) {
   if (domaines.has(quoi)) return domaines.get(quoi);
   const j = jeton(quoi);
-  const [name, version] = await Promise.all([j.name(), j.version().catch(() => '1')]);
-  const d = { name, version, chainId: config.chainId, verifyingContract: contratDe(quoi) };
+  const adresse = contratDe(quoi);
+  const [name, versionLue, separateur] = await Promise.all([
+    j.name(), j.version().catch(() => null), j.DOMAIN_SEPARATOR().catch(() => null),
+  ]);
+  const candidates = [versionLue, '1', '2', '3'].filter((v, i, t) => v && t.indexOf(v) === i);
+  let d = null;
+  for (const version of candidates) {
+    const essai = { name, version, chainId: config.chainId, verifyingContract: adresse };
+    if (!separateur || TypedDataEncoder.hashDomain(essai) === separateur) { d = essai; break; }
+  }
+  if (!d) throw new Error(`domaine EIP-712 de ${quoi} introuvable : aucune version ne redonne DOMAIN_SEPARATOR ${separateur}`);
   domaines.set(quoi, d);
   return d;
 }

@@ -11,6 +11,12 @@ cd "$(dirname "$0")/../.."
 [ -f .env ] || { echo ".env absent a la racine"; exit 1; }
 set -a; source .env; set +a
 
+# MAINNET : on ne deploie pas de l'argent reel par reflexe. Le passage suit le README du
+# backend (« Passer en mainnet ») et se confirme ici, a la main.
+if [ "${ROBINHOOD_RESEAU:-testnet}" = "mainnet" ] && [ "${JE_CONFIRME_MAINNET:-}" != "oui" ]; then
+  echo "ROBINHOOD_RESEAU=mainnet dans le .env : relancer avec JE_CONFIRME_MAINNET=oui apres avoir suivi backend/README.md « Passer en mainnet »."; exit 1
+fi
+
 BACKEND=tumble-bg-backend
 JEU=tumble-bg-jeu
 ORG="${FLY_ORG:-personal}"
@@ -31,7 +37,8 @@ creer "$JEU"
 echo "== secrets du backend"
 fly secrets set -a "$BACKEND" --stage \
   SUPABASE_URL="$SUPABASE_URL" SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" DATABASE_URL="$DATABASE_URL" \
-  ROBINHOOD_RPC="${ROBINHOOD_RPC:-}" LOT_ADRESSE="$LOT_ADRESSE" USDC_ADRESSE="$USDC_ADRESSE" BG_ADRESSE="$BG_ADRESSE" \
+  ROBINHOOD_RESEAU="${ROBINHOOD_RESEAU:-testnet}" ROBINHOOD_RPC="${ROBINHOOD_RPC:-}" STABLE_SYMBOLE="${STABLE_SYMBOLE:-}" \
+  LOT_ADRESSE="$LOT_ADRESSE" USDC_ADRESSE="$USDC_ADRESSE" BG_ADRESSE="$BG_ADRESSE" \
   CAISSE_CLE="$CAISSE_CLE" GRAINE_DEPOTS="$GRAINE_DEPOTS" FRAIS_CLE="$FRAIS_CLE" POOL_CLE="$POOL_CLE" \
   SERVEUR_PUBLIQUE="$SERVEUR_PUBLIQUE" ORIGINE_AUTORISEE="https://$DOMAINE" >/dev/null
 echo "== secrets du serveur de jeu"

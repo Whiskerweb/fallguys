@@ -35,6 +35,7 @@ import {
 } from './economie.js';
 import { portefeuille, caisse } from './caisse.js';
 import { jeton, surSession } from './compte.js';
+import { poserDevise, poserReseau } from './devise.js';
 import { evaluerPorte } from './porte.js';
 import { brancherEnLigne } from './enligne/brancher.js';
 import {
@@ -71,6 +72,9 @@ async function trouverServeur() {
     if (r.ok) {
       const etat = await r.json();
       if (etat && Array.isArray(etat.salons)) {
+        // Le serveur dit la chaîne et le nom du dollar (USDC sur le testnet, USDG sur
+        // mainnet) : l'interface se renomme AVANT d'afficher quoi que ce soit d'argent.
+        if (etat.chaine) { poserDevise(etat.chaine.stable); poserReseau(etat.chaine); }
         const protocole = location.protocol === 'https:' ? 'wss:' : 'ws:';
         return `${protocole}//${location.host}`;
       }
