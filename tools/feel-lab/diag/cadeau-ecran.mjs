@@ -146,8 +146,9 @@ dit(await visible('#depot-testnet') === false, 'pas de bloc testnet sur le mainn
 dit((await texte('#depot-wallet-etat')).startsWith('Wallet 0x1111'), `le wallet connu est nommé : ${await texte('#depot-wallet-etat')}`);
 const dixOn = await page.$eval('.dp-montant[data-usdg="10"]', (b) => b.classList.contains('on'));
 dit(dixOn, '10 USDG est proposé par défaut — la table du milieu');
-await page.waitForFunction(() => /PAY ≈/.test(document.getElementById('depot-go')?.textContent ?? ''), null, { timeout: 8000 });
-dit(await texte('#depot-go') === 'PAY ≈ 10.10 USDG → 10.00 USDG', `le bouton dit le devis USDG : ${await texte('#depot-go')}`);
+// L'USDG part tel quel, sans change : pas de devis, un simple depot.
+await page.waitForFunction(() => /^DEPOSIT 10\.00 USDG$/.test(document.getElementById('depot-go')?.textContent ?? ''), null, { timeout: 8000 });
+dit(await texte('#depot-go') === 'DEPOSIT 10.00 USDG', `l'USDG part sans change : ${await texte('#depot-go')}`);
 await page.click('.dp-jeton[data-jeton="eth"]');
 await page.waitForFunction(() => /ETH →/.test(document.getElementById('depot-go')?.textContent ?? ''), null, { timeout: 8000 });
 dit(await texte('#depot-go') === 'PAY ≈ 0.0030 ETH → 10.00 USDG', `et le devis ETH, lu sur le routeur : ${await texte('#depot-go')}`);
