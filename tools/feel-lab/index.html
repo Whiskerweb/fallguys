@@ -99,6 +99,17 @@
   #solde img { width:30px; height:30px; object-fit:contain; display:block; }
   #solde small { font-size:11px; font-weight:900; letter-spacing:1.4px; color:rgba(160,205,255,.8); }
   #solde img.rh { width:12px; height:auto; margin-left:2px; opacity:.95; }
+  /* Le petit rafraîchissement, à gauche du solde : il relève les dépôts et relit la
+     balance (demande du directeur produit, 7 septembre 2026). Il tourne tant qu'on lit. */
+  #solde-relever { flex:none; width:28px; height:28px; padding:0; border:none; border-radius:50%; cursor:pointer;
+    display:grid; place-items:center; background:rgba(49,199,240,.16); color:var(--cyan);
+    box-shadow:inset 0 0 0 2px rgba(49,199,240,.35); transition:background .12s, transform .08s; }
+  #solde-relever:hover { background:rgba(49,199,240,.3); }
+  #solde-relever:active { transform:scale(.92); }
+  #solde-relever svg { width:15px; height:15px; display:block; }
+  #solde-relever.tourne svg { animation:tourner .9s linear infinite; }
+  #solde-relever.hidden { display:none; }
+  @keyframes tourner { to { transform:rotate(360deg); } }
   #solde.court { background:rgba(255,80,110,.16); box-shadow:inset 0 0 0 2px rgba(255,110,140,.4); }
   #recharger {
     margin-left:4px; height:30px; padding:0 12px; border:none; border-radius:9px; cursor:pointer;
@@ -1738,6 +1749,9 @@
     </button>
     <div class="spacer"></div>
     <div id="solde" title="Spendable balance">
+      <button id="solde-relever" class="hidden" title="Check deposits and refresh your balance" aria-label="Refresh balance">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg>
+      </button>
       <img src="/icons/icon-usdg.png" alt="">
       <span id="balance">—</span><small>USDG</small><!-- rempli par majBarre() : un chiffre en dur ici serait un solde inventé -->
       <img class="rh" src="/icons/robinhood-plume-vert.png" alt="" title="USDG on Robinhood Chain">

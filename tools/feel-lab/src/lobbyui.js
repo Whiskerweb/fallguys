@@ -108,6 +108,8 @@ export function majBarre() {
    *   - sur un BANC (serveur sans backend, harnais) : TOP UP, la dotation imaginaire,
    *     seulement quand elle est épuisée. Un serveur de production ne montre jamais ça.
    */
+  // Le rafraîchissement n'a de sens que connecté : sans backend, rien à relever.
+  el('solde-relever')?.classList.toggle('hidden', !caisse.enLigne);
   const bouton = el('recharger');
   if (caisse.banc && !caisse.enLigne) {
     bouton.classList.toggle('hidden', !portefeuille.bloque);
@@ -194,6 +196,28 @@ export function buildTicket(onJouer) {
     if (caisse.banc && !caisse.enLigne) { portefeuille.recharger(); return; }
     if (!caisse.enLigne) { el('btn-compte')?.click(); return; }
     ouvrirPortefeuille();
+  });
+
+  /*
+   * LE PETIT RAFRAÎCHISSEMENT, à gauche du solde : il demande au backend de relever les
+   * dépôts arrivés sur le wallet de jeu, puis relit la balance. Le tour de fond du backend
+   * le fait toutes les quinze secondes de lui-même ; le bouton est là pour celui qui vient
+   * d'envoyer et regarde sa barre. Il tourne pendant la lecture, et un seul clic à la fois.
+   */
+  const relever = el('solde-relever');
+  relever?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (relever.classList.contains('tourne') || !caisse.enLigne) return;
+    sfx.click();
+    relever.classList.add('tourne');
+    try {
+      const r = await caisse.releverDepots();
+      await caisse.rafraichir();
+      majBarre();   // le ticket, lui, se repeint par `prevenir()` : la caisse a bouge.
+      if (r?.nouveaux?.some((d) => !d.deja)) sfx.checkpoint?.();
+    } catch { /* la barre garde le dernier solde connu */ } finally {
+      relever.classList.remove('tourne');
+    }
   });
 
   // Un seul chemin de rafraichissement : toute variation de solde, d'XP ou de mise
