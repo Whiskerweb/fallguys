@@ -33,7 +33,6 @@ const RPC = 'https://rpc.factice.test/';
 const ADRESSE = '0x1111111111111111111111111111111111111111';
 const DEPOT = '0x2222222222222222222222222222222222222222';
 const USDG = '0x3333333333333333333333333333333333333333';
-const USDG = '0x4444444444444444444444444444444444444444';
 const WETH = '0x5555555555555555555555555555555555555555';
 const ROUTEUR = '0x6666666666666666666666666666666666666666';
 
@@ -67,7 +66,7 @@ await page.addInitScript(({ adresse }) => {
   };
 }, { adresse: ADRESSE });
 
-// Le RPC factice : des soldes connus, et un routeur qui cote 1 USDG = 0.0003 ETH = 1.01 USDG.
+// Le RPC factice : des soldes connus, et un routeur qui cote 1 USDG = 0.0003 ETH.
 const hex32 = (n) => '0x' + BigInt(n).toString(16).padStart(64, '0');
 await page.route(`${RPC}**`, async (route) => {
   const { id, method, params } = route.request().postDataJSON();
@@ -139,7 +138,7 @@ const profilMainnet = {
 await page.evaluate((p) => window.__probeDepot.ouvrir({ raison: 'wallet', profil: p }), profilMainnet);
 await page.waitForFunction(() => /You have/.test(document.querySelector('.dp-jeton[data-jeton="usdg"] .dp-jeton-solde')?.textContent ?? ''), null, { timeout: 8000 });
 const jetons = await page.$$eval('.dp-jeton', (bs) => bs.map((b) => ({ id: b.dataset.jeton, off: b.disabled, on: b.classList.contains('on'), solde: b.querySelector('.dp-jeton-solde').textContent })));
-dit(jetons.length === 3 && jetons.every((j) => !j.off), `trois chemins ouverts : ${jetons.map((j) => j.id).join(' / ')}`);
+dit(jetons.length === 2 && jetons.every((j) => !j.off), `deux chemins ouverts, USDG direct ou ETH change : ${jetons.map((j) => j.id).join(' / ')}`);
 dit(jetons.find((j) => j.id === 'usdg').solde === 'You have 12.40 USDG', `le solde USDG du wallet est lu sur la chaîne : ${jetons.find((j) => j.id === 'usdg').solde}`);
 dit(jetons.find((j) => j.id === 'eth').solde === 'You have 2.0000 ETH', `et l'ETH : ${jetons.find((j) => j.id === 'eth').solde}`);
 dit(jetons.find((j) => j.id === 'usdg').on, 'l\'USDG est pré-choisi : c\'est ce qu\'il a le plus (50 > 12.40)');
