@@ -84,7 +84,9 @@ titre('3. Le panneau WALLET : dépôt, retrait, historique');
   const noteDepot = await page.$eval('#wallet-depot-note', (e) => e.textContent);
   dit(/Robinhood Chain/.test(noteDepot) && /Minimum/.test(noteDepot), `la note dit le réseau et le minimum : « ${noteDepot.slice(0, 60)}… »`);
   const robinet = await page.$eval('#wallet-robinet', (e) => ({ cache: e.classList.contains('hidden'), texte: e.textContent }));
-  dit(!robinet.cache && /TEST USDG/.test(robinet.texte), `le robinet d'essai est offert sur le testnet : « ${robinet.texte} »`);
+  // Sur le testnet, le robinet est offert ; sur mainnet, il n'existe pas — et le panneau le sait.
+  const mainnet = (await (await fetch(`${BASE}/etat`)).json()).chaine?.reseau === 'mainnet';
+  dit(mainnet ? robinet.cache : (!robinet.cache && /TEST USDG/.test(robinet.texte)), mainnet ? 'pas de robinet sur mainnet' : `le robinet d'essai est offert sur le testnet : « ${robinet.texte} »`);
   const deposer = await page.$eval('#wallet-deposer', (e) => e.textContent);
   dit(/DEPOSIT FROM WALLET/.test(deposer), 'et le dépôt direct depuis le wallet du joueur est proposé');
   const lie = await page.$eval('#wallet-lie', (e) => e.textContent);
@@ -110,9 +112,10 @@ titre('4. La page de suivi, relayée par le serveur de jeu');
 {
   const r = await fetch(`${BASE}/api/stats`);
   const s = await r.json();
-  dit(r.ok && s.reseau === 'testnet' && s.reseauDetail?.chainId === 46630, `/api/stats répond : réseau ${s.reseau} (chainId ${s.reseauDetail?.chainId}), ${s.parties.reglees} parties, ${s.brulage.rachats} rachats`);
+  const ATTENDU = { testnet: 46630, mainnet: 4663 };
+  dit(r.ok && ATTENDU[s.reseau] === s.reseauDetail?.chainId, `/api/stats répond : réseau ${s.reseau} (chainId ${s.reseauDetail?.chainId}), ${s.parties.reglees} parties, ${s.brulage.rachats} rachats`);
   const etat = await (await fetch(`${BASE}/etat`)).json();
-  dit(etat.chaine?.stable === 'USDG' && etat.chaine?.reseau === 'testnet', `le serveur de jeu dit la chaîne au navigateur : ${etat.chaine?.reseau}, dollar ${etat.chaine?.stable}`);
+  dit(etat.chaine?.stable === 'USDG' && etat.chaine?.reseau === s.reseau, `le serveur de jeu dit la chaîne au navigateur : ${etat.chaine?.reseau}, dollar ${etat.chaine?.stable}`);
   const p = await fetch(`${BASE}/api/suivi`);
   dit(p.ok && /Tumble · on-chain/.test(await p.text()), '/api/suivi sert la page de suivi');
 }

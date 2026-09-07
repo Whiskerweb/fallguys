@@ -274,6 +274,10 @@ typehash que le nôtre, `authorizationState`), sans `version()` — son domaine 
 `DOMAIN_SEPARATOR`. Le jeu s'écrit « USDG » ; sur mainnet il se renomme « USDG » partout
 (`STABLE_SYMBOLE`, servi par `/moi`, `/etat` et `/stats`, appliqué par `devise.js`).
 
+**Fait le 7 septembre 2026** : le jeu est sur mainnet. Lot `0xA1724C07577ec9a36aa05d7e05372AD194C617CD`,
+dollar USDG, pas de BG (le jeton se crée sur PONS ; `BG_ADRESSE` et le routeur du marché
+viendront après, et le brûlage avec). Les étapes, pour mémoire et pour la prochaine fois :
+
 Dans l'ordre, et rien ne se saute :
 
 1. **Une trésorerie NEUVE.** `node outils/tresorerie.mjs --reseau mainnet --nouvelles` écrit

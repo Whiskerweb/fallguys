@@ -293,9 +293,14 @@ par `GET /moi` : une seule source, sinon le jeu et le wallet du joueur finissent
 chaînes. **Aucune trace de Solana ne doit revenir** : pas de base58 d'adresse, pas de
 Phantom, pas de « devnet » — le testnet s'appelle testnet.
 
-**LE MAINNET SE PRÉPARE DANS LE CODE, MAIS SE BASCULE À LA MAIN (7 septembre 2026).** Le
-directeur produit a demandé le passage en mainnet ; le code est prêt et le basculement
-suit `backend/README.md` « Passer en mainnet », dans l'ordre, avec trois gestes humains
+**LE JEU EST SUR ROBINHOOD CHAIN MAINNET DEPUIS LE 7 SEPTEMBRE 2026** (Lot
+`0xA1724C07577ec9a36aa05d7e05372AD194C617CD`, caisse `0x70D8…2353`, `wallets/mainnet.json`).
+De l'argent réel, donc : la sauvegarde du `.env` testnet est `.env.testnet.sauvegarde`, et
+toute vérification qui signe se fait sur anvil (`npm run cycle:local`), jamais « pour
+voir » sur le mainnet. **Pas de jeton BG déployé par nous** : il se crée sur PONS ;
+tant que `BG_ADRESSE` est vide, `BRULAGE=0`, les frais s'accumulent en USDG sur FRAIS,
+et le rachat passera par le marché de PONS (routeur à brancher) — pas par notre pool, qui
+reste vide. Le basculement a suivi `backend/README.md` « Passer en mainnet », dans l'ordre, avec trois gestes humains
 (ETH sur la caisse mainnet, USDG sur le pool, USDG aux joueurs d'essai) et une
 confirmation explicite (`JE_CONFIRME_MAINNET=oui`). **Le dollar du mainnet est l'USDG de
 Paxos** (`0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, « Global Dollar »), pas l'USDG : il

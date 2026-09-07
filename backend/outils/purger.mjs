@@ -15,7 +15,7 @@ if (config.reseau === 'mainnet') { console.error('purger : JAMAIS sur mainnet.')
 const { creerPool } = await import('../src/pool.js');
 const { enrober } = await import('../src/base.js');
 const db = enrober(creerPool());
-const tables = ['burns', 'chain_tx', 'chain_curseur', 'withdrawals', 'deposits', 'matches', 'ledger_entries', 'ledger_tx'];
+const tables = ['burns', 'purchases', 'chain_tx', 'chain_curseur', 'withdrawals', 'deposits', 'matches', 'ledger_entries', 'ledger_tx'];
 for (const t of tables) {
   const n = (await db.query(`select count(*)::int as n from public.${t}`)).rows[0].n;
   console.log(`  ${t.padEnd(16)} ${n} ligne(s)`);
