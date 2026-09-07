@@ -17,3 +17,7 @@ const adresseDeTest = (octet) => '0x' + Buffer.alloc(20, octet).toString('hex');
 process.env.USDG_ADRESSE ??= adresseDeTest(0xaa);
 process.env.BG_ADRESSE ??= adresseDeTest(0xbb);
 process.env.LOT_ADRESSE ??= adresseDeTest(0xcc);
+// Le delai avant le premier retrait vaut ZERO en production depuis le 7 septembre 2026 ;
+// les tests le posent a 24 h pour prouver que le MECANISME tient encore, le jour ou on le
+// rallume.
+process.env.DELAI_PREMIER_RETRAIT_HEURES ??= '24';
