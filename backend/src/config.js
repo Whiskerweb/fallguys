@@ -164,14 +164,14 @@ export const config = {
 
   // ---- reglages economiques ----
   /**
-   * Depot minimum ANNONCE : 20 USDG.
+   * Depot minimum ANNONCE : 5 USDG (directeur produit, 7 septembre 2026 ; 20 avant).
    *
    * Annonce, et non impose. On ne peut pas refuser un virement deja arrive sur la chaine :
    * les seules options seraient de le garder (c'est du vol) ou de le renvoyer (ce qui
    * coute des frais et peut echouer). Un depot plus petit est donc CREDITE quand meme ;
    * le minimum vit dans l'interface, la ou il sert a orienter le joueur.
    */
-  depotMinimum: Number(lire('DEPOT_MINIMUM_MICROS', String(20 * MICROS))),
+  depotMinimum: Number(lire('DEPOT_MINIMUM_MICROS', String(5 * MICROS))),
 
   /**
    * Retrait minimum, et delai sur le premier retrait d'un compte.
