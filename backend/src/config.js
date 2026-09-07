@@ -182,7 +182,12 @@ export const config = {
    * grand a l'inscription, ce qui est exactement ce qu'on veut pour l'acquisition.
    */
   retraitMinimum: Number(lire('RETRAIT_MINIMUM_MICROS', String(25 * MICROS))),
-  delaiPremierRetraitHeures: Number(lire('DELAI_PREMIER_RETRAIT_HEURES', '24')),
+  /*
+   * ZERO depuis le 7 septembre 2026 : le directeur produit a retire l'attente avant le
+   * premier retrait. Le mecanisme reste (une variable), la doctrine anti-bot de la spec
+   * ne tient plus que par le minimum de retrait.
+   */
+  delaiPremierRetraitHeures: Number(lire('DELAI_PREMIER_RETRAIT_HEURES', '0')),
 
   // ---- serveur ----
   port: Number(lire('PORT', '8787')),
