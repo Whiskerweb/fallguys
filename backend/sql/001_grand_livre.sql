@@ -11,7 +11,7 @@
 --  alors en une requete — `select sum(amount_micros) from ledger_entries` doit
 --  valoir 0 — et n'importe qui peut la lancer sans rien connaitre du code.
 --
---  Tous les montants sont en MICRO-UNITES ENTIERES (1 USDC = 1 000 000), en
+--  Tous les montants sont en MICRO-UNITES ENTIERES (1 USDG = 1 000 000), en
 --  `bigint`. Jamais `numeric`, jamais de flottant : c'est le meme type et la
 --  meme echelle que `Money.Micros` dans src/Fallguys.Rules, pour qu'aucune
 --  conversion n'intervienne entre le calcul du gain et son paiement.
@@ -35,7 +35,7 @@ create table if not exists public.profiles (
   -- La cle privee n'est jamais stockee : elle est re-derivable a la demande.
   adresse_depot     text unique not null,
 
-  -- Le robinet d'USDC d'essai (testnet) : une fois par heure et par joueur.
+  -- Le robinet d'USDG d'essai (testnet) : une fois par heure et par joueur.
   dernier_robinet_le timestamptz,
 
   -- Verrou anti-bot : la friction est a la SORTIE, pas a l'entree (spec section 2).

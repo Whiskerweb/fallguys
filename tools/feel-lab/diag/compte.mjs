@@ -11,7 +11,7 @@
  *     VRAI serveur d'authentification doit remonter un message lisible. C'est le seul
  *     verdict qui prouve que le client parle bien a Supabase — le reste ne teste que du DOM.
  *
- * Dans les deux cas, le portefeuille local de 25,00 USDC reste affiche : personne n'est
+ * Dans les deux cas, le portefeuille local de 25,00 USDG reste affiche : personne n'est
  * connecte, donc rien ne vient du grand livre.
  *
  * Lancer depuis tools/feel-lab, serveur actif :
@@ -103,7 +103,7 @@ if (!configure) {
 
 // Dans les deux modes : personne n'est connecte, donc le solde vient du prototype local.
 const solde = await page.evaluate(() => document.getElementById('balance').textContent);
-dit(solde === '25.00', `le portefeuille local est intact : ${solde} USDC`);
+dit(solde === '25.00', `le portefeuille local est intact : ${solde} USDG`);
 
 // Et le jeu doit rester jouable — c'est la propriete qu'on protege depuis le debut.
 const jouable = await page.evaluate(() => {

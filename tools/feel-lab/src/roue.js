@@ -3,7 +3,7 @@
  *
  * Ce module ne CALCULE rien. Il dessine ce que `economie.js` a déjà décidé : il consomme
  * `roueDe(mode, rang, mise)`, qui rend les DIX cases du rang du joueur — une par ligne du
- * tableau des issues, avec son gain en micro-USDC, son XP quand il n'y a pas d'argent, et
+ * tableau des issues, avec son gain en micro-USDG, son XP quand il n'y a pas d'argent, et
  * son POIDS. Aucun montant n'est recalculé ici, et il ne doit jamais l'être : le jour où
  * ce fichier ferait sa propre arithmétique, l'écran de fin cesserait d'annoncer ce que le
  * grand livre paie, et rien ne le signalerait.

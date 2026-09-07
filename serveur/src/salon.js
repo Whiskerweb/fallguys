@@ -39,7 +39,7 @@ export const MELANGE = ['fort', 'moyen', 'moyen', 'faible'];
  * @param {object} p
  * @param {string|object} [p.politique] nom d'une politique, ou la politique elle-même
  * @param {string} [p.mode] `duel` | `squad` | `arena`
- * @param {number} [p.mise] mise en micro-USDC. Non nulle = aucun bot, quoi qu'il arrive.
+ * @param {number} [p.mise] mise en micro-USDG. Non nulle = aucun bot, quoi qu'il arrive.
  * @param {number} [p.graine]
  * @param {() => number} [p.horloge] source de temps, en millisecondes
  */

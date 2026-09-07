@@ -6,19 +6,19 @@
  * nombres : le lobby annonce, ce fichier paie. Un ecart entre les deux serait un mensonge
  * affiche a l'ecran dans un jeu ou l'on engage de l'argent reel.
  *
- * 1 USDC = 1 000 000 micros. JAMAIS de flottant. 0,1 + 0,2 ne fait pas 0,3 en binaire, et
- * un centieme d'USDC perdu par arrondi a chaque partie est un bug comptable qu'on ne
+ * 1 USDG = 1 000 000 micros. JAMAIS de flottant. 0,1 + 0,2 ne fait pas 0,3 en binaire, et
+ * un centieme d'USDG perdu par arrondi a chaque partie est un bug comptable qu'on ne
  * retrouve plus six mois plus tard.
  */
 
 export const MICROS = 1_000_000;
 
 /**
- * Borne de securite des entiers JavaScript, en micro-USDC : environ 9 milliards d'USDC.
+ * Borne de securite des entiers JavaScript, en micro-USDG : environ 9 milliards d'USDG.
  *
  * Postgres stocke des `bigint` (jusqu'a 9,2 x 10^18) ; JavaScript ne represente
  * exactement que jusqu'a 2^53 - 1. L'ecart entre les deux est un endroit ou un nombre
- * peut changer de valeur en silence. On ne l'atteindra jamais avec des mises a 1 USDC,
+ * peut changer de valeur en silence. On ne l'atteindra jamais avec des mises a 1 USDG,
  * mais « on ne l'atteindra jamais » est precisement ce qu'on dit avant de l'atteindre :
  * chaque montant qui traverse cette frontiere est donc verifie.
  */
@@ -43,10 +43,10 @@ export function micros(valeur, quoi = 'montant') {
   return n;
 }
 
-/** Convertit des USDC en micros. N'accepte que ce qui tombe juste au micro pres. */
-export function depuisUsdc(usdc) {
-  const n = Math.round(Number(usdc) * MICROS);
-  if (!Number.isFinite(n)) throw new Error(`montant USDC invalide : ${usdc}`);
+/** Convertit des USDG en micros. N'accepte que ce qui tombe juste au micro pres. */
+export function depuisUsdg(usdg) {
+  const n = Math.round(Number(usdg) * MICROS);
+  if (!Number.isFinite(n)) throw new Error(`montant USDG invalide : ${usdg}`);
   return n;
 }
 

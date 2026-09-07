@@ -5,7 +5,7 @@
  * Ce qu'il tient, et pourquoi chacun compte :
  *
  *   - la boutique a QUATRE articles : BabyTrump contre un post, trois skins contre des
- *     USDC entre 10 et 15. Pepe, le personnage de départ, n'y est pas : on l'a en arrivant ;
+ *     USDG entre 10 et 15. Pepe, le personnage de départ, n'y est pas : on l'a en arrivant ;
  *   - les PRIX du navigateur sont ceux du backend, mot pour mot. Le backend encaisse, le
  *     navigateur affiche : deux catalogues qui divergent feraient payer un prix et en
  *     annoncer un autre ;
@@ -54,7 +54,7 @@ dit(B.ARTICLES[0].id === 'char-babytrump' && B.ARTICLES[0].condition === 'post' 
   'BabyTrump en tete, contre un post, sans prix');
 const payants = B.ARTICLES.filter((a) => a.condition === 'achat');
 dit(payants.length === 3 && payants.every((a) => a.prixMicros >= 10_000_000 && a.prixMicros <= 15_000_000),
-  `trois skins payants entre 10 et 15 USDC : ${payants.map((a) => `${a.id} ${a.prix}`).join(', ')}`);
+  `trois skins payants entre 10 et 15 USDG : ${payants.map((a) => `${a.id} ${a.prix}`).join(', ')}`);
 dit(String(B.PAYANTS) === 'char-techtitan,char-diplomate,char-captainleeky', `les payants, pour le serveur : ${B.PAYANTS.join(', ')}`);
 // LE CADEAU DE BIENVENUE (5 septembre 2026) : BabyVlad ne se vend pas, il s'ouvre.
 dit(B.CADEAU === 'char-tinytrader' && B.articleDe(B.CADEAU)?.condition === 'cadeau' && B.articleDe(B.CADEAU)?.prix === 'GIFT',
@@ -81,7 +81,7 @@ console.log('\n\x1b[1mLes prix sont ceux du backend\x1b[0m');
 
 console.log('\n\x1b[1mLe verrou retient, il n\'autorise pas\x1b[0m');
 dit(B.estDebloque('char-babytrump') === false, 'BabyTrump : verrouille au premier lancement');
-for (const id of B.PAYANTS) dit(B.estDebloque(id) === false, `${id} : verrouille, il coute des USDC`);
+for (const id of B.PAYANTS) dit(B.estDebloque(id) === false, `${id} : verrouille, il coute des USDG`);
 dit(B.estDebloque('char-grenouille') === true, 'Pepe : libre, il n\'a jamais ete en boutique');
 dit(B.estDebloque('char-inconnu-relaye-par-le-serveur') === true,
   'un identifiant inconnu passe : le verrou porte sur ce que J\'EQUIPE, pas sur ce qu\'un adversaire affiche');

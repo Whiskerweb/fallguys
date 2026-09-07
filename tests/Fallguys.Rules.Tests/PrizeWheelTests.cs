@@ -30,7 +30,7 @@ public class PrizeWheelTests
         {
             Assert.Equal(10, PrizeWheel.For(mode).Count);
             for (var r = 1; r <= mode.PlayerCount; r++)
-                Assert.Equal(10, PrizeWheel.WheelFor(mode, r, StakeContext.Usdc(StakeTier.Micro, 2m)).Count);
+                Assert.Equal(10, PrizeWheel.WheelFor(mode, r, StakeContext.Usdg(StakeTier.Micro, 2m)).Count);
         }
     }
 
@@ -85,7 +85,7 @@ public class PrizeWheelTests
     [Fact]
     public void STANDARD_en_arene_reproduit_la_table_de_reference()
     {
-        var t = PrizeWheel.PayoutFor(MatchMode.Arena, "standard", StakeContext.Usdc(StakeTier.Micro, 1m));
+        var t = PrizeWheel.PayoutFor(MatchMode.Arena, "standard", StakeContext.Usdg(StakeTier.Micro, 1m));
 
         Assert.Equal(Money.FromUnits(16m), t.Pot);
         Assert.Equal(Money.FromUnits(1.60m), t.Rake);
@@ -99,7 +99,7 @@ public class PrizeWheelTests
     }
 
     /// <summary>
-    /// Les dix lignes d'arène à 2 USDC : les quatre premiers, le rake de la ligne, et le
+    /// Les dix lignes d'arène à 2 USDG : les quatre premiers, le rake de la ligne, et le
     /// bronze à qui la mise est rendue (0 = personne). Montants posés à la main.
     /// </summary>
     [Theory]
@@ -113,9 +113,9 @@ public class PrizeWheelTests
     [InlineData("couronne",  12.50, 2.80, 2.30, 2.00, 2.40, 14)]
     [InlineData("royale",    13.10, 2.60, 2.20, 2.20, 1.90, 16)]
     [InlineData("jackpot",   15.80, 2.20, 2.00, 2.00, 2.00,  0)]
-    public void Les_dix_lignes_d_arene_a_2_USDC(string id, decimal p1, decimal p2, decimal p3, decimal p4, decimal rake, int rembourse)
+    public void Les_dix_lignes_d_arene_a_2_USDG(string id, decimal p1, decimal p2, decimal p3, decimal p4, decimal rake, int rembourse)
     {
-        var t = PrizeWheel.PayoutFor(MatchMode.Arena, id, StakeContext.Usdc(StakeTier.Micro, 2m));
+        var t = PrizeWheel.PayoutFor(MatchMode.Arena, id, StakeContext.Usdg(StakeTier.Micro, 2m));
 
         Assert.Equal(Money.FromUnits(32m), t.Pot);
         Assert.Equal(Money.FromUnits(rake), t.Rake);
@@ -129,7 +129,7 @@ public class PrizeWheelTests
         Assert.Equal(t.Pot, t.TotalDistributed + t.Rake);
     }
 
-    /// <summary>Les dix lignes de squad à 5 USDC. Deux places payées, dix montants distincts chacune.</summary>
+    /// <summary>Les dix lignes de squad à 5 USDG. Deux places payées, dix montants distincts chacune.</summary>
     [Theory]
     [InlineData("plat",       7.50, 6.00, 0.00, 3.25)]
     [InlineData("doux",       8.25, 5.25, 3.25, 0.00)]
@@ -141,9 +141,9 @@ public class PrizeWheelTests
     [InlineData("couronne",  13.00, 6.25, 0.00, 0.00)]
     [InlineData("royale",    14.00, 5.75, 0.00, 0.00)]
     [InlineData("jackpot",   15.00, 5.00, 0.00, 0.00)]
-    public void Les_dix_lignes_de_squad_a_5_USDC(string id, decimal p1, decimal p2, decimal p3, decimal p4)
+    public void Les_dix_lignes_de_squad_a_5_USDG(string id, decimal p1, decimal p2, decimal p3, decimal p4)
     {
-        var t = PrizeWheel.PayoutFor(MatchMode.Squad, id, StakeContext.Usdc(StakeTier.Micro, 5m));
+        var t = PrizeWheel.PayoutFor(MatchMode.Squad, id, StakeContext.Usdg(StakeTier.Micro, 5m));
 
         Assert.Equal(Money.FromUnits(20m), t.Pot);
         Assert.Equal(Money.FromUnits(p1), t.ForRank(1));
@@ -155,7 +155,7 @@ public class PrizeWheelTests
     }
 
     /// <summary>
-    /// Le duel à 2 USDC : dix montants distincts pour le vainqueur, de 2,60 à 4,00 — et 4,00
+    /// Le duel à 2 USDG : dix montants distincts pour le vainqueur, de 2,60 à 4,00 — et 4,00
     /// est le pot entier, rake zéro sur cette ligne. C'est ce que le directeur produit a
     /// demandé en voyant trois fois « 3.60 » sur la roue.
     /// </summary>
@@ -170,9 +170,9 @@ public class PrizeWheelTests
     [InlineData("couronne",  3.80, 0.00, 0.20)]
     [InlineData("royale",    3.90, 0.00, 0.10)]
     [InlineData("jackpot",   4.00, 0.00, 0.00)]
-    public void Le_duel_a_2_USDC(string id, decimal p1, decimal p2, decimal rake)
+    public void Le_duel_a_2_USDG(string id, decimal p1, decimal p2, decimal rake)
     {
-        var t = PrizeWheel.PayoutFor(MatchMode.Duel, id, StakeContext.Usdc(StakeTier.Micro, 2m));
+        var t = PrizeWheel.PayoutFor(MatchMode.Duel, id, StakeContext.Usdg(StakeTier.Micro, 2m));
         Assert.Equal(Money.FromUnits(4m), t.Pot);
         Assert.Equal(Money.FromUnits(rake), t.Rake);
         Assert.Equal(Money.FromUnits(p1), t.ForRank(1));
@@ -182,7 +182,7 @@ public class PrizeWheelTests
     [Fact]
     public void Dix_montants_distincts_pour_le_vainqueur_dans_les_trois_modes()
     {
-        var stake = StakeContext.Usdc(StakeTier.Micro, 2m);
+        var stake = StakeContext.Usdg(StakeTier.Micro, 2m);
         foreach (var mode in MatchMode.All)
         {
             var gains = PrizeWheel.WheelFor(mode, 1, stake).Select(c => c.Gain.Micros).ToList();
@@ -211,11 +211,11 @@ public class PrizeWheelTests
         Assert.Equal(PrizeTier.Bronze,  PrizeWheel.TierOf(MatchMode.Duel, 2));
     }
 
-    /// <summary>La roue du 9e en arène à 2 USDC : neuf cases d'XP, une mise rendue sur PODIUM (14 %).</summary>
+    /// <summary>La roue du 9e en arène à 2 USDG : neuf cases d'XP, une mise rendue sur PODIUM (14 %).</summary>
     [Fact]
     public void La_roue_du_neuvieme_rend_la_mise_une_fois_sur_sept()
     {
-        var roue = PrizeWheel.WheelFor(MatchMode.Arena, 9, StakeContext.Usdc(StakeTier.Micro, 2m));
+        var roue = PrizeWheel.WheelFor(MatchMode.Arena, 9, StakeContext.Usdg(StakeTier.Micro, 2m));
         Assert.Equal(10, roue.Count);
         Assert.Equal(10_000, roue.Sum(c => c.Poids));
 
@@ -230,14 +230,14 @@ public class PrizeWheelTests
     }
 
     /// <summary>
-    /// LA ROUE DU VAINQUEUR EN ARÈNE À 2 USDC : de 5,00 à 15,80 USDC, espérance 9,349.
+    /// LA ROUE DU VAINQUEUR EN ARÈNE À 2 USDG : de 5,00 à 15,80 USDG, espérance 9,349.
     /// Espérance posée à la main : Σ poids × gain / 10 000, calculée à part. Et la somme des
     /// espérances vaut 90 % du pot : le rake vaut 10 % EN MOYENNE, au micro près.
     /// </summary>
     [Fact]
-    public void La_roue_du_vainqueur_va_de_5_00_a_15_80_USDC()
+    public void La_roue_du_vainqueur_va_de_5_00_a_15_80_USDG()
     {
-        var stake = StakeContext.Usdc(StakeTier.Micro, 2m);
+        var stake = StakeContext.Usdg(StakeTier.Micro, 2m);
         var roue = PrizeWheel.WheelFor(MatchMode.Arena, 1, stake);
         Assert.Equal(Money.FromUnits(5.00m), roue.Min(c => c.Gain));
         Assert.Equal(Money.FromUnits(15.80m), roue.Max(c => c.Gain));
@@ -261,7 +261,7 @@ public class PrizeWheelTests
         foreach (var mise in MatchMode.StakeTiers)
         foreach (var v in PrizeWheel.For(mode))
         {
-            var t = PayoutPolicy.Compute(mode.Config, StakeContext.Usdc(StakeTier.Micro, mise), v);
+            var t = PayoutPolicy.Compute(mode.Config, StakeContext.Usdg(StakeTier.Micro, mise), v);
             Assert.Equal(t.Pot, t.TotalDistributed + t.Rake);
             Assert.True(t.Rake >= Money.Zero, $"« {v.Id} » en {mode.Id} : rake négatif");
             // Jamais plus de 30 % gardés non plus.
@@ -273,6 +273,6 @@ public class PrizeWheelTests
     public void Une_issue_inconnue_est_refusee_clairement()
     {
         Assert.Throws<ArgumentException>(() => PrizeWheel.ById(MatchMode.Arena, "bonus"));
-        Assert.Throws<ArgumentException>(() => PrizeWheel.WheelFor(MatchMode.Squad, 5, StakeContext.Usdc(StakeTier.Micro, 2m)));
+        Assert.Throws<ArgumentException>(() => PrizeWheel.WheelFor(MatchMode.Squad, 5, StakeContext.Usdg(StakeTier.Micro, 2m)));
     }
 }

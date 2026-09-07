@@ -9,7 +9,7 @@ namespace Fallguys.Rules;
 /// [100, 50, 34, 24, 20, 20, 20, 20, 0…] : ×5,0 au vainqueur, ×2,5 au deuxième, la mise
 /// rendue jusqu'au huitième.
 ///
-/// Pourquoi des vingtièmes : des pas de 0,10 USDC à 2 USDC, assez fins pour que dix cases
+/// Pourquoi des vingtièmes : des pas de 0,10 USDG à 2 USDG, assez fins pour que dix cases
 /// portent dix montants distincts. Toute mise du catalogue est divisible par vingt en
 /// micro-unités ; une mise qui ne le serait pas laisse son reste à la maison, jamais
 /// l'inverse.
@@ -45,7 +45,7 @@ public sealed record WheelSlot(string Issue, int Poids, Money Gain, int Xp);
 /// LE RAKE VARIE D'UNE LIGNE À L'AUTRE, ET VAUT 10 % EN MOYENNE. Une ligne distribue entre
 /// 70 % et 100 % du pot — jamais plus : la maison ne sort jamais un centime. Pondérées par
 /// leurs poids, les dix lignes distribuent EXACTEMENT 90 % du pot, et <see cref="Validate"/>
-/// l'exige au vingtième près. C'est ce qui permet une case à 4,00 sur un duel à 2 USDC
+/// l'exige au vingtième près. C'est ce qui permet une case à 4,00 sur un duel à 2 USDG
 /// (tout le pot au vainqueur) à côté d'une case à 2,60 ; à rake fixe, dix cases distinctes
 /// n'existaient pas. Choix produit du 2 septembre 2026.
 ///

@@ -183,7 +183,7 @@ export async function engagerPartie(db, chaine, { partie, mode: modeId, mise, jo
   try {
     const r = await chaine.executer({
       operations: aVirer.map(({ userId }) => ({
-        type: 'virement', de: tresorerie.joueur(userId), vers: adressePot, mint: 'usdc', montant,
+        type: 'virement', de: tresorerie.joueur(userId), vers: adressePot, mint: 'usdg', montant,
         objet: 'mise', ref: `${partie}:${userId}`, partie, userId,
       })),
     });
@@ -238,7 +238,7 @@ export async function annulerPartie(db, chaine, { partie, raison }) {
     try {
       const r = await chaine.executer({
         operations: lot.map((userId) => ({
-          type: 'virement', de: pot, vers: tresorerie.joueur(userId).address, mint: 'usdc', montant: mise,
+          type: 'virement', de: pot, vers: tresorerie.joueur(userId).address, mint: 'usdg', montant: mise,
           objet: 'annulation', ref: `${partie}:${userId}`, partie, userId,
         })),
       });
@@ -386,13 +386,13 @@ export async function payerSurChaine(db, chaine, matchId) {
     const gain = parRang[rang - 1] ?? 0;
     if (gain <= 0) continue;
     virements.push({
-      type: 'virement', de: pot, vers: tresorerie.joueur(userId).address, mint: 'usdc', montant: gain,
+      type: 'virement', de: pot, vers: tresorerie.joueur(userId).address, mint: 'usdg', montant: gain,
       objet: 'gain', ref: `${matchId}:${userId}`, partie: matchId, userId,
     });
   }
   if (rake > 0) {
     virements.push({
-      type: 'virement', de: pot, vers: tresorerie.frais().address, mint: 'usdc', montant: rake,
+      type: 'virement', de: pot, vers: tresorerie.frais().address, mint: 'usdg', montant: rake,
       objet: 'rake', ref: matchId, partie: matchId,
     });
   }

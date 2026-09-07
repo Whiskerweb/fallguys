@@ -81,7 +81,7 @@ titre('1. RLS — le navigateur ne touche pas au grand livre');
 
   const soldeAlice = await enTantQue(alice, (tx) => tx.query('select public.mon_solde() as s'));
   dit(Number(soldeAlice.rows[0].s) === 20 * MICROS,
-    `un joueur lit SON solde par la fonction dediee : ${ecrire(Number(soldeAlice.rows[0].s))} USDC`);
+    `un joueur lit SON solde par la fonction dediee : ${ecrire(Number(soldeAlice.rows[0].s))} USDG`);
 
   const soldeBob = await enTantQue(bob, (tx) => tx.query('select public.mon_solde() as s'));
   dit(Number(soldeBob.rows[0].s) === 20 * MICROS,
@@ -148,7 +148,7 @@ titre('3. Idempotence — rejouer ne paie pas deux fois');
     'les trois tentatives designent le meme mouvement');
 
   const s = await solde(db, compte.joueur(carol));
-  dit(s === 20 * MICROS, `credite une seule fois : ${ecrire(s)} USDC et non ${ecrire(60 * MICROS)}`);
+  dit(s === 20 * MICROS, `credite une seule fois : ${ecrire(s)} USDG et non ${ecrire(60 * MICROS)}`);
 }
 
 // ===========================================================================
@@ -180,7 +180,7 @@ titre('5. Cent parties completes a seize joueurs');
  * perdre un micro a chaque partie.
  */
 {
-  // Cent parties aux paliers 2 / 5 / 10 engagent 563 USDC par joueur. La dotation doit
+  // Cent parties aux paliers 2 / 5 / 10 engagent 563 USDG par joueur. La dotation doit
   // couvrir cela AVEC de la marge : un joueur a court en cours de route ferait echouer le
   // test sur un `SOLDE_INSUFFISANT`, ce qui ne dirait rien de la comptabilite.
   const DOTATION = 2000 * MICROS;
@@ -218,8 +218,8 @@ titre('5. Cent parties completes a seize joueurs');
   // rake vaut 13,75 % en arene. Le rake d'une partie est celui de SA ligne.
   const attenduRake = Array.from({ length: 100 }, (_, n) => table(PALIERS[n % PALIERS.length] * MICROS, 'arena', tirerIssue('arena', 0).id).rake)
     .reduce((a, b) => a + b, 0);
-  dit(rake === attenduRake, `tresorerie : ${ecrire(rake)} USDC de rake preleves (attendu ${ecrire(attenduRake)})`);
-  dit(rake >= 0 && rake * 10 <= miseeTotale * 3, `le rake reste entre 0 et 30 % des ${ecrire(miseeTotale)} USDC engages — 10 % en moyenne, prouve en section 6`);
+  dit(rake === attenduRake, `tresorerie : ${ecrire(rake)} USDG de rake preleves (attendu ${ecrire(attenduRake)})`);
+  dit(rake >= 0 && rake * 10 <= miseeTotale * 3, `le rake reste entre 0 et 30 % des ${ecrire(miseeTotale)} USDG engages — 10 % en moyenne, prouve en section 6`);
 
   let apres = 0;
   for (const p of seize) apres += await solde(db, compte.joueur(p));
@@ -261,7 +261,7 @@ titre('6. Le backend paie ce que le lobby annonce');
   dit(String(lobby.ORDRE_MODES) === String(ORDRE_MODES),
     `memes modes des deux cotes : ${ORDRE_MODES.join(' / ')}`);
   dit(String(lobby.PALIERS) === String(PALIERS),
-    `memes tables ouvertes : ${PALIERS.join(' / ')} USDC`);
+    `memes tables ouvertes : ${PALIERS.join(' / ')} USDG`);
 
   let formes = 0;
   for (const id of ORDRE_MODES) {
@@ -316,9 +316,9 @@ titre('6. Le backend paie ce que le lobby annonce');
   let comptees = 0;
   for (const id of ORDRE_MODES) {
     for (const v of ISSUES[id]) {
-      for (const usdc of PALIERS) {
-        const ici = table(usdc * MICROS, id, v.id);
-        const la = lobby.table(usdc * MICROS, id, v.id);
+      for (const usdg of PALIERS) {
+        const ici = table(usdg * MICROS, id, v.id);
+        const la = lobby.table(usdg * MICROS, id, v.id);
         comptees++;
         if (ici.pot !== la.pot || ici.rake !== la.rake) ecarts++;
         for (let r = 0; r < MODES[id].joueurs; r++) {
@@ -336,10 +336,10 @@ titre('6. Le backend paie ce que le lobby annonce');
   // ET 10 % EN MOYENNE, exactement : la somme ponderee des rakes vaut le dixieme du pot.
   let moyennes = 0;
   for (const id of ORDRE_MODES) {
-    for (const usdc of PALIERS) {
-      const pot = usdc * MICROS * MODES[id].joueurs;
+    for (const usdg of PALIERS) {
+      const pot = usdg * MICROS * MODES[id].joueurs;
       let rake = 0;
-      for (const v of ISSUES[id]) rake += table(usdc * MICROS, id, v.id).rake * v.poids;
+      for (const v of ISSUES[id]) rake += table(usdg * MICROS, id, v.id).rake * v.poids;
       if (rake !== pot * 1000) moyennes++;
     }
   }
@@ -364,7 +364,7 @@ titre('6. Le backend paie ce que le lobby annonce');
   const e1 = esperance(2 * MICROS, 'arena');
   const e2 = lobby.esperance(2 * MICROS, 'arena');
   dit(String(e1.parRang) === String(e2.parRang) && e1.parRang[0] === 9_349_000,
-    `meme esperance des deux cotes : ${ecrire(e1.parRang[0])} au 1er en arene a 2 USDC`);
+    `meme esperance des deux cotes : ${ecrire(e1.parRang[0])} au 1er en arene a 2 USDG`);
 
   // ---- les montants, poses a la main ----
   const t1 = table(1 * MICROS, 'arena', 'standard');
@@ -387,12 +387,12 @@ titre('6. Le backend paie ce que le lobby annonce');
     for (let r = 4; r < 8; r++) if (t.parRang[r] < 2 * MICROS) faux++;
     for (let r = 8; r < 16; r++) if (t.parRang[r] !== (r + 1 === rembourse ? 2 * MICROS : 0)) faux++;
   }
-  dit(faux === 0, `5 lignes d'arene a 2 USDC posees a la main : de ${ecrire(5_000_000)} (FLAT) a ${ecrire(15_800_000)} (JACKPOT) au vainqueur`);
+  dit(faux === 0, `5 lignes d'arene a 2 USDG posees a la main : de ${ecrire(5_000_000)} (FLAT) a ${ecrire(15_800_000)} (JACKPOT) au vainqueur`);
 
   const duel = table(10 * MICROS, 'duel', 'standard');
   dit(duel.pot === 20_000_000 && duel.rake === 2_000_000
     && duel.parRang[0] === 18_000_000 && duel.parRang[1] === 0,
-    `le duel a 10 USDC sur STANDARD : ${ecrire(duel.parRang[0])} au vainqueur (x1,8), rien au perdant`);
+    `le duel a 10 USDG sur STANDARD : ${ecrire(duel.parRang[0])} au vainqueur (x1,8), rien au perdant`);
   const plat = table(10 * MICROS, 'duel', 'plat');
   dit(plat.parRang[0] === 13_000_000 && plat.parRang[1] === 3_500_000 && plat.rake === 3_500_000,
     `et sur FLAT : ${ecrire(plat.parRang[0])} au vainqueur, ${ecrire(plat.parRang[1])} rendus au perdant, ${ecrire(plat.rake)} a la maison`);
@@ -404,9 +404,9 @@ titre('6. Le backend paie ce que le lobby annonce');
   let ecartsN = 0;
   let conservationN = 0;
   for (let n = 3; n <= 24; n++) {
-    for (const usdc of PALIERS) {
-      const ici = tableEffectif(usdc * MICROS, n);
-      const la = lobby.tableEffectif(usdc * MICROS, n);
+    for (const usdg of PALIERS) {
+      const ici = tableEffectif(usdg * MICROS, n);
+      const la = lobby.tableEffectif(usdg * MICROS, n);
       if (ici.pot !== la.pot || ici.rake !== la.rake) ecartsN++;
       for (let r = 0; r < n; r++) if (ici.parRang[r] !== la.parRang[r]) ecartsN++;
       if (ici.parRang.reduce((a, b) => a + b, 0) + ici.rake !== ici.pot) conservationN++;
@@ -489,9 +489,9 @@ titre('7. Les trois modes passent par le grand livre');
     dit(r.pot === cas.mise * cas.joueurs, `${cas.mode} · pot ${ecrire(r.pot)}`);
 
     if (cas.mode === 'arena') {
-      // Le vainqueur d'une ROYALE a 10 USDC touche 65.50 : x6,55 — le 16e a eu sa mise rendue.
+      // Le vainqueur d'une ROYALE a 10 USDG touche 65.50 : x6,55 — le 16e a eu sa mise rendue.
       dit(await solde(db, compte.joueur(gens[0])) === 100 * MICROS - 10 * MICROS + 65_500_000,
-        `le vainqueur de ROYALE a 10 USDC touche ${ecrire(65_500_000)}`);
+        `le vainqueur de ROYALE a 10 USDG touche ${ecrire(65_500_000)}`);
       dit(await solde(db, compte.joueur(gens[15])) === 100 * MICROS,
         'et le 16e retrouve sa mise : la ligne ROYALE la lui rend');
     }
@@ -535,7 +535,7 @@ titre('7. Les trois modes passent par le grand livre');
     // aurait comble la difference entre un pot de 24 et des gains calcules sur 32.
     dit((await solde(db, compte.caisse)) === caisseAvant,
       "la caisse n'avance rien : le salon reduit est paye a SON effectif");
-    // Rang 1 sur douze au bareme calcule : 4,096775 x 2 = 8,19355 USDC.
+    // Rang 1 sur douze au bareme calcule : 4,096775 x 2 = 8,19355 USDG.
     dit(await solde(db, compte.joueur(douze[0])) === 50 * MICROS - 2 * MICROS + 8_193_550,
       `le premier de douze touche ${ecrire(8_193_550)} — le bareme de douze, pose a la main`);
   }

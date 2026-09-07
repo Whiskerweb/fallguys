@@ -65,7 +65,7 @@ process.on('exit', () => { try { browser?.close(); } catch {} });
 serveur = await demarrerServeur({
   port: 0,
   // `identite: 'facultative'` : c'est un BANC, sans argent derrière — le portefeuille de
-  // banc de 25 USDC n'existe que si le serveur le dit (voir `caisse.js`).
+  // banc de 25 USDG n'existe que si le serveur le dit (voir `caisse.js`).
   politique: { nom: 'DUEL_TEST', cible: 2, minimum: 2, attente: 1, proposerApres: 1, bots: 'jamais', dureeManche: 300, identite: 'facultative' },
   graine: 20260901,
 });
@@ -100,7 +100,7 @@ async function ouvrir(nom, base = BASE, modele = null) {
    * Le duel n'est plus seulement une politique de mise au point : c'est un MODE ouvert au
    * public, à deux joueurs, une manche, ×1,8 au vainqueur. Ce harnais joue donc le vrai
    * chemin payant. Les poser explicitement évite qu'une mémoire héritée d'une session
-   * précédente fasse jouer ce banc en arène à 10 USDC — et son verdict ne dirait plus rien.
+   * précédente fasse jouer ce banc en arène à 10 USDG — et son verdict ne dirait plus rien.
    */
   await page.addInitScript(() => {
     localStorage.setItem('tumble-mode', 'duel');
@@ -145,7 +145,7 @@ dit(true, 'la page s\'est connectée toute seule au serveur qui l\'a servie — 
   /*
    * DEPUIS LE 2 SEPTEMBRE 2026, LA ROUE TIRE À LA FIN. Le ticket ne promet donc plus une
    * table certaine : il annonce dix issues possibles et dit que la roue tourne au
-   * classement final. Un ticket qui écrirait encore « WINNER TAKES 3.60 USDC » mentirait —
+   * classement final. Un ticket qui écrirait encore « WINNER TAKES 3.60 USDG » mentirait —
    * le vainqueur d'un duel touche 2,40 à 3,60 selon la ligne tirée.
    */
   dit(/10 POSSIBLE OUTCOMES/.test(dit_),
@@ -571,7 +571,7 @@ titre('10. La fin de partie se VOIT');
    * Le déclencheur est la position LOCALE au moment du `fin-partie` : `brancher.js` annule
    * `jeu.enligne`, et à l'image suivante `main.js` retombait dans ses règles hors ligne,
    * voyait `pos.z <= finishZ`, et lançait `finishRace()` — écrasant « VICTORY! · +3.60
-   * USDC » par « QUALIFIED! » puis renvoyant au lobby, roue comprise.
+   * USDG » par « QUALIFIED! » puis renvoyant au lobby, roue comprise.
    *
    * On maintient donc le corps là où le serveur met un vainqueur, image après image : la
    * réconciliation le rappellerait en cent millisecondes et le déclencheur ne serait pas
@@ -638,7 +638,7 @@ titre('10. La fin de partie se VOIT');
     'tant que la roue n\'a pas été lancée, aucun bouton : on ne peut pas partir sans son gain');
 
   /*
-   * AUCUN MULTIPLICATEUR. Le joueur mise des USDC et gagne des USDC ; le facteur est notre
+   * AUCUN MULTIPLICATEUR. Le joueur mise des USDG et gagne des USDG ; le facteur est notre
    * outil de calcul interne et ne doit apparaître nulle part devant lui.
    */
   dit(!avant.texte.includes('×'), 'aucun « × » sur l\'écran de fin');
@@ -662,7 +662,7 @@ titre('10. La fin de partie se VOIT');
 
   dit(apres.calee === true, 'la roue s\'immobilise après le lancer');
   dit(apres.rang >= 1 && apres.rang <= 2, `elle s'arrête sur le rang du joueur (${apres.rang})`);
-  dit(/USDC|—/.test(apres.gain), `le gain s'affiche en USDC : « ${apres.gain.trim()} »`);
+  dit(/USDG|—/.test(apres.gain), `le gain s'affiche en USDG : « ${apres.gain.trim()} »`);
   dit(apres.boutons === 'flex', 'les boutons LOBBY et REJOUER apparaissent une fois la roue calée');
 
   // La capture se prend MAINTENANT, roue calée : après le retour au lobby elle

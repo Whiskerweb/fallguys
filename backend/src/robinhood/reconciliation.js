@@ -54,7 +54,7 @@ export async function verifierChaine(db, chaine, { joueursMax = 200 } = {}) {
       `select coalesce(sum(amount_micros), 0)::text as t from public.withdrawals where user_id = $1 and statut = 'demande'`, [j.id],
     )).rows[0].t);
     const attendu = livre + demandes + (t.mise ?? 0) + (t.retrait ?? 0) + (t.achat ?? 0) - (t.gain ?? 0) - (t.annulation ?? 0);
-    const surChaine = await chaine.solde(j.adresse_depot, 'usdc');
+    const surChaine = await chaine.solde(j.adresse_depot, 'usdg');
     verifies++;
     if (surChaine !== attendu) {
       ecarts.push({ compte: `joueur ${j.id.slice(0, 8)}…`, adresse: j.adresse_depot, livre, attendu, chaine: surChaine, ecart: surChaine - attendu });
@@ -64,10 +64,10 @@ export async function verifierChaine(db, chaine, { joueursMax = 200 } = {}) {
   // ---- les frais ----
   {
     const livre = await solde(db, compte.rake);
-    const t = await transit(db, `objet in ('rake', 'rachat', 'achat') and (mint = 'usdc' or mint is null)`, []);
+    const t = await transit(db, `objet in ('rake', 'rachat', 'achat') and (mint = 'usdg' or mint is null)`, []);
     const attendu = livre - (t.rake ?? 0) - (t.achat ?? 0) + (t.rachat ?? 0);
     const adresse = tresorerie.frais().address;
-    const surChaine = await chaine.solde(adresse, 'usdc');
+    const surChaine = await chaine.solde(adresse, 'usdg');
     verifies++;
     if (surChaine !== attendu) ecarts.push({ compte: 'frais', adresse, livre, attendu, chaine: surChaine, ecart: surChaine - attendu });
   }
@@ -83,7 +83,7 @@ export async function verifierChaine(db, chaine, { joueursMax = 200 } = {}) {
     const livre = await solde(db, compte.pot(p.id));
     const t = await transit(db, 'partie = $1', [p.id]);
     const attendu = livre - (t.mise ?? 0) + (t.gain ?? 0) + (t.rake ?? 0) + (t.annulation ?? 0);
-    const surChaine = await chaine.solde(adresse, 'usdc');
+    const surChaine = await chaine.solde(adresse, 'usdg');
     verifies++;
     if (surChaine !== attendu) ecarts.push({ compte: `pot ${p.id}`, adresse, livre, attendu, chaine: surChaine, ecart: surChaine - attendu });
   }

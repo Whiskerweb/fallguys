@@ -33,7 +33,7 @@ const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=sw
 async function ouvrir(nom) {
   const page = await browser.newPage({ viewport: { width: 800, height: 500 } });
   page.setDefaultTimeout(300000);
-  // Un DUEL, explicitement : le ticket par défaut est une arène à 2 USDC, et un serveur à
+  // Un DUEL, explicitement : le ticket par défaut est une arène à 2 USDG, et un serveur à
   // effectif deux refuse désormais d'y prendre une mise — aucun barème ne paie ça.
   await page.addInitScript(() => localStorage.setItem('tumble-mode', 'duel'));
   // Le nom se pose AVANT le chargement, comme le personnage : c'est `bonjour` qui le porte.

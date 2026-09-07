@@ -8,7 +8,7 @@ public class MatchStateMachineTests
     private static readonly MatchConfiguration Config =
         new(4, new[] { 2, 1 }, 1500, new[] { 35, 15 });
 
-    private static readonly StakeContext Stake = StakeContext.Usdc(StakeTier.Micro, 1m);
+    private static readonly StakeContext Stake = StakeContext.Usdg(StakeTier.Micro, 1m);
 
     private static readonly PlayerId A = new("A");
     private static readonly PlayerId B = new("B");

@@ -5,7 +5,7 @@
  * detient quoi :
  *
  *   - CHAQUE JOUEUR a son wallet, derive de la graine maitresse et de son identifiant
- *     (`adresses.js`). C'est son adresse de depot ET son compte de jeu : ses USDC y
+ *     (`adresses.js`). C'est son adresse de depot ET son compte de jeu : ses USDG y
  *     restent, ses mises en partent, ses gains y reviennent, ses retraits en sortent. On
  *     ne balaie pas vers une caisse commune — un solde qu'on peut relire sur un
  *     explorateur vaut mieux qu'un solde qu'on doit croire ;
@@ -14,7 +14,7 @@
  *     un pot qu'on peut montrer : « voila les seize mises, voila ou elles sont allees » ;
  *   - la CAISSE paie le gaz de tout le monde. Un wallet de joueur n'a pas d'ETH et n'en
  *     aura jamais : il SIGNE une autorisation (EIP-3009), la caisse la soumet ;
- *   - les FRAIS recoivent le rake, et le POOL tient la liquidite BG/USDC du brulage.
+ *   - les FRAIS recoivent le rake, et le POOL tient la liquidite BG/USDG du brulage.
  *
  * LES CLES DERIVEES NE SONT STOCKEES NULLE PART : elles se recalculent. Les trois cles
  * de tresorerie, elles, vivent dans l'environnement — et dans `wallets/<reseau>.json`,
@@ -42,7 +42,7 @@ export const tresorerie = {
   caisse() { return (_caisse ??= paireDepuisHex('CAISSE_CLE', config.caisseCle)); },
   /** Le receveur du rake. */
   frais() { return (_frais ??= paireDepuisHex('FRAIS_CLE', config.fraisCle)); },
-  /** La liquidite BG/USDC. */
+  /** La liquidite BG/USDG. */
   pool() { return (_pool ??= paireDepuisHex('POOL_CLE', config.poolCle)); },
 
   /** Le wallet d'un joueur — son adresse de depot, son compte de jeu. */

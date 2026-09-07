@@ -22,7 +22,7 @@ Dans un jeu où l'on engage de l'argent, un bouton qui promet une fonctionnalit�
 coûte plus cher qu'un bouton absent : il apprend au joueur que l'interface ment. Tout cela
 est parti. Il reste **trois choses**, parce qu'il n'y en a que trois qui marchent.
 
-**La barre noire** porte l'identité (portrait, niveau, barre d'XP), le **solde en USDC** et
+**La barre noire** porte l'identité (portrait, niveau, barre d'XP), le **solde en USDG** et
 les paramètres. Une seule monnaie : c'est celle qu'on mise et celle qu'on gagne. Le compteur
 de couronnes a disparu — il comptait quelque chose qui ne s'échangeait contre rien.
 
@@ -30,18 +30,18 @@ de couronnes a disparu — il comptait quelque chose qui ne s'échangeait contre
 (`diag/portrait.mjs`), détourés, sur un cadre à la couleur de rareté.
 
 **Le ticket** est la partie neuve. Il tient trois questions dans une carte : *à quelle table
-je joue* (1, 2 ou 5 USDC), *combien il y a dans le pot*, et *où je dois finir pour gagner
+je joue* (1, 2 ou 5 USDG), *combien il y a dans le pot*, et *où je dois finir pour gagner
 quoi*.
 
 ### Le ticket dit la vérité, pas une approximation
 
 Aucun montant n'est écrit dans le HTML. `src/economie.js` est un **port ligne à ligne** de
 `src/Fallguys.Rules/PayoutPolicy.cs`, en micro-unités entières comme `Money.cs` — jamais de
-flottant, parce qu'un centième d'USDC perdu par arrondi à chaque partie est un bug comptable
+flottant, parce qu'un centième d'USDG perdu par arrondi à chaque partie est un bug comptable
 qu'on ne retrouve plus six mois plus tard. Le lobby annonce donc exactement ce que le
 serveur de règlement paiera.
 
-Pour une table à 1 USDC, seize joueurs, commission 10 % :
+Pour une table à 1 USDG, seize joueurs, commission 10 % :
 
 | Rang | Gain | |
 |---|---|---|
@@ -55,7 +55,7 @@ Pour une table à 1 USDC, seize joueurs, commission 10 % :
 > La commission était de 15 % jusqu'ici, et le spec du 19 août imprime encore cette
 > table-là. Le passage à 10 % a demandé de **recalibrer les poids de bonus** —
 > `[35, 15, 5, 1]` devient `[40, 15, 7, 2]` — parce que les anciens tombaient sur des
-> chiffres ronds *à 15 %* et payaient 2,714285 USDC au deuxième une fois le taux baissé.
+> chiffres ronds *à 15 %* et payaient 2,714285 USDG au deuxième une fois le taux baissé.
 > Le rake et les poids forment un couple : réviser l'un sans l'autre donne des gains justes
 > au centième et illisibles à l'écran.
 
@@ -73,12 +73,12 @@ le vrai, et le jour où quinze adversaires arrivent, seul le rang passé change.
 `diag/economie.mjs` vérifie les trois tables rang par rang contre des valeurs dérivées à la
 main du C#, plus l'invariant `distribué + commission = pot`.
 
-### Le portefeuille : local, ou de vrais USDC
+### Le portefeuille : local, ou de vrais USDG
 
 `src/caisse.js` tient le solde, dans l'un de deux modes, et le mode se choisit tout seul.
 
 **Hors ligne** — le mode par défaut, et celui de tous les harnais de `diag/`. Le portefeuille
-est une clé de `localStorage` dotée de 25 USDC fictifs, le bouton **TOP UP** la remet à 25.
+est une clé de `localStorage` dotée de 25 USDG fictifs, le bouton **TOP UP** la remet à 25.
 C'est ce que le jeu a toujours fait.
 
 **En ligne** — dès que `VITE_SUPABASE_URL` est renseignée (voir `.env.example`) et qu'une
@@ -93,7 +93,7 @@ sans rien déplacer — tout le reste du jeu ne connaît que `session()` et `jet
 > prototype, décochez-le (Authentication → Providers → Email) : l'inscription devient
 > immédiate et n'envoie plus rien. L'interface gère les deux cas — elle n'annonce jamais
 > « bienvenue » à quelqu'un qui n'a pas de session. Le navigateur ne le calcule ni ne
-l'écrit **jamais** : il l'affiche. Le bouton devient **DEPOSIT** et montre l'adresse USDC
+l'écrit **jamais** : il l'affiche. Le bouton devient **DEPOSIT** et montre l'adresse USDG
 dédiée du joueur.
 
 Le jeu ne bloque **jamais** sur le réseau : `caisse.rafraichir()` part sans `await` après
@@ -143,7 +143,7 @@ médiane entre la prédiction et l'autorité, sans aucun recalage sec.
 Le serveur se lance depuis `serveur/`, le harnais à deux navigateurs par
 `node diag/duel.mjs`.
 
-Tout ce qui touche à de vrais USDC — comptes, dépôts, retraits, grand livre — vit dans
+Tout ce qui touche à de vrais USDG — comptes, dépôts, retraits, grand livre — vit dans
 `backend/`, dont le README porte la liste des conditions à remplir **avant tout mainnet**.
 La première d'entre elles concerne directement ce dossier : tant que le navigateur exécute
 la physique et déclare son propre rang, l'argent est en libre-service.

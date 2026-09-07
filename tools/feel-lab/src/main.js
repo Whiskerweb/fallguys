@@ -340,7 +340,7 @@ class Game {
     this.character = null;
     this.runTime = 0;
     this.falls = 0;
-    /* Mise engagee sur la partie en cours, en micro-USDC. Fixee au lancement. */
+    /* Mise engagee sur la partie en cours, en micro-USDG. Fixee au lancement. */
     this.mise = 0;
     this.best = null;   // charge par mini-jeu au depart de la manche
     this.finishTimer = 0;
@@ -1185,7 +1185,7 @@ class Game {
      */
     /*
      * LE MONTANT NE SE LIT PAS AVANT LA ROUE. Le bandeau dit le rang, et rien d'autre :
-     * il affichait « +3.60 USDC » ici, avant que le joueur ait lance quoi que ce soit, et
+     * il affichait « +3.60 USDG » ici, avant que le joueur ait lance quoi que ce soit, et
      * la roue ne revelait plus rien. Le chiffre n'apparait que dans `poserLeGain`, quand
      * elle s'est calee. Demande du directeur produit, et c'est tout l'interet du geste.
      */
@@ -1271,7 +1271,7 @@ class Game {
     const complet = f.total === (MODES[f.mode]?.joueurs ?? f.total);
     if (!f.mise || !complet) {
       el('fin-titre').textContent = f.titre;
-      el('fin-gain').textContent = f.gain > 0 ? `+${montant(f.gain)} USDC` : '—';
+      el('fin-gain').textContent = f.gain > 0 ? `+${montant(f.gain)} USDG` : '—';
       el('fin-sous').textContent = f.sous ?? `${ordinal(f.rang)} of ${f.total} · ${f.mise ? 'reduced room' : 'free match'}`;
       el('fin-podium').textContent = f.podium ?? '';
       panneau.classList.remove('lance', 'rien');
@@ -1312,7 +1312,7 @@ class Game {
   }
 
   /**
-   * La roue s'est calée : on écrit le montant, en USDC.
+   * La roue s'est calée : on écrit le montant, en USDG.
    *
    * Il monte de zéro jusqu'à sa valeur. C'est le seul endroit du jeu où un chiffre s'anime,
    * et il le mérite : c'est celui que le joueur est venu chercher.
@@ -1323,7 +1323,7 @@ class Game {
     panneau.classList.add('calee');
     if (r.gemme) panneau.dataset.grade = r.gemme;
     panneau.classList.toggle('rien', r.gain === 0 && !r.xp);
-    // Le rang, sans le nom du palier : « DIAMOND » à côté d'un montant en USDC disait
+    // Le rang, sans le nom du palier : « DIAMOND » à côté d'un montant en USDG disait
     // deux fois la même chose dans deux vocabulaires (retiré avec les gemmes du ticket).
     el('fin-sous').textContent = `${ordinal(r.rang)} of ${this._fin?.total ?? '—'}`
       + (r.gain === 0 && !r.xp ? ' · no payout' : '');
@@ -1339,11 +1339,11 @@ class Game {
       cible.textContent = `+${r.xp} XP`;
       return;
     }
-    if (r.gain === 0 || this._sansRecit) { cible.textContent = r.gain === 0 ? '—' : `+${r.montant} USDC`; return; }
+    if (r.gain === 0 || this._sansRecit) { cible.textContent = r.gain === 0 ? '—' : `+${r.montant} USDG`; return; }
     const t0 = performance.now();
     const monter = (t) => {
       const u = Math.min(1, (t - t0) / 900);
-      cible.textContent = `+${montant(Math.round(r.gain * (1 - (1 - u) ** 3)))} USDC`;
+      cible.textContent = `+${montant(Math.round(r.gain * (1 - (1 - u) ** 3)))} USDG`;
       if (u < 1) requestAnimationFrame(monter);
     };
     requestAnimationFrame(monter);
@@ -1682,7 +1682,7 @@ class Game {
        *
        * Ce qui se passait alors, et c'est le bug qu'on repare ici : le vainqueur est
        * encore pose au-dela de la ligne, donc `pos.z <= finishZ` est vrai, donc
-       * `finishRace()` partait et ecrasait le verdict « VICTORY! · +3.60 USDC » par un
+       * `finishRace()` partait et ecrasait le verdict « VICTORY! · +3.60 USDG » par un
        * « QUALIFIED! », puis renvoyait au lobby 3,2 s plus tard en detruisant la roue.
        * L'argent avait bien ete verse ; le joueur ne le voyait jamais.
        *
@@ -1859,7 +1859,7 @@ async function boot() {
   wireSettings();
   await applyIcons();
   buildSkinsScreen(onCosmeticChange);
-  // La boutique : quatre articles, un post ou des USDC ; toute la regle est dans
+  // La boutique : quatre articles, un post ou des USDG ; toute la regle est dans
   // `boutique.js`, tout le dessin dans `lobbyui.js`. Le second crochet PREVISUALISE un
   // skin sur le personnage du plateau — `null` remet celui qu'on porte.
   buildBoutique(onCosmeticChange, (id) => game?.lobby?.rebuildAvatar?.(id ?? cosmetics.model));

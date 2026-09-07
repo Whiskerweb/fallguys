@@ -3,36 +3,36 @@
  * table, un bouton. Trois étapes affichées, une seule décision réelle.
  *
  * Demande du directeur produit du 5 septembre 2026 : après le cadeau, « sans cliquer sur
- * rien, il arrive sur la page pour top up » ; accepter « les USDC et USDG, les deux » ;
- * « un mécanisme de swap intégré pour qu'il puisse swap ses ETH de son wallet en USDC » ;
+ * rien, il arrive sur la page pour top up » ; accepter « les USDG » ;
+ * « un mécanisme de swap intégré pour qu'il puisse swap ses ETH de son wallet en USDG » ;
  * « déposé ses sous en quelques clics seulement, super rapidement, et surtout bien guidé ».
  *
  * Jusqu'ici, un nouveau joueur trouvait un lobby à zéro, devinait que WALLET était le
  * bouton, tombait sur un panneau à six boutons (copier, vérifier, déposer, robinet,
- * lier, retirer) et devait savoir seul qu'il lui fallait des USDC sur Robinhood Chain.
+ * lier, retirer) et devait savoir seul qu'il lui fallait des USDG sur Robinhood Chain.
  * Ce guide ne montre QUE le chemin d'entrée, et il choisit pour lui ce qui peut l'être :
  *
- *   - PAY WITH : USDC, USDG ou ETH — ce que le wallet du joueur DÉTIENT est lu sur la
+ *   - PAY WITH : USDG ou ETH — ce que le wallet du joueur DÉTIENT est lu sur la
  *     chaîne et pré-sélectionné (le plus gros solde gagne), avec le solde écrit sous
  *     chaque option. Il n'a pas à savoir ce qu'il a ;
- *   - HOW MUCH : trois montants et un champ libre, 10 USDC par défaut — la table du
+ *   - HOW MUCH : trois montants et un champ libre, 10 USDG par défaut — la table du
  *     milieu ;
- *   - un bouton qui dit exactement ce qui va se passer (« DEPOSIT 10 USDC »,
- *     « PAY ≈ 0.0031 ETH → 10 USDC »), et une ligne dessous qui dit combien de fois le
+ *   - un bouton qui dit exactement ce qui va se passer (« DEPOSIT 10 USDG »,
+ *     « PAY ≈ 0.0031 ETH → 10 USDG »), et une ligne dessous qui dit combien de fois le
  *     wallet demandera confirmation.
  *
  * ─── LE CHANGE SE FAIT DANS LE WALLET DU JOUEUR, JAMAIS CHEZ NOUS ──────────────
  *
- * Le grand livre est en USDC et le wallet de jeu doit en détenir pour que la mise parte.
+ * Le grand livre est en USDG et le wallet de jeu doit en détenir pour que la mise parte.
  * USDG et ETH passent donc par un routeur de DEX, appelé depuis le navigateur, avec
- * l'ADRESSE DE DÉPÔT comme destination : l'USDC sort du swap directement sur le wallet
+ * l'ADRESSE DE DÉPÔT comme destination : l'USDG sort du swap directement sur le wallet
  * de jeu, et le guetteur le crédite comme n'importe quel dépôt (`compte.js:
  * deposerParSwap`). Le backend n'a rien de nouveau à croire ni à tenir. Les adresses du
  * routeur et de l'USDG viennent de `/moi` ; quand le réseau ne les a pas — le testnet —,
  * l'option est montrée GRISÉE avec la raison, une fois, plutôt qu'un bouton qui échoue.
  *
- * Sur le testnet, le vrai chemin est le ROBINET (des USDC d'essai, gratuits) : il est
- * alors le bouton principal, parce que personne n'a d'USDC de test dans MetaMask.
+ * Sur le testnet, le vrai chemin est le ROBINET (des USDG d'essai, gratuits) : il est
+ * alors le bouton principal, parce que personne n'a d'USDG de test dans MetaMask.
  *
  * ─── APRÈS LA SIGNATURE, ON ATTEND AVEC LUI ───────────────────────────────────
  *
@@ -55,7 +55,7 @@ import {
 
 const el = (id) => document.getElementById(id);
 
-/** Les montants proposés, en USDC — les trois tables du jeu. */
+/** Les montants proposés, en USDG — les trois tables du jeu. */
 export const MONTANTS = [5, 10, 20];
 /** Ce qu'on propose sans rien savoir du joueur : la table du milieu. */
 export const MONTANT_DEFAUT = 10;
@@ -66,9 +66,8 @@ const POLL_MS = 4000;
 const POLL_MAX_MS = 4 * 60_000;
 
 const JETONS = {
-  usdc: { nom: 'USDC', decimales: 6, sous: 'Straight to your game wallet' },
-  usdg: { nom: 'USDG', decimales: 6, sous: 'Swapped to USDC on the way' },
-  eth: { nom: 'ETH', decimales: 18, sous: 'Swapped to USDC on the way' },
+  usdg: { nom: 'USDG', decimales: 6, sous: 'Straight to your game wallet' },
+  eth: { nom: 'ETH', decimales: 18, sous: 'Swapped to USDG on the way' },
 };
 
 let construit = false;
@@ -95,14 +94,10 @@ function chemins(p) {
   const testnet = p?.reseau && p.reseau !== 'mainnet';
   return {
     wallet,
-    usdc: { ok: wallet && Boolean(c.usdc), raison: !wallet ? 'No wallet in this browser' : 'USDC contract unknown' },
-    usdg: {
-      ok: wallet && Boolean(c.usdg && c.swap),
-      raison: !wallet ? 'No wallet in this browser' : testnet ? 'Mainnet only — no USDG on the testnet' : 'No USDG market on this network',
-    },
+    usdg: { ok: wallet && Boolean(c.usdg), raison: !wallet ? 'No wallet in this browser' : 'USDG contract unknown' },
     eth: {
       ok: wallet && Boolean(c.swap?.weth),
-      raison: !wallet ? 'No wallet in this browser' : testnet ? 'Mainnet only — no ETH/USDC market on the testnet' : 'No ETH/USDC market on this network',
+      raison: !wallet ? 'No wallet in this browser' : testnet ? 'Mainnet only — no ETH/USDG market on the testnet' : 'No ETH/USDG market on this network',
     },
     robinet: Boolean(c.robinet),
   };
@@ -132,13 +127,13 @@ export function buildDepot(surChangement = () => {}) {
     jetons.appendChild(b);
   }
   const montants = el('depot-montants');
-  for (const usdc of MONTANTS) {
+  for (const usdg of MONTANTS) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'dp-montant';
-    b.dataset.usdc = String(usdc);
-    b.innerHTML = `<b>${usdc}</b><small>USDC</small>`;
-    b.addEventListener('click', () => { sfx.click(); poserMontant(usdc * MICROS); });
+    b.dataset.usdg = String(usdg);
+    b.innerHTML = `<b>${usdg}</b><small>USDG</small>`;
+    b.addEventListener('click', () => { sfx.click(); poserMontant(usdg * MICROS); });
     montants.insertBefore(b, montants.querySelector('label'));
   }
   const champ = el('depot-montant');
@@ -208,17 +203,17 @@ export async function ouvrirDepot({ raison = 'bienvenue', profil = null } = {}) 
   if (!p && !profil) p = await caisse.rafraichir();
   etat = {
     etape: 1, raison, profil: p, chemins: chemins(p),
-    jeton: 'usdc', micros: MONTANT_DEFAUT * MICROS,
+    jeton: 'usdg', micros: MONTANT_DEFAUT * MICROS,
     compte: null, soldes: null, devis: null, devisErreur: null, hache: null,
     soldeAvant: portefeuille.solde,
   };
   if (raison === 'bienvenue' && portefeuille.solde > 0) {
     // Un joueur qui revient avec un solde : le guide le dit, et n'insiste pas.
     el('depot-titre').textContent = 'Your game wallet';
-    el('depot-sous').textContent = `You already have ${montant(portefeuille.solde)} USDC on your table. Add more here, or close this and play.`;
+    el('depot-sous').textContent = `You already have ${montant(portefeuille.solde)} USDG on your table. Add more here, or close this and play.`;
   } else if (raison === 'bienvenue') {
     el('depot-titre').textContent = 'Now, fund your game wallet';
-    el('depot-sous').textContent = 'Your first table costs 2 USDC. Pick what you have — we handle the network, the swap and the credit.';
+    el('depot-sous').textContent = 'Your first table costs 2 USDG. Pick what you have — we handle the network, the swap and the credit.';
   } else {
     el('depot-titre').textContent = 'Add funds';
     el('depot-sous').textContent = 'Pick what you have in your wallet. One confirmation, and it lands on your game wallet.';
@@ -260,7 +255,6 @@ async function lireWallet(compte) {
   const s = etat.soldes;
   const c = etat.chemins;
   const candidats = [
-    c.usdc.ok && s.usdc ? ['usdc', s.usdc] : null,
     c.usdg.ok && s.usdg ? ['usdg', s.usdg] : null,
   ].filter(Boolean).sort((a, b) => (a[1] > b[1] ? -1 : 1));
   if (candidats.length) etat.jeton = candidats[0][0];
@@ -281,11 +275,11 @@ function poserMontant(micros) {
   devis();
 }
 
-/** Le devis d'un swap, pour le montant courant. Silencieux pour l'USDC : rien à changer. */
+/** Le devis d'un swap, pour le montant courant. Silencieux pour l'USDG : rien à changer. */
 async function devis() {
   if (!etat?.profil) return;
   etat.devis = null; etat.devisErreur = null;
-  if (etat.jeton === 'usdc') { peindre(false); return; }
+  if (etat.jeton === 'usdg') { peindre(false); return; }
   const no = ++devisNo;
   peindre(false);
   try {
@@ -338,16 +332,16 @@ function peindre(jetonsAussi = true) {
       : etat.compte ? `${walletChoisi()?.nom ?? 'Wallet'} ${etat.compte.slice(0, 6)}…${etat.compte.slice(-4)}` : '';
     // Le testnet en tête : c'est LE chemin quand on y est. Sur mainnet, le bloc n'existe pas.
     el('depot-testnet').classList.toggle('hidden', !c.robinet);
-    if (c.robinet) el('depot-robinet').textContent = `GET ${montant(p.chaine.robinetMicros)} TEST USDC · FREE`;
+    if (c.robinet) el('depot-robinet').textContent = `GET ${montant(p.chaine.robinetMicros)} TEST USDG · FREE`;
     el('depot-adresse').textContent = p.adresseDepot ?? '—';
     el('depot-adresse').href = p.liens?.explorateur && p.adresseDepot ? `${p.liens.explorateur}/address/${p.adresseDepot}` : '#';
-    el('depot-adresse-note').textContent = `USDC on ${p.chaine?.nom ?? p.reseau} only. Minimum ${montant(p.depotMinimum)} USDC. This is your own game wallet: stakes leave it, winnings come back to it.`;
+    el('depot-adresse-note').textContent = `USDG on ${p.chaine?.nom ?? p.reseau} only. Minimum ${montant(p.depotMinimum)} USDG. This is your own game wallet: stakes leave it, winnings come back to it.`;
     // Sans wallet, l'adresse est LE chemin : elle est déjà dépliée.
     if (!c.wallet) el('depot-adresse-bloc').classList.remove('hidden');
   }
 
   for (const b of el('depot-montants').querySelectorAll('.dp-montant')) {
-    b.classList.toggle('on', Number(b.dataset.usdc) * MICROS === etat.micros);
+    b.classList.toggle('on', Number(b.dataset.usdg) * MICROS === etat.micros);
   }
   const champ = el('depot-montant');
   if (!MONTANTS.some((m) => m * MICROS === etat.micros) && document.activeElement !== champ) champ.value = String(etat.micros / MICROS);
@@ -356,7 +350,7 @@ function peindre(jetonsAussi = true) {
   const note = el('depot-note');
   const recu = el('depot-recu');
   const j = JETONS[etat.jeton];
-  const usdc = montant(etat.micros);
+  const usdg = montant(etat.micros);
   const sousMinimum = etat.micros < (p.depotMinimum ?? 0);
   note.classList.remove('alerte');
   go.classList.toggle('hidden', !c.wallet);
@@ -367,23 +361,23 @@ function peindre(jetonsAussi = true) {
   } else if (!etat.compte) {
     go.disabled = false;
     go.textContent = 'CONNECT WALLET';
-    recu.textContent = `${usdc} USDC will land on your game wallet.`;
+    recu.textContent = `${usdg} USDG will land on your game wallet.`;
     note.textContent = 'Your wallet will ask once to connect. No transaction yet.';
   } else if (sousMinimum) {
     go.disabled = true;
-    go.textContent = `DEPOSIT ${usdc} USDC`;
+    go.textContent = `DEPOSIT ${usdg} USDG`;
     recu.textContent = '';
     note.classList.add('alerte');
-    note.textContent = `Minimum deposit is ${montant(p.depotMinimum)} USDC.`;
-  } else if (etat.jeton === 'usdc') {
-    const assez = !etat.soldes || etat.soldes.usdc === null || Number(etat.soldes.usdc) >= etat.micros;
+    note.textContent = `Minimum deposit is ${montant(p.depotMinimum)} USDG.`;
+  } else if (etat.jeton === 'usdg') {
+    const assez = !etat.soldes || etat.soldes.usdg === null || Number(etat.soldes.usdg) >= etat.micros;
     go.disabled = !assez;
-    go.textContent = `DEPOSIT ${usdc} USDC`;
-    recu.textContent = `${usdc} USDC leaves your wallet and lands on your game wallet.`;
+    go.textContent = `DEPOSIT ${usdg} USDG`;
+    recu.textContent = `${usdg} USDG leaves your wallet and lands on your game wallet.`;
     note.classList.toggle('alerte', !assez);
     note.textContent = assez
       ? 'One confirmation in your wallet. You pay the network fee — a few cents.'
-      : `Not enough USDC in your wallet — ${etat.soldes ? formater(etat.soldes.usdc, 6) : '0.00'} available. Pick another way to pay.`;
+      : `Not enough USDG in your wallet — ${etat.soldes ? formater(etat.soldes.usdg, 6) : '0.00'} available. Pick another way to pay.`;
   } else {
     const d = etat.devis;
     if (etat.devisErreur) {
@@ -395,20 +389,20 @@ function peindre(jetonsAussi = true) {
     } else if (d === null) {
       go.disabled = true;
       go.textContent = 'GETTING A QUOTE…';
-      recu.textContent = `${usdc} USDC will land on your game wallet.`;
+      recu.textContent = `${usdg} USDG will land on your game wallet.`;
       note.textContent = 'Reading the market price…';
     } else {
       const max = d + d * MARGE_SWAP_BP / 10_000n;
       const assez = !etat.soldes || etat.soldes[etat.jeton] === null || etat.soldes[etat.jeton] >= max;
       go.disabled = !assez;
-      go.textContent = `PAY ≈ ${formater(d, j.decimales)} ${j.nom} → ${usdc} USDC`;
-      recu.textContent = `Swapped in your wallet, ${usdc} USDC lands straight on your game wallet. Up to ${formater(max, j.decimales)} ${j.nom} reserved — the unused part comes back.`;
+      go.textContent = `PAY ≈ ${formater(d, j.decimales)} ${j.nom} → ${usdg} USDG`;
+      recu.textContent = `Swapped in your wallet, ${usdg} USDG lands straight on your game wallet. Up to ${formater(max, j.decimales)} ${j.nom} reserved — the unused part comes back.`;
       note.classList.toggle('alerte', !assez);
       note.textContent = !assez
         ? `Not enough ${j.nom} in your wallet — ${etat.soldes ? formater(etat.soldes[etat.jeton], j.decimales) : '0'} available.`
         : etat.jeton === 'eth'
           ? 'One confirmation in your wallet. The swap and the deposit are the same transaction.'
-          : 'Two confirmations: allow the swap, then confirm it. The USDC goes straight to your game wallet.';
+          : 'Two confirmations: allow the swap, then confirm it. The USDG goes straight to your game wallet.';
     }
   }
   // Le pied de la note rappelle le réseau d'essai : de l'argent qui n'en est pas.
@@ -434,14 +428,12 @@ async function lancer() {
   etat.enCours = true;
   etat.hache = null;
   el('depot-2-titre').textContent = 'Confirm in your wallet';
-  el('depot-2-sous').textContent = etat.jeton === 'usdc'
-    ? `Switch to ${p.chaine?.nom ?? 'Robinhood Chain'} if asked, then confirm the ${montant(etat.micros)} USDC transfer.`
-    : etat.jeton === 'eth'
-      ? `Switch to ${p.chaine?.nom ?? 'Robinhood Chain'} if asked, then confirm the swap — ${montant(etat.micros)} USDC arrives on your game wallet.`
-      : `Switch network if asked, allow the swap, then confirm it — ${montant(etat.micros)} USDC arrives on your game wallet.`;
+  el('depot-2-sous').textContent = etat.jeton === 'usdg'
+    ? `Switch to ${p.chaine?.nom ?? 'Robinhood Chain'} if asked, then confirm the ${montant(etat.micros)} USDG transfer.`
+    : `Switch to ${p.chaine?.nom ?? 'Robinhood Chain'} if asked, then confirm the swap — ${montant(etat.micros)} USDG arrives on your game wallet.`;
   el('depot-2-liste').innerHTML = [
     `Your wallet opens on ${p.chaine?.nom ?? 'Robinhood Chain'}`,
-    etat.jeton === 'usdg' ? `Allow, then confirm the ${j.nom} → USDC swap` : etat.jeton === 'eth' ? 'Confirm the ETH → USDC swap' : 'Confirm the USDC transfer',
+    etat.jeton === 'usdg' ? 'Confirm the USDG transfer' : 'Confirm the ETH → USDG swap',
     'We watch the chain and credit your table',
   ].map((t, i) => `<li${i === 0 ? ' class="on"' : ''}>${t}</li>`).join('');
   allerA(2);
@@ -449,7 +441,7 @@ async function lancer() {
 
   try {
     let hache;
-    if (etat.jeton === 'usdc') {
+    if (etat.jeton === 'usdg') {
       hache = await deposerDepuisWallet({ chaine: p.chaine, adresseDepot: p.adresseDepot, micros: etat.micros });
     } else {
       const entreeMax = etat.devis + etat.devis * MARGE_SWAP_BP / 10_000n;
@@ -471,8 +463,8 @@ async function robinet() {
   if (!etat?.profil) return;
   sfx.click();
   el('depot-2-titre').textContent = 'Asking the faucet…';
-  el('depot-2-sous').textContent = 'Test USDC are minted straight onto your game wallet. No wallet needed.';
-  el('depot-2-liste').innerHTML = '<li class="on">The backend mints test USDC</li><li>Your table is credited</li>';
+  el('depot-2-sous').textContent = 'Test USDG are minted straight onto your game wallet. No wallet needed.';
+  el('depot-2-liste').innerHTML = '<li class="on">The backend mints test USDG</li><li>Your table is credited</li>';
   allerA(2);
   dire('');
   try {
@@ -521,8 +513,8 @@ function reussi(micros) {
   clearTimeout(pollChrono);
   sfx.checkpoint?.();
   el('depot-3-titre').textContent = 'Credited!';
-  el('depot-3-montant').innerHTML = `+${montant(micros)}<small>USDC</small>`;
-  el('depot-3-sous').textContent = `Your table now holds ${montant(portefeuille.solde)} USDC. Stakes leave it at launch, winnings come back on-chain.`;
+  el('depot-3-montant').innerHTML = `+${montant(micros)}<small>USDG</small>`;
+  el('depot-3-sous').textContent = `Your table now holds ${montant(portefeuille.solde)} USDG. Stakes leave it at launch, winnings come back on-chain.`;
   allerA(3);
   onChangement();
 }

@@ -5,8 +5,8 @@
  *   cd backend && npm start · cd serveur && npm start
  *   node diag/web3-duel.mjs http://127.0.0.1:8080 emailA mdpA emailB mdpB
  *
- * Les deux comptes doivent exister et détenir au moins 2 USDC. Le harnais les fait entrer
- * en 1v1 à 2 USDC, attend que le serveur fasse partir les mises (« STAKING… ») et que la
+ * Les deux comptes doivent exister et détenir au moins 2 USDG. Le harnais les fait entrer
+ * en 1v1 à 2 USDG, attend que le serveur fasse partir les mises (« STAKING… ») et que la
  * manche 1 s'annonce, puis fait ABANDONNER les deux : le serveur clôt la partie, la règle
  * par le backend, et chaque compte reçoit `reglement`. On lit ensuite les soldes et la
  * page de suivi. Rien ici ne pilote un personnage : c'est l'ARGENT qu'on prouve.
@@ -48,13 +48,13 @@ async function joueur(nom, email, mdp) {
 titre('1. Deux comptes connectés');
 const A = await joueur('ProbeA', EA, MA);
 const B = await joueur('ProbeB', EB, MB);
-dit(A.solde >= 2 && B.solde >= 2, `A a ${A.solde.toFixed(2)} USDC, B ${B.solde.toFixed(2)} — assez pour une table à 2`);
+dit(A.solde >= 2 && B.solde >= 2, `A a ${A.solde.toFixed(2)} USDG, B ${B.solde.toFixed(2)} — assez pour une table à 2`);
 const avant = (await api('/stats')).parties.reglees;
 
-titre('2. Ils entrent en 1v1 à 2 USDC ; le serveur fait partir les mises');
+titre('2. Ils entrent en 1v1 à 2 USDG ; le serveur fait partir les mises');
 for (const j of [A, B]) {
   await j.page.click('.mode[data-mode="duel"]');
-  await j.page.click('.palier[data-usdc="2"]');
+  await j.page.click('.palier[data-usdg="2"]');
   await j.page.waitForFunction(() => !document.getElementById('play').disabled, null, { timeout: 10_000 });
   await j.page.click('#play');
 }
@@ -79,7 +79,7 @@ for (let i = 0; i < 60; i++) {
 }
 dit(stats.parties.reglees === avant + 1, `le backend a réglé la partie (${stats.parties.reglees} réglée(s))`);
 const p = stats.dernieresParties[0];
-dit(p && p.mode === 'duel' && Number(p.mise) === 2_000_000 && p.statut === 'reglee', `duel à 2 USDC, ligne ${p?.issue}, pot ${Number(p?.pot) / 1e6}, frais ${Number(p?.rake) / 1e6} — pot ${p?.adresse_pot}`);
+dit(p && p.mode === 'duel' && Number(p.mise) === 2_000_000 && p.statut === 'reglee', `duel à 2 USDG, ligne ${p?.issue}, pot ${Number(p?.pot) / 1e6}, frais ${Number(p?.rake) / 1e6} — pot ${p?.adresse_pot}`);
 const tx = stats.chaine.dernieres.filter((t) => t.partie === p.id);
 dit(tx.some((t) => t.objet === 'mise') && tx.some((t) => t.objet === 'gain' || t.objet === 'rake') && new Set(tx.filter((t) => t.objet === 'mise').map((t) => t.signature)).size === 1,
   `${tx.length} opérations sur la chaîne pour cette partie, les deux mises dans UNE transaction : ${[...new Set(tx.map((t) => t.objet))].join(', ')}`);

@@ -15,6 +15,6 @@ public sealed record StakeContext(StakeTier Tier, Money EntryFee, string Currenc
 {
     public static StakeContext Free { get; } = new(StakeTier.Free, Money.Zero, "NONE");
 
-    public static StakeContext Usdc(StakeTier tier, decimal units) =>
-        new(tier, Money.FromUnits(units), "USDC");
+    public static StakeContext Usdg(StakeTier tier, decimal units) =>
+        new(tier, Money.FromUnits(units), "USDG");
 }

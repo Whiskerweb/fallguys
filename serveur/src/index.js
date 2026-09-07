@@ -67,8 +67,8 @@ if (pont) {
   try {
     const r = await pont.ping();
     // Ce que le backend dit de la chaine (reseau, dollar) : `/etat` le repete au navigateur,
-    // qui renomme ce qu'il affiche — USDC sur le testnet, USDG sur mainnet.
-    pont.chaine = { reseau: r.reseau ?? null, chainId: r.chainId ?? null, stable: r.stable ?? 'USDC' };
+    // qui renomme ce qu'il affiche — USDG sur le testnet, USDG sur mainnet.
+    pont.chaine = { reseau: r.reseau ?? null, chainId: r.chainId ?? null, stable: r.stable ?? 'USDG' };
     console.log(`  backend ${pont.url} · reseau ${r.reseau} · dollar ${pont.chaine.stable} · signature reconnue`);
   } catch (e) {
     console.error(`  backend ${pont.url} : ${e.code} — ${e.message}`);
@@ -104,7 +104,7 @@ for (const id of (politique.modes ? ORDRE_MODES : ['arena'])) {
     + (f.calme != null ? ` · part à ${f.minimum}+ après ${f.calme} s sans arrivée` : ' · part plein')
     + ` · bots : ${politique.bots}`);
 }
-console.log(`  mises : ${PALIERS.join(' / ')} USDC`);
+console.log(`  mises : ${PALIERS.join(' / ')} USDG`);
 console.log(`  suggestion d'une autre file après ${politique.suggererApres ?? '—'} s d'attente`);
 console.log(`  argent : ${pont ? `réel, via ${pont.url}` : (politique.identite === 'facultative' ? 'portefeuille de banc (aucun backend)' : 'AUCUN — files payantes fermées')}`);
 console.log(`  identité : ${IDENTITE_CONFIGUREE ? 'jeton Supabase vérifié' : 'non vérifiée (invités seulement)'}`);

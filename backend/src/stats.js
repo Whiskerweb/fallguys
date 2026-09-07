@@ -59,7 +59,7 @@ export async function statistiques(db, chaine) {
            count(*) filter (where statut = 'echoue')::int as echouees
       from public.chain_tx`);
   const dernieres = await tous(`
-    select objet, montant::text as montant, coalesce(mint, 'usdc') as mint, signature, partie, statut, cree_le, clos_le
+    select objet, montant::text as montant, coalesce(mint, 'usdg') as mint, signature, partie, statut, cree_le, clos_le
       from public.chain_tx where signature is not null
       order by coalesce(clos_le, cree_le) desc limit 40`);
   const dernieresParties = await tous(`
@@ -84,14 +84,14 @@ export async function statistiques(db, chaine) {
     // `chaine`, plus bas, compte les transactions : le reseau porte un autre nom, sinon l'un ecrase l'autre.
     reseauDetail: { nom: RESEAUX[config.reseau]?.nom ?? config.reseau, chainId: config.chainId, explorateur: RESEAUX[config.reseau]?.explorateur ?? null, stable: config.stableSymbole },
     a: new Date().toISOString(),
-    contrats: { usdc: config.usdcAdresse ?? null, bg: config.bgAdresse ?? null, lot: config.lotAdresse ?? null },
+    contrats: { usdg: config.usdgAdresse ?? null, bg: config.bgAdresse ?? null, lot: config.lotAdresse ?? null },
     adresses,
     liens: {
       caisse: adresses.caisse && lienAdresse(adresses.caisse),
       frais: adresses.frais && lienAdresse(adresses.frais),
       pool: adresses.pool && lienAdresse(adresses.pool),
       bg: config.bgAdresse && lienAdresse(config.bgAdresse),
-      usdc: config.usdcAdresse && lienAdresse(config.usdcAdresse),
+      usdg: config.usdgAdresse && lienAdresse(config.usdgAdresse),
       lot: config.lotAdresse && lienAdresse(config.lotAdresse),
     },
     parties: {
@@ -114,7 +114,7 @@ export async function statistiques(db, chaine) {
       derniers: brulage.derniers.map((b) => ({ ...b, lien: lienExplorateur(b.signature) })),
     },
     marche,
-    /* Les skins vendus : chaque USDC est parti aux frais, donc au brulage. */
+    /* Les skins vendus : chaque USDG est parti aux frais, donc au brulage. */
     boutique,
     dernieresParties: dernieresParties.map((p) => ({ ...p, lienPot: p.adresse_pot && lienAdresse(p.adresse_pot) })),
     verification: derniereVerification,

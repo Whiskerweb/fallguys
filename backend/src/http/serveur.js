@@ -11,7 +11,7 @@
  *     peut agir que sur lui-meme. AUCUNE ne prend un identifiant de joueur en parametre.
  *     Et depuis le 2 septembre 2026, AUCUNE NE PARLE DE PARTIE : le navigateur ne peut
  *     plus engager une mise ni declarer un rang. Il consulte, il depose, il retire — et
- *     sur le testnet, il demande des USDC d'essai au robinet ;
+ *     sur le testnet, il demande des USDG d'essai au robinet ;
  *
  *   - LES ROUTES INTERNES (`/interne/…`) : le serveur de jeu, qui a simule la partie et
  *     sait qui a fini ou, signe chaque message avec sa cle Ed25519. Le backend verifie la
@@ -163,23 +163,22 @@ export function creerServeur(db, { chaine = null } = {}) {
         reseau: config.reseau,
         /*
          * La CHAINE, telle que le navigateur doit la connaitre : de quoi ajouter le reseau
-         * au wallet du joueur (`wallet_addEthereumChain`), le contrat USDC a appeler pour
+         * au wallet du joueur (`wallet_addEthereumChain`), le contrat USDG a appeler pour
          * deposer depuis son propre wallet, et si le robinet d'essai est ouvert.
          */
         chaine: {
           ...RESEAUX[config.reseau], rpc: config.rpc, chainId: config.chainId,
-          usdc: config.usdcAdresse, bg: config.bgAdresse,
-          // Le nom du dollar dans lequel on mise : USDC sur le testnet (le notre), USDG sur mainnet.
+          usdg: config.usdgAdresse, bg: config.bgAdresse,
+          // Le nom du dollar dans lequel on mise : USDG sur le testnet (le notre), USDG sur mainnet.
           stable: config.stableSymbole,
-          robinet: config.reseau !== 'mainnet' && Boolean(config.usdcAdresse) && config.robinetMicros > 0,
+          robinet: config.reseau !== 'mainnet' && Boolean(config.usdgAdresse) && config.robinetMicros > 0,
           robinetMicros: config.robinetMicros,
           /*
-           * Les autres portes d'entree : USDG et le swap depuis l'ETH, changes DANS le
-           * wallet du joueur par un routeur de DEX, destination = adresse de depot
-           * (`config.js`). `null` tant que le reseau n'a ni l'un ni l'autre — le guide
-           * de depot ne montre alors pas ces chemins, il dit pourquoi.
+           * L'autre porte d'entree : le swap depuis l'ETH, change DANS le wallet du joueur
+           * par un routeur de DEX, destination = adresse de depot (`config.js`). `null`
+           * tant que le reseau n'a pas de marche — le guide de depot ne montre alors pas
+           * ce chemin, il dit pourquoi.
            */
-          usdg: config.usdgAdresse ?? null,
           swap: (config.swapRouteur && config.swapWeth) ? { routeur: config.swapRouteur, weth: config.swapWeth } : null,
         },
         liens: { wallet: lienAdresse(p.adresse_depot), explorateur: RESEAUX[config.reseau]?.explorateur ?? null },
@@ -229,12 +228,12 @@ export function creerServeur(db, { chaine = null } = {}) {
     },
 
     /**
-     * LE ROBINET — des USDC d'essai sur le wallet de jeu du joueur. TESTNET SEULEMENT.
+     * LE ROBINET — des USDG d'essai sur le wallet de jeu du joueur. TESTNET SEULEMENT.
      *
-     * Sur le testnet, personne ne vend d'USDC : le jeu frappe le sien (`USDCTest`), et
+     * Sur le testnet, personne ne vend d'USDG : le jeu frappe le sien (`USDGTest`), et
      * c'est le seul moyen pour un joueur d'en avoir. Un par heure et par joueur, pour que
      * la caisse ne paie pas le gaz d'un robot. Sur mainnet, la route repond 404 : le vrai
-     * USDC n'a pas de fonction de frappe, et il n'y a rien a ouvrir.
+     * USDG n'a pas de fonction de frappe, et il n'y a rien a ouvrir.
      */
     'POST /robinet': async (req) => {
       if (config.reseau === 'mainnet' || !config.robinetMicros) throw refus(404, 'ROBINET_FERME', 'pas de robinet sur ce reseau');
@@ -253,7 +252,7 @@ export function creerServeur(db, { chaine = null } = {}) {
       try {
         // Aucun `userId` sur l'operation : le guetteur doit la voir comme un DEPOT.
         const r = await chaine.executer({
-          operations: [{ type: 'frappe', vers: p.adresse_depot, mint: 'usdc', montant: config.robinetMicros, objet: 'robinet', ref, metadata: { userId } }],
+          operations: [{ type: 'frappe', vers: p.adresse_depot, mint: 'usdg', montant: config.robinetMicros, objet: 'robinet', ref, metadata: { userId } }],
         });
         const vus = await releverDepots(db, { userId, adresse: p.adresse_depot });
         if (vus.some((v) => !v.deja)) { publier('depot', { n: 1 }); invaliderStats(); }
@@ -421,7 +420,7 @@ export function creerServeur(db, { chaine = null } = {}) {
      */
     'POST /interne/partie/engager': interne('engager', async ({ partie, mode: modeId, mise, joueurs }) => {
       if (!idPartie.test(String(partie ?? ''))) throw refus(400, 'PARTIE_INVALIDE', 'identifiant de partie invalide');
-      if (!PALIERS.includes(mise / MICROS)) throw refus(400, 'MISE_HORS_CATALOGUE', `tables ouvertes : ${PALIERS.join(', ')} USDC`);
+      if (!PALIERS.includes(mise / MICROS)) throw refus(400, 'MISE_HORS_CATALOGUE', `tables ouvertes : ${PALIERS.join(', ')} USDG`);
       try { mode(modeId); } catch (e) { throw refus(400, 'TABLE_INCONNUE', e.message); }
       if (!Array.isArray(joueurs) || !joueurs.every((j) => uuid.test(j.userId ?? ''))) {
         throw refus(400, 'JOUEURS_INVALIDES', 'chaque joueur porte un userId');
@@ -444,7 +443,7 @@ export function creerServeur(db, { chaine = null } = {}) {
      */
     'POST /interne/partie/regler': interne('regler', async ({ partie, mode: modeId, mise, effectif, graineRoue, classement }) => {
       if (!idPartie.test(String(partie ?? ''))) throw refus(400, 'PARTIE_INVALIDE', 'identifiant de partie invalide');
-      if (!PALIERS.includes(mise / MICROS)) throw refus(400, 'MISE_HORS_CATALOGUE', `tables ouvertes : ${PALIERS.join(', ')} USDC`);
+      if (!PALIERS.includes(mise / MICROS)) throw refus(400, 'MISE_HORS_CATALOGUE', `tables ouvertes : ${PALIERS.join(', ')} USDG`);
       let m;
       try { m = mode(modeId); } catch (e) { throw refus(400, 'TABLE_INCONNUE', e.message); }
       if (!Number.isInteger(graineRoue) || graineRoue < 0 || graineRoue > 0xFFFFFFFF) {

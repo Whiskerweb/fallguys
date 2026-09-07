@@ -14,6 +14,6 @@ process.env.CAISSE_CLE ??= cleDeTest(1);
 process.env.FRAIS_CLE ??= cleDeTest(2);
 process.env.POOL_CLE ??= cleDeTest(3);
 const adresseDeTest = (octet) => '0x' + Buffer.alloc(20, octet).toString('hex');
-process.env.USDC_ADRESSE ??= adresseDeTest(0xaa);
+process.env.USDG_ADRESSE ??= adresseDeTest(0xaa);
 process.env.BG_ADRESSE ??= adresseDeTest(0xbb);
 process.env.LOT_ADRESSE ??= adresseDeTest(0xcc);

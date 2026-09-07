@@ -1,7 +1,7 @@
 # Tumble — règles de travail
 
 Party game de parcours d'obstacles, **jouable dans un navigateur**, à mises réelles en
-USDC. Design complet : `docs/superpowers/specs/` — **lire les Amendements en tête** avant
+USDG. Design complet : `docs/superpowers/specs/` — **lire les Amendements en tête** avant
 le corps, ils disent ce qui a changé depuis.
 
 L'utilisateur est **directeur produit, pas codeur**. Il ne relira pas le code : les
@@ -34,7 +34,7 @@ session ajoutait une carte.
 |---|---|
 | `tools/feel-lab/` | **Le jeu.** Three.js + Rapier, cinq épreuves. Le serveur exécute ces mêmes modules. |
 | `serveur/` | **Serveur de jeu autoritatif.** Aucun accès aux soldes ; il SIGNE ce qu'il dit au backend. |
-| `backend/` | **L'argent.** Supabase, grand livre, USDC sur Robinhood Chain (un wallet par joueur, un par partie), le jeton BG et son brûlage, la page `/suivi`. |
+| `backend/` | **L'argent.** Supabase, grand livre, USDG sur Robinhood Chain (un wallet par joueur, un par partie), le jeton BG et son brûlage, la page `/suivi`. |
 | `src/Fallguys.Rules/` | **Noyau de règles** C#, la table des gains. |
 
 `game/` (Unity) est **vide** : la spec le prévoyait, ça n'a jamais été commencé.
@@ -53,7 +53,7 @@ seule source de non-reproductibilité du jeu.
 indépendants (la politique, et la mise non nulle). Une garantie qui tient à un seul test
 tient à une seule faute de frappe.
 
-**L'argent en micro-unités entières, jamais en flottant.** 1 USDC = 1 000 000. Même type et
+**L'argent en micro-unités entières, jamais en flottant.** 1 USDG = 1 000 000. Même type et
 même échelle en C#, dans les deux ports JavaScript, et en `bigint` Postgres.
 
 **Trois implémentations de la table des gains** — `PayoutPolicy.cs`, `backend/src/gains.js`,
@@ -125,14 +125,14 @@ STANDARD, PODIUM, SHARP, CROWN, ROYAL, JACKPOT). Leur donner les mêmes noms sur
 écran serait illisible. Le ticket du lobby importe encore `VARIANTES` : c'est le MÊME objet
 qu'`ISSUES`, gardé sous son ancien nom pour une autre main.
 
-**Aucun multiplicateur devant le joueur.** Il mise des USDC, il gagne des USDC. `×5` lui
+**Aucun multiplicateur devant le joueur.** Il mise des USDG, il gagne des USDG. `×5` lui
 demandait de calculer de tête ce que la colonne d'à côté lui donnait déjà. `facteur()`
 existe toujours dans `economie.js` et `diag/economie.mjs` le vérifie — c'est l'outil avec
 lequel NOUS raisonnons, pas son unité de compte. **Ne pas le supprimer comme code mort :
 il est vivant du côté où l'on conçoit, absent du côté où l'on joue.**
 
 **Le ticket dit UNE chose sur l'argent : ce que le vainqueur gagne, en fourchette.**
-« 1ST PLACE WINS 2.60–4.00 USDC · 2 players · winner takes all ». Plus de pot, plus de
+« 1ST PLACE WINS 2.60–4.00 USDG · 2 players · winner takes all ». Plus de pot, plus de
 rake, plus de barème rang par rang ni de gemmes dans le ticket — demande du directeur
 produit (4 septembre 2026) : « simple, efficace ». Les deux bornes sont lues sur la roue
 du vainqueur (`roueDe`), et la borne basse descend au gain d'une table partie au minimum
@@ -154,7 +154,7 @@ d'un tirage ; sans tirage, pas de cérémonie.
 **Les espérances ne sont plus ×1,8 exactement.** La moitié des joueurs se partage 90 % du
 pot en moyenne, mais une part en est rendue aux bronzes : en arène le 1er vaut ×4,67 en
 espérance (×5,0 avant), le 2e ×2,13, la bande 5-8 ×1,01 à ×1,07, chaque bronze ×0,04 à
-×0,14 ; en duel le vainqueur ×1,70, de 2,60 à 4,00 à 2 USDC. Ce sont des DONNÉES
+×0,14 ; en duel le vainqueur ×1,70, de 2,60 à 4,00 à 2 USDG. Ce sont des DONNÉES
 (`ISSUES`), verrouillées par les tests ; les changer est une décision produit, pas un
 correctif. Le rake reste 10 % en moyenne, lui, exactement.
 
@@ -171,10 +171,10 @@ a été retiré : il vient de gagner ou de perdre de l'argent réel, et lui repr
 était une décision qu'on prenait à sa place. Les harnais font donc les deux gestes —
 `passerLaRoue()` dans `diag/partie.mjs`, la section 9 de `diag/duel.mjs`.
 
-**LA BOUTIQUE A QUATRE ARTICLES, ET TROIS COÛTENT DES USDC (5 septembre 2026).** On
+**LA BOUTIQUE A QUATRE ARTICLES, ET TROIS COÛTENT DES USDG (5 septembre 2026).** On
 commence avec **Pepe** (`char-grenouille`, en tête du catalogue, gratuit). BabyTrump se
 gagne toujours en publiant un post sur X (décision du 2 septembre). BabyMusk (Elon,
-15 USDC), BabyNetan (Netanyahou, 12) et CyberLeek (ex-Captain Leeky, 10) **s'achètent**,
+15 USDG), BabyNetan (Netanyahou, 12) et CyberLeek (ex-Captain Leeky, 10) **s'achètent**,
 et **« tous les revenus liés serviront à buy and burn le token »** : le prix va du wallet
 de jeu du joueur au wallet FRAIS — le même que le rake — et le brûlage l'y trouve. La
 boutique l'écrit sous chaque prix et renvoie au suivi en direct,
@@ -192,7 +192,7 @@ chaîne ensuite (virement wallet du joueur → FRAIS, objet `achat`), et rend la
 remboursé, et le retenter avec la même ref retrouvait le mouvement déjà posé sans
 débiter, la chaîne payant quand même — `test/boutique.mjs` l'a attrapé ; la ref porte
 l'identifiant de la tentative (`purchases.ref`). Le premier clic ARME le bouton
-(« CONFIRM 15 USDC »), le second paie : de l'argent réel part sur un clic, un seul clic
+(« CONFIRM 15 USDG »), le second paie : de l'argent réel part sur un clic, un seul clic
 est un clic de trop.
 
 **Un skin payant ne se porte que si le BACKEND le dit — sauf sur un banc.** Tant que le
@@ -214,24 +214,24 @@ MONDE, anciens inscrits compris (demande du 5 septembre 2026) : ce qui distingue
 vu » n'est pas la date d'inscription mais la boîte ouverte dans ce navigateur ; avec un
 solde, le guide le dit et se ferme en un clic. Deux déclencheurs : la porte qui se ferme,
 et le backend qui reconnaît la session (`main.js:apresCompte`), parce qu'une session
-déjà ouverte au chargement ne ferme aucune porte. Une autre session l'avait mis en vente à 10 USDC quelques minutes avant cette
+déjà ouverte au chargement ne ferme aucune porte. Une autre session l'avait mis en vente à 10 USDG quelques minutes avant cette
 décision : **ne pas le remettre en boutique payante**, c'est un choix produit. Déclaratif
 et local comme le post (un cosmétique, aucun centime) ; `?cadeau` force la boîte sur un
 banc, et `diag/cadeau-ecran.mjs` joue l'arrivée entière. La boîte FLOTTE : Playwright
 la clique avec `force: true`.
 
-**LE GUIDE DE DÉPÔT (`depot.js`, « ADD FUNDS ») : USDC, USDG ou ETH, en trois étapes,
-et le change se fait DANS LE WALLET DU JOUEUR.** Le grand livre reste en USDC et le
+**LE GUIDE DE DÉPÔT (`depot.js`, « ADD FUNDS ») : USDG, USDG ou ETH, en trois étapes,
+et le change se fait DANS LE WALLET DU JOUEUR.** Le grand livre reste en USDG et le
 wallet de jeu doit en détenir pour que la mise parte : USDG et ETH passent par un
 routeur de DEX (interface Uniswap V2) appelé depuis le navigateur avec l'ADRESSE DE
 DÉPÔT comme destination du swap (`compte.js:deposerParSwap`, `swapETHForExactTokens` /
-`swapTokensForExactTokens` : le joueur choisit la SORTIE en USDC, on calcule l'entrée par
-`getAmountsIn`, 1 % de marge rendue par le routeur). Le guetteur voit arriver des USDC
+`swapTokensForExactTokens` : le joueur choisit la SORTIE en USDG, on calcule l'entrée par
+`getAmountsIn`, 1 % de marge rendue par le routeur). Le guetteur voit arriver des USDG
 ordinaires ; le backend n'a rien de nouveau à tenir. Les adresses (`USDG_ADRESSE`,
 `SWAP_ROUTEUR_ADRESSE`, `SWAP_WETH_ADRESSE`) partent par `/moi` → `chaine.usdg`,
 `chaine.swap` ; VIDES sur le testnet, où ces deux chemins sont grisés avec la raison et
 où le robinet est en tête. Les soldes du wallet sont lus sur le RPC public et le jeton
-le mieux garni est pré-choisi ; 10 USDC par défaut. Après la signature, le guide
+le mieux garni est pré-choisi ; 10 USDG par défaut. Après la signature, le guide
 interroge `releverDepots` toutes les quatre secondes jusqu'au crédit, puis PLAY. Le
 panneau WALLET garde le chemin expert et ouvre le guide par ADD FUNDS ; la note sous
 PLAY l'ouvre aussi quand le solde manque.
@@ -298,14 +298,14 @@ directeur produit a demandé le passage en mainnet ; le code est prêt et le bas
 suit `backend/README.md` « Passer en mainnet », dans l'ordre, avec trois gestes humains
 (ETH sur la caisse mainnet, USDG sur le pool, USDG aux joueurs d'essai) et une
 confirmation explicite (`JE_CONFIRME_MAINNET=oui`). **Le dollar du mainnet est l'USDG de
-Paxos** (`0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, « Global Dollar »), pas l'USDC : il
+Paxos** (`0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, « Global Dollar »), pas l'USDG : il
 implémente EIP-3009 (vérifié sur le contrat : même typehash que le nôtre) mais n'a pas de
 `version()` — `chaine.js:domaineDe` retrouve `{ name: "Global Dollar", version: "1" }` en
-recalculant `DOMAIN_SEPARATOR`. **Le jeu est écrit « USDC » et se renomme tout seul** :
+recalculant `DOMAIN_SEPARATOR`. **Le jeu est écrit « USDG » et se renomme tout seul** :
 `STABLE_SYMBOLE` (USDG sur mainnet par défaut) voyage par `/interne/ping` → `/etat` →
-`devise.js`, qui renomme chaque nœud de texte qui dit USDC, présents et à venir
+`devise.js`, qui renomme chaque nœud de texte qui dit USDG, présents et à venir
 (MutationObserver) — un mécanisme plutôt que deux cents littéraux dans des fichiers que
-plusieurs mains éditent ; il ne fait rien tant que le nom est USDC. **Une trésorerie
+plusieurs mains éditent ; il ne fait rien tant que le nom est USDG. **Une trésorerie
 mainnet NEUVE** est notée dans `backend/wallets/mainnet.json` (`tresorerie.mjs --reseau
 mainnet --nouvelles`), le `.env` n'a pas bougé : les clés du testnet ne servent jamais sur
 mainnet. Le backend REFUSE de démarrer sur mainnet avec une clé de test, une origine `*`
@@ -320,7 +320,7 @@ que cette signature, qui couvre le mode, la mise, l'effectif, la graine de roue 
 classement, plus un horodatage. Le client apprend son gain par le message `reglement` et
 relit son solde. `caisse.engager` / `caisse.regler` survivent pour le BANC seulement.
 
-**Un wallet par joueur, un wallet par partie, et rien ne se mélange.** Les USDC d'un joueur
+**Un wallet par joueur, un wallet par partie, et rien ne se mélange.** Les USDG d'un joueur
 sont sur SON wallet dérivé (`adresses.js`, HKDF de `GRAINE_DEPOTS` → clé secp256k1, sel
 `tumble/robinhood/depot/v1`) — son adresse de dépôt EST son compte de jeu. Sa mise part
 vers le wallet du POT de la partie (dérivé aussi, `tresorerie.pot`), le règlement vide le
@@ -333,9 +333,9 @@ l'expéditeur paie le gaz ; ici il **signe une autorisation EIP-3009**
 (`transferWithAuthorization`, hors chaîne, gratuit) et la CAISSE la soumet et paie. Le
 `nonce` de l'autorisation est le hache de la clé du journal `(objet, ref)` : rejouer la
 même opération est refusé PAR LE CONTRAT. Le domaine EIP-712 du jeton se LIT sur le
-contrat (`name`, `version`) avant de signer — le nôtre répond « 1 », l'USDC de Circle
+contrat (`name`, `version`) avant de signer — le nôtre répond « 1 », l'USDG de Circle
 « 2 » ; signer avec un domaine deviné donne une autorisation refusée sans raison lisible.
-USDC de Circle implémente EIP-3009 sur toutes les chaînes EVM : le jour du mainnet, le
+USDG de Circle implémente EIP-3009 sur toutes les chaînes EVM : le jour du mainnet, le
 même code signe contre le vrai jeton. Si le stable retenu ne l'implémente pas, c'est un
 point de la liste d'avant-mainnet, pas une surprise du jour J.
 
@@ -351,11 +351,11 @@ et `diag/web3-duel.mjs` vérifie que les deux mises portent le MÊME hache.
 **Trois contrats Solidity, compilés par Foundry, versionnés en artefacts.**
 `backend/contrats/src/{Jetons,Lot}.sol`, `forge build`, puis `outils/contrats-compiler.mjs`
 recopie ABI et bytecode dans `src/robinhood/artefacts.js` — le backend n'a pas besoin de
-Foundry pour tourner. `USDCTest` (six décimales, EIP-3009, frappable par son propriétaire
+Foundry pour tourner. `USDGTest` (six décimales, EIP-3009, frappable par son propriétaire
 = le Lot, donc la caisse) n'existe que sur testnet et anvil ; `BabyGuy` (BG, un milliard
 frappé au constructeur vers le POOL, **aucune fonction de frappe**, `burnWithAuthorization`
 pour brûler depuis le pool sans ETH) et `Lot` se déploient tels quels sur mainnet.
-`npm run contrats` déploie ce qui manque et écrit `LOT_ADRESSE`, `USDC_ADRESSE`,
+`npm run contrats` déploie ce qui manque et écrit `LOT_ADRESSE`, `USDG_ADRESSE`,
 `BG_ADRESSE` dans le .env. Modifier un contrat sans recompiler laisse un artefact qui ne
 correspond plus à la source : `npm run contrats:compiler`.
 
@@ -376,7 +376,7 @@ identiques, dont le nonce de la caisse : deux transactions signées à la suite 
 le MÊME nonce et la seconde tombait en « nonce too low ». Vu sur anvil, au premier cycle.
 Et `executer()` tient un verrou : une transaction de la caisse à la fois.
 
-**Le guetteur lit les événements `Transfer` du contrat USDC depuis un curseur**
+**Le guetteur lit les événements `Transfer` du contrat USDG depuis un curseur**
 (`chain_curseur`, en repartant trente blocs avant), et la vérification manuelle d'un joueur
 relit une fenêtre de vingt mille blocs pour sa seule adresse. Un dépôt est clé par
 `hache#index` (deux transferts vers la même adresse dans une transaction sont deux dépôts).
@@ -384,11 +384,11 @@ Nos propres envois vers un joueur (gains, mises rendues) sont dans `chain_tx` av
 `user_id` et ne sont pas des dépôts ; une FRAPPE du robinet est journalisée SANS
 `user_id`, précisément pour que le guetteur la crédite.
 
-**LE ROBINET (`POST /robinet`) : des USDC d'essai, testnet seulement.** Personne ne vend
-d'USDC de test sur Robinhood Chain ; l'USDC du testnet est le NÔTRE, et le backend en
+**LE ROBINET (`POST /robinet`) : des USDG d'essai, testnet seulement.** Personne ne vend
+d'USDG de test sur Robinhood Chain ; l'USDG du testnet est le NÔTRE, et le backend en
 frappe 20 sur le wallet de jeu du joueur, une fois par heure (`ROBINET_MICROS`,
-`ROBINET_DELAI_MINUTES`). Le lobby montre GET TEST USDC quand `/moi` dit `chaine.robinet`.
-Sur mainnet, la route répond 404 par construction : le vrai USDC n'a pas de fonction de
+`ROBINET_DELAI_MINUTES`). Le lobby montre GET TEST USDG quand `/moi` dit `chaine.robinet`.
+Sur mainnet, la route répond 404 par construction : le vrai USDG n'a pas de fonction de
 frappe. C'est ce qui remplace le faucet Circle de l'époque Solana — un geste humain de
 moins.
 
@@ -403,21 +403,21 @@ des mises pour les rendre. Un refus de la CHAÎNE annule le lot entier ; le serv
 les innocents en file (`PARTIE_ANNULEE`) et dit sa raison au fautif (`SOLDE_INSUFFISANT`,
 `MISE_REFUSEE`).
 
-**Plus de TOP UP.** Le portefeuille local de 25 USDC n'existe que sur un BANC, et c'est le
+**Plus de TOP UP.** Le portefeuille local de 25 USDG n'existe que sur un BANC, et c'est le
 SERVEUR qui le dit (`bienvenue.argent === false && identite === 'facultative'`) — jamais un
 bouton, jamais une URL. Sans compte, le solde vaut ZÉRO et PLAY dit « Sign in to play for
-USDC ». `PRODUCTION` exige l'identité (`politique.identite: 'requise'`) et refuse de
+USDG ». `PRODUCTION` exige l'identité (`politique.identite: 'requise'`) et refuse de
 démarrer sans `BACKEND_URL` ; une politique de banc écrite à la main dans un harnais ne dit
 rien de l'identité et reste un banc.
 
 **Le jeton BG (« Baby Guy ») : 1 000 000 000, ERC-20, sans fonction de frappe.** Les frais
 (10 % du pot en moyenne, sur le wallet FRAIS, sur la chaîne) achètent des BG et les brûlent
-dans UNE transaction atomique (`brulage.js` : virement USDC frais → pool, puis
-`burnWithAuthorization` signé par le pool), dès 1 USDC. Sur le testnet il n'existe aucun
-marché pour un jeton neuf : le service tient sa propre réserve (wallet POOL, BG + USDC) et
+dans UNE transaction atomique (`brulage.js` : virement USDG frais → pool, puis
+`burnWithAuthorization` signé par le pool), dès 1 USDG. Sur le testnet il n'existe aucun
+marché pour un jeton neuf : le service tient sa propre réserve (wallet POOL, BG + USDG) et
 applique le produit constant — le prix se lit sur la chaîne, dans les soldes du pool. Sur
 mainnet, le rachat devient un appel au routeur d'un DEX de Robinhood Chain et rien d'autre
-ne bouge. **Le prix se dit en BG pour 1 USDC** (`bgParUsdc`) : en USDC par BG il vaut zéro
+ne bouge. **Le prix se dit en BG pour 1 USDG** (`bgParUsdg`) : en USDG par BG il vaut zéro
 au micro près.
 
 **Les amounts de BG sont des micros aussi** (six décimales) : 10^15 unités au plus, sous
@@ -431,7 +431,7 @@ CONNUES : ne jamais les prendre pour une preuve, et `cycle --local` pose SES cl�
 jamais celles du .env, sur anvil.
 
 **`npm run cycle:local` lance anvil lui-même** (Foundry, `~/.foundry/bin`), déploie les
-trois contrats, frappe l'USDC, et joue dépôt → mises → règlement → brûlage → retrait avec
+trois contrats, frappe l'USDG, et joue dépôt → mises → règlement → brûlage → retrait avec
 le grand livre sur PGlite. Sept transactions, zéro écart. C'est LA preuve que ce que
 `chaine.js` construit passe sur une EVM ; `npm test` prouve les chemins du domaine sur la
 chaîne factice.
@@ -573,7 +573,7 @@ désormais DEUX éléments — la scène (classes, gestes) et le disque (le seul
 **Annuler `jeu.enligne` rend la main aux règles HORS LIGNE.** `brancher.js` le fait à la fin
 d'une partie pour cesser d'envoyer des entrées — et à l'image suivante `main.js` ne se sait
 plus en ligne, voit que le vainqueur est encore posé au-delà de la ligne d'arrivée, et
-relançait `finishRace()` : le verdict « VICTORY! · +X USDC » était écrasé par un
+relançait `finishRace()` : le verdict « VICTORY! · +X USDG » était écrasé par un
 « QUALIFIED! », puis le retour au lobby détruisait la roue 3,2 s plus tard. L'argent était
 versé, le joueur ne le voyait jamais. C'est `jeu._fin` qui retient ces règles ; **les deux
 lignes sont couplées**, et le trou ne se voyait que sur les cartes qu'on peut terminer —
@@ -689,7 +689,7 @@ pour mot « renvoyé au lobby sans rien » d'un côté et « encore en partie »
 deux symptômes, une exception. Chaque étape avant l'écran est donc isolée (`surement`),
 et l'écran monte toujours. Le déclencheur vécu : **`npm start` sans `POLITIQUE=` donne
 `DUEL_TEST`, dont le `cible: 2` vaut pour TOUS les modes**, et le ticket par défaut est
-une ARÈNE à 2 USDC — le client réglait « une arène partie à deux », `tableEffectif`
+une ARÈNE à 2 USDG — le client réglait « une arène partie à deux », `tableEffectif`
 refuse sous trois joueurs. Le serveur refuse désormais la mise à l'inscription
 (`MISE_IMPAYABLE`, `politique.js:misePayable`) et relève le minimum de départ à trois
 dès qu'un pot existe. `diag/franchir-rondin.mjs` rejoue les trois cas — et lui seul fait
@@ -799,7 +799,7 @@ cd tools/test-harness && node franchissable.mjs # un RAPPORT, pas un test : les 
 
 Rien ne demande Docker ni base de données (anvil vient de Foundry, déjà installé). Seuls les deux harnais `web3-*` visent des
 serveurs lancés d'avance (`cd backend && npm start`, `cd serveur && npm start`) et des
-comptes Supabase confirmés avec de l'USDC de test (le robinet du lobby en donne).
+comptes Supabase confirmés avec de l'USDG de test (le robinet du lobby en donne).
 
 **Les bancs navigateur (`diag/duel.mjs`, `franchir-rondin.mjs`, `hex-finale.mjs`…) jouent
 le jeu COMPILÉ** : le serveur de jeu sert `tools/feel-lab/dist`. Une modification du
@@ -829,7 +829,7 @@ trop lâche a laissé passer un client qui simulait deux fois trop vite.
 sans serveur, le bouton reste gris et le ticket dit pourquoi. `Game.startEpisode()` — la
 partie solo — survit UNIQUEMENT pour les bancs qui mesurent une carte sans serveur
 (`diag/partie.mjs`, les mesures de traversée), appelée par `__probeGame()`, et aucun
-bouton ni aucune touche n'y mène. Le portefeuille local de 25 USDC reste le repli de la
+bouton ni aucune touche n'y mène. Le portefeuille local de 25 USDG reste le repli de la
 CAISSE quand il n'y a pas de backend ; ce n'est pas un mode de jeu.
 
 **Le lobby EST le matchmaking**, et il vit dans `tools/feel-lab/src/matchmaking.js` — pas
@@ -1018,7 +1018,7 @@ Play, FAQ, pied de page). Ce dépôt-ci n'a aucune trace de Solana ; le site, si
 personne ne l'édite.
 
 **Le tableau des gains du SITE ne dit plus ce que le jeu paie.** `payouts` promet 25,00
-fixes au premier d'une arène à 5 USDC ; le jeu tire le gain du vainqueur sur une roue et
+fixes au premier d'une arène à 5 USDG ; le jeu tire le gain du vainqueur sur une roue et
 paie de 12,50 à 39,50 (espérance 23,37). La colonne `×5` / `×2,5` est un multiplicateur,
 que le jeu lui-même s'interdit de montrer à un joueur. C'est signalé dans le README du
 site et **pas corrigé** : les dix lignes sont des données produit, et les vrais intervalles
@@ -1040,7 +1040,7 @@ délai court.
 Liste complète en bas de `backend/README.md`. En résumé : serveur autoritatif et
 `MatchResult` **signé** (faits le 2 septembre 2026 — le backend ne croit plus le
 navigateur), journal de replay, géo-restriction, gestion de clé sérieuse (KMS pour cinq
-clés désormais), un stable mainnet qui implémente EIP-3009, un vrai marché BG/USDC sur
+clés désormais), un stable mainnet qui implémente EIP-3009, un vrai marché BG/USDG sur
 un DEX de Robinhood Chain à la place du pool maison, un RPC payé, validation juridique.
 
 La signature couvre **le mode, la mise, l'effectif, la graine de roue et le classement**,

@@ -3,10 +3,10 @@
  *
  * Le scénario fondateur du lobby en ligne, joué dans le VRAI jeu :
  *
- *   machine-1 clique PLAY sur ARENA 16 à 2 USDC. Elle attend seule.
- *   machine-2 clique PLAY sur 1v1 à 2 USDC. Elle attend seule aussi — mais un duel part à
+ *   machine-1 clique PLAY sur ARENA 16 à 2 USDG. Elle attend seule.
+ *   machine-2 clique PLAY sur 1v1 à 2 USDG. Elle attend seule aussi — mais un duel part à
  *   deux, et l'arène ne partira jamais à deux.
- *   Au bout du délai, le serveur le dit à machine-1 : « 1 player waiting in 1v1 · 2 USDC —
+ *   Au bout du délai, le serveur le dit à machine-1 : « 1 player waiting in 1v1 · 2 USDG —
  *   your match would start right now ». Elle clique SWITCH. Les deux entrent en manche.
  *
  * Ce que ce harnais vérifie, et qu'aucun test sans navigateur ne peut voir :
@@ -127,7 +127,7 @@ await un.page.waitForFunction(() => Boolean(window.__probeGame()?.file?.salon), 
   dit(/ARENA/.test(v.fileLigne ?? '') && /1 \/ 16/.test(v.fileLigne ?? ''), `il dit où l'on attend : « ${v.fileLigne} »`);
   dit(v.sieges === 16 && v.pris === 1, `seize places dessinées, une prise (${v.pris}/${v.sieges})`);
   dit(v.play === 'LEAVE QUEUE', `le bouton est devenu « ${v.play} »`);
-  dit(v.salon?.mode === 'arena' && v.salon?.mise === 2_000_000, 'le salon reçu est bien l\'arène à 2 USDC');
+  dit(v.salon?.mode === 'arena' && v.salon?.mise === 2_000_000, 'le salon reçu est bien l\'arène à 2 USDG');
   await un.page.screenshot({ path: 'shots/bascule-en-file.png' });
   console.log('     shots/bascule-en-file.png');
 }
@@ -161,7 +161,7 @@ await un.page.waitForFunction(() => Boolean(window.__probeGame()?.file?.suggesti
   const a = await lire(un);
   const b = await lire(deux);
   dit(a.suggestion?.mode === 'duel' && a.suggestion?.mise === 2_000_000,
-    `machine-1 (seule en arène) reçoit la suggestion du 1v1 à 2 USDC`);
+    `machine-1 (seule en arène) reçoit la suggestion du 1v1 à 2 USDG`);
   dit(a.suggestion?.demarre === true, 'elle dit que la partie DÉMARRERAIT tout de suite');
   dit(a.notif !== null && /waiting in 1v1/.test(a.notif) && /SWITCH/.test(a.notif),
     `la notification s'affiche : « ${a.notif?.replace(/\s+/g, ' ').slice(0, 90)} »`);
@@ -218,7 +218,7 @@ titre('6. Le départ réduit se lit, et LEAVE QUEUE sort de la file');
   // Depuis le 4 septembre 2026 le ticket ne dit plus le pot : il dit ce que le vainqueur
   // gagne, du pire au meilleur tirage, et la borne basse descend au gain d'une table
   // partie au minimum. L'effectif en fourchette reste la divulgation du départ réduit.
-  dit(/^[\d.]+–[\d.]+USDC$/.test(pot.val ?? ''), `le gain du vainqueur de l'arène est annoncé en fourchette : « ${pot.val} »`);
+  dit(/^[\d.]+–[\d.]+USDG$/.test(pot.val ?? ''), `le gain du vainqueur de l'arène est annoncé en fourchette : « ${pot.val} »`);
   dit(/^3–16 players · top \d+ paid$/.test(pot.sub ?? ''), `et l'effectif aussi, réduit compris : « ${pot.sub} »`);
 
   await trois.page.click('#play');
@@ -237,7 +237,7 @@ titre('6. Le départ réduit se lit, et LEAVE QUEUE sort de la file');
   await quatre.page.waitForFunction(() => Boolean(window.__probeGame()?.file?.salon?.departReduit), { timeout: 20000 });
   {
     const depart = await quatre.page.evaluate(() => document.getElementById('file-depart')?.textContent);
-    dit(/Starting in \d+ s with 3 players · 6\.00 USDC pot/.test(depart ?? ''),
+    dit(/Starting in \d+ s with 3 players · 6\.00 USDG pot/.test(depart ?? ''),
       `à trois, le décompte du départ réduit s'affiche : « ${depart} »`);
     await quatre.page.screenshot({ path: 'shots/bascule-depart-reduit.png' });
     console.log('     shots/bascule-depart-reduit.png');

@@ -32,7 +32,7 @@ export const compte = {
   /** La caisse : la contrepartie en livre de ce que le wallet maison detient sur la chaine. */
   caisse: 'treasury:hot',
   /**
-   * Le pool BG/USDC : les USDC que le brulage y a deposes en achetant des BG. Sur le testnet
+   * Le pool BG/USDG : les USDG que le brulage y a deposes en achetant des BG. Sur le testnet
    * c'est notre propre reserve ; sur mainnet, l'argent part vers un marche et ce compte
    * disparait au profit de `chain:out`.
    */
@@ -157,7 +157,7 @@ export async function solde(db, nomCompte) {
  * Le controle et l'ecriture sont dans la MEME transaction, et la ligne de profil est
  * verrouillee : deux parties lancees simultanement par le meme joueur ne peuvent pas
  * lire toutes les deux un solde suffisant avant que l'une ait debite. Sans ce verrou,
- * un double-clic sur JOUER suffit a miser deux fois 1 USDC avec 1 USDC en poche.
+ * un double-clic sur JOUER suffit a miser deux fois 1 USDG avec 1 USDG en poche.
  */
 export async function verrouillerJoueur(tx, userId) {
   await tx.query('select id from public.profiles where id = $1 for update', [userId]);

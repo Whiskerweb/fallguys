@@ -49,12 +49,12 @@ console.log('1-lobby.png');
 
 // Le ticket sur une autre table : c'est la seule maniere de verifier a l'image que le
 // pot ET les six lignes de l'echelle se recalculent, et pas seulement le gros chiffre.
-await page.click('.palier[data-usdc="5"]');
+await page.click('.palier[data-usdg="5"]');
 await page.mouse.move(640, 400);
 await page.waitForTimeout(500);
-await page.screenshot({ path: `${OUT}/1-ticket-5usdc.png` });
-console.log('1-ticket-5usdc.png');
-await page.click('.palier[data-usdc="1"]');
+await page.screenshot({ path: `${OUT}/1-ticket-5usdg.png` });
+console.log('1-ticket-5usdg.png');
+await page.click('.palier[data-usdg="1"]');
 await page.mouse.move(640, 400);
 await page.waitForTimeout(400);
 

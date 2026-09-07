@@ -24,7 +24,7 @@ public class ForPlayersTests
 
         // Et pourtant un duel se joue, et se paie.
         var duel = PayoutPolicy.Compute(
-            MatchMode.Duel.Config, StakeContext.Usdc(StakeTier.Micro, 2m));
+            MatchMode.Duel.Config, StakeContext.Usdg(StakeTier.Micro, 2m));
         Assert.Equal(Money.FromUnits(3.60m), duel.ForRank(1));
     }
 
@@ -52,7 +52,7 @@ public class ForPlayersTests
     [Fact]
     public void Toute_configuration_de_3_a_24_joueurs_est_valide_et_conserve_l_argent()
     {
-        var mise = StakeContext.Usdc(StakeTier.Micro, 1m);
+        var mise = StakeContext.Usdg(StakeTier.Micro, 1m);
         for (var n = 3; n <= 24; n++)
         {
             var c = MatchConfiguration.ForPlayers(n);
@@ -86,7 +86,7 @@ public class ForPlayersTests
     {
         var table = PayoutPolicy.Compute(
             MatchConfiguration.ForPlayers(players),
-            StakeContext.Usdc(StakeTier.Micro, 1m));
+            StakeContext.Usdg(StakeTier.Micro, 1m));
 
         Assert.Equal(rake, table.Rake.Micros);
         for (var i = 0; i < premiersRangs.Length; i++)
@@ -96,7 +96,7 @@ public class ForPlayersTests
     [Fact]
     public void Les_survivants_de_la_manche_1_recuperent_leur_mise_a_tout_effectif()
     {
-        var mise = StakeContext.Usdc(StakeTier.Micro, 1m);
+        var mise = StakeContext.Usdg(StakeTier.Micro, 1m);
         for (var n = 3; n <= 24; n++)
         {
             var c = MatchConfiguration.ForPlayers(n);

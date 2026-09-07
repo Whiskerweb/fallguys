@@ -368,7 +368,7 @@ export async function passerSurLaChaine(w, chaine) {
 }
 
 /**
- * Depose des USDC DEPUIS le wallet du joueur vers son wallet de jeu : un `transfer` ERC-20
+ * Depose des USDG DEPUIS le wallet du joueur vers son wallet de jeu : un `transfer` ERC-20
  * que le wallet signe et envoie lui-meme (le joueur paie ce gaz-la, quelques centimes).
  *
  * C'est le parcours court demande par le directeur produit : pas d'adresse a recopier.
@@ -378,28 +378,28 @@ export async function passerSurLaChaine(w, chaine) {
 export async function deposerDepuisWallet({ chaine, adresseDepot, micros }) {
   const w = walletNavigateur();
   if (!w) throw Object.assign(new Error('aucun wallet EVM detecte dans ce navigateur'), { code: 'WALLET_ABSENT' });
-  if (!chaine?.usdc) throw new Error('le contrat USDC n\'est pas connu');
+  if (!chaine?.usdg) throw new Error('le contrat USDG n\'est pas connu');
   const de = await compteDuWallet(w);
   await passerSurLaChaine(w, chaine);
   // transfer(address,uint256) : selecteur a9059cbb, puis les deux arguments sur 32 octets.
   const data = '0xa9059cbb' + mot(adresseDepot) + mot(hexNombre(micros));
-  return w.request({ method: 'eth_sendTransaction', params: [{ from: de, to: chaine.usdc, data }] });
+  return w.request({ method: 'eth_sendTransaction', params: [{ from: de, to: chaine.usdg, data }] });
 }
 
 // ---------- les autres portes d'entree : USDG, et l'ETH du wallet (5 septembre 2026) ----------
 
 /*
- * LE GRAND LIVRE NE CONNAIT QUE L'USDC, et il ne changera pas pour ca. Un joueur qui n'a
+ * LE GRAND LIVRE NE CONNAIT QUE L'USDG, et il ne changera pas pour ca. Un joueur qui n'a
  * que des USDG ou que de l'ETH dans son wallet CHANGE dans son propre wallet, avant que
  * l'argent n'arrive : on appelle un routeur de DEX (interface Uniswap V2, la plus
  * repandue sur les chaines Orbit) avec l'ADRESSE DE DEPOT comme destination du swap. Le
- * wallet de jeu recoit donc des USDC ordinaires, le guetteur les credite comme n'importe
+ * wallet de jeu recoit donc des USDG ordinaires, le guetteur les credite comme n'importe
  * quel depot, et le backend n'a rien de nouveau a savoir. Une seule signature pour l'ETH
  * (le swap est payable), deux pour l'USDG (une approbation, puis le swap).
  *
- * Le joueur raisonne en USDC — « je veux 10 USDC sur ma table » — jamais en ETH : on
+ * Le joueur raisonne en USDG — « je veux 10 USDG sur ma table » — jamais en ETH : on
  * lui DEMANDE la sortie et on calcule l'entree (`getAmountsIn`), puis on swappe « pour
- * exactement N USDC » avec une marge d'un pour cent que le routeur rembourse. Il n'a pas
+ * exactement N USDG » avec une marge d'un pour cent que le routeur rembourse. Il n'a pas
  * a comprendre un cours pour deposer.
  *
  * Les adresses (routeur, WETH, USDG) viennent du backend (`/moi` → `chaine`), jamais
@@ -451,7 +451,7 @@ export async function connecterLeWallet() {
 }
 
 /**
- * Ce que le wallet du joueur detient SUR ROBINHOOD CHAIN : ETH, USDC, USDG (en unites
+ * Ce que le wallet du joueur detient SUR ROBINHOOD CHAIN : ETH, USDG (en unites
  * natives, BigInt ; `null` pour un jeton que la chaine n'a pas). C'est ce qui permet au
  * guide de depot de pre-choisir le bon chemin et de pre-remplir un montant, au lieu de
  * demander au joueur ce qu'il a. Lu sur le RPC public : le wallet peut etre sur une autre
@@ -463,29 +463,28 @@ export async function soldesDuWallet(chaine, adresse) {
     const r = await lireSurLaChaine(chaine, 'eth_call', [{ to: jeton, data: SEL.balanceOf + mot(adresse) }, 'latest']);
     return BigInt(r === '0x' ? 0 : r);
   };
-  const [eth, usdc, usdg] = await Promise.all([
+  const [eth, usdg] = await Promise.all([
     lireSurLaChaine(chaine, 'eth_getBalance', [adresse, 'latest']).then(BigInt),
-    solde(chaine.usdc),
     solde(chaine.usdg),
   ]);
-  return { eth, usdc, usdg };
+  return { eth, usdg };
 }
 
 /** Le chemin de swap pour une entree donnee, ou `null` si la chaine ne l'offre pas. */
 function cheminDeSwap(chaine, entree) {
-  if (!chaine?.swap?.routeur || !chaine?.usdc) return null;
-  if (entree === 'eth') return chaine.swap.weth ? [chaine.swap.weth, chaine.usdc] : null;
-  if (entree === 'usdg') return chaine.usdg ? [chaine.usdg, chaine.usdc] : null;
+  if (!chaine?.swap?.routeur || !chaine?.usdg) return null;
+  // Un seul dollar, l'USDG : le seul change possible est ETH → USDG.
+  if (entree === 'eth') return chaine.swap.weth ? [chaine.swap.weth, chaine.usdg] : null;
   return null;
 }
 
 /**
- * Combien d'ETH (ou d'USDG) il faut pour recevoir `microsSortie` USDC — le devis, lu sur
+ * Combien d'ETH (ou d'USDG) il faut pour recevoir `microsSortie` USDG — le devis, lu sur
  * le routeur. Rend l'entree en unites natives (BigInt). Jette si le marche n'existe pas.
  */
 export async function devisDeSwap(chaine, entree, microsSortie) {
   const chemin = cheminDeSwap(chaine, entree);
-  if (!chemin) throw Object.assign(new Error(`pas de marche ${entree}/USDC sur cette chaine`), { code: 'SWAP_ABSENT' });
+  if (!chemin) throw Object.assign(new Error(`pas de marche ${entree}/USDG sur cette chaine`), { code: 'SWAP_ABSENT' });
   const data = encoderAvecTableau(SEL.getAmountsIn, [mot(hexNombre(microsSortie)), ''], 1, chemin);
   const r = await lireSurLaChaine(chaine, 'eth_call', [{ to: chaine.swap.routeur, data }, 'latest']);
   // uint256[] : decalage, longueur, puis les montants ; le PREMIER est l'entree.
@@ -494,9 +493,9 @@ export async function devisDeSwap(chaine, entree, microsSortie) {
 }
 
 /**
- * Depose `microsSortie` USDC sur le wallet de jeu en partant de l'ETH ou des USDG du
+ * Depose `microsSortie` USDG sur le wallet de jeu en partant de l'ETH ou des USDG du
  * wallet du joueur : le swap livre DIRECTEMENT a l'adresse de depot. Rend le hache de la
- * transaction de swap ; le guetteur credite l'USDC qui en sort comme un depot.
+ * transaction de swap ; le guetteur credite l'USDG qui en sort comme un depot.
  *
  * `entreeMax` est le devis majore d'un pour cent : la marge que le cours peut bouger
  * entre le devis et le bloc. Ce que le swap n'utilise pas est rendu au joueur par le
@@ -506,7 +505,7 @@ export async function deposerParSwap({ chaine, adresseDepot, entree, microsSorti
   const w = walletNavigateur();
   if (!w) throw Object.assign(new Error('aucun wallet EVM detecte dans ce navigateur'), { code: 'WALLET_ABSENT' });
   const chemin = cheminDeSwap(chaine, entree);
-  if (!chemin) throw Object.assign(new Error(`pas de marche ${entree}/USDC sur cette chaine`), { code: 'SWAP_ABSENT' });
+  if (!chemin) throw Object.assign(new Error(`pas de marche ${entree}/USDG sur cette chaine`), { code: 'SWAP_ABSENT' });
   const de = await compteDuWallet(w);
   await passerSurLaChaine(w, chaine);
   const routeur = chaine.swap.routeur;

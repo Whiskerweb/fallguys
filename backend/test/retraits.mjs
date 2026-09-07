@@ -55,7 +55,7 @@ titre('Ce qui empeche un retrait de partir');
   await lierWallet(db, petit, ADRESSES.WalletDuPetit);
   await refuse(
     demander(db, { userId: petit, montant: 5 * MICROS }),
-    `sous le minimum de ${ecrire(config.retraitMinimum)} USDC, le retrait est refuse`,
+    `sous le minimum de ${ecrire(config.retraitMinimum)} USDG, le retrait est refuse`,
   );
 
   const pauvre = await joueur(db, 'pauvre');
@@ -88,9 +88,9 @@ titre('Un retrait recevable reserve les fonds');
 
   const restant = await solde(db, compte.joueur(eve));
   dit(restant === 60 * MICROS,
-    `les fonds sont reserves des la demande : ${ecrire(restant)} USDC restants sur 100.00`);
+    `les fonds sont reserves des la demande : ${ecrire(restant)} USDG restants sur 100.00`);
   dit(await solde(db, compte.sortie) === 40 * MICROS,
-    'les 40.00 USDC attendent sur le compte de sortie, pas sur celui du joueur');
+    'les 40.00 USDG attendent sur le compte de sortie, pas sur celui du joueur');
 
   /*
    * Le scenario que la reserve empeche : demander un retrait de tout son solde, puis

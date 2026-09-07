@@ -28,7 +28,7 @@ import { ecrire } from './argent.js';
 import { publier } from './evenements.js';
 import { invaliderStats, poserVerification } from './stats.js';
 
-exiger('databaseUrl', 'supabaseUrl', 'supabaseAnon', 'graineDepots', 'caisseCle', 'fraisCle', 'poolCle', 'serveurPublique', 'usdcAdresse', 'lotAdresse');
+exiger('databaseUrl', 'supabaseUrl', 'supabaseAnon', 'graineDepots', 'caisseCle', 'fraisCle', 'poolCle', 'serveurPublique', 'usdgAdresse', 'lotAdresse');
 
 const db = enrober(creerPool());
 
@@ -67,15 +67,15 @@ try {
   const co = connexion();
   ethCaisse = Number(formatEther(await co.getBalance(adresses.caisse)));
   // Un contrat absent repond « 0x » : mieux vaut le lire ici qu'au premier reglement.
-  const codes = await Promise.all([config.usdcAdresse, config.lotAdresse, config.bgAdresse].map((a) => (a ? co.getCode(a) : Promise.resolve('0x'))));
-  contratsOk = { usdc: codes[0] !== '0x', lot: codes[1] !== '0x', bg: codes[2] !== '0x' };
+  const codes = await Promise.all([config.usdgAdresse, config.lotAdresse, config.bgAdresse].map((a) => (a ? co.getCode(a) : Promise.resolve('0x'))));
+  contratsOk = { usdg: codes[0] !== '0x', lot: codes[1] !== '0x', bg: codes[2] !== '0x' };
 } catch { /* RPC muet */ }
-console.log(`grand livre equilibre · ${reseau.nom} (chainId ${config.chainId}) · ${config.stableSymbole} ${config.usdcAdresse} · BG ${config.bgAdresse ?? 'PAS ENCORE CREE'} · Lot ${config.lotAdresse}`);
+console.log(`grand livre equilibre · ${reseau.nom} (chainId ${config.chainId}) · ${config.stableSymbole} ${config.usdgAdresse} · BG ${config.bgAdresse ?? 'PAS ENCORE CREE'} · Lot ${config.lotAdresse}`);
 console.log(`  caisse ${adresses.caisse} · ${ethCaisse === null ? 'ETH inconnu (RPC muet)' : `${ethCaisse.toFixed(5)} ETH`}`);
 console.log(`  frais  ${adresses.frais}`);
 console.log(`  pool   ${adresses.pool}`);
-if (contratsOk && (!contratsOk.usdc || !contratsOk.lot)) {
-  console.error(`  CONTRAT ABSENT sur ${reseau.nom} : USDC ${contratsOk.usdc ? 'ok' : 'MANQUE'}, Lot ${contratsOk.lot ? 'ok' : 'MANQUE'} — lancez « node outils/contrats.mjs »`);
+if (contratsOk && (!contratsOk.usdg || !contratsOk.lot)) {
+  console.error(`  CONTRAT ABSENT sur ${reseau.nom} : USDG ${contratsOk.usdg ? 'ok' : 'MANQUE'}, Lot ${contratsOk.lot ? 'ok' : 'MANQUE'} — lancez « node outils/contrats.mjs »`);
   process.exit(1);
 }
 /*
@@ -92,10 +92,10 @@ if (config.reseau === 'mainnet') {
   if (!/^https?:\/\/[^/]*alchemy|^https?:\/\/[^/]*robinhood\.com/.test(config.rpc)) fautes.push(`RPC inattendu pour mainnet : ${config.rpc}`);
   if (fautes.length) { for (const f of fautes) console.error(`  MAINNET REFUSE : ${f}`); process.exit(1); }
   try {
-    const pool = Number(await chaine.solde(adresses.pool, 'usdc'));
+    const pool = Number(await chaine.solde(adresses.pool, 'usdg'));
     if (pool <= 0) console.warn(`  ATTENTION : le pool ${adresses.pool} n'a pas de ${config.stableSymbole} — le brulage attendra qu'il soit dote`);
   } catch { /* RPC muet : deja dit */ }
-  console.log(`  MAINNET · dollar ${config.stableSymbole} · robinet ferme · USDC d'essai jamais deploye ici`);
+  console.log(`  MAINNET · dollar ${config.stableSymbole} · robinet ferme · USDG d'essai jamais deploye ici`);
 }
 if (ethCaisse !== null && ethCaisse < 0.002) {
   console.warn(`  ATTENTION : la caisse manque d'ETH pour payer le gaz.${reseau.faucet ? ` Testnet : ${reseau.faucet}` : ''}`);
@@ -120,7 +120,7 @@ setInterval(async () => {
   tours++;
   try {
     const vus = await unTour(db);
-    for (const d of vus) console.log(`depot ${ecrire(d.micros)} USDC pour ${d.userId} (${d.signature})`);
+    for (const d of vus) console.log(`depot ${ecrire(d.micros)} USDG pour ${d.userId} (${d.signature})`);
     if (vus.length) { publier('depot', { n: vus.length }); invaliderStats(); }
 
     const enAttente = await db.query(
@@ -145,8 +145,8 @@ setInterval(async () => {
       try {
         const b = await racheterEtBruler(db, chaine);
         if (b?.statut === 'brule') {
-          console.log(`brulage : ${ecrire(b.usdc)} USDC → ${(b.bg / 1e6).toFixed(2)} BG brules (${b.signature})`);
-          publier('brulage', { usdc: b.usdc, bg: b.bg, signature: b.signature });
+          console.log(`brulage : ${ecrire(b.usdg)} USDG → ${(b.bg / 1e6).toFixed(2)} BG brules (${b.signature})`);
+          publier('brulage', { usdg: b.usdg, bg: b.bg, signature: b.signature });
           invaliderStats();
         } else if (b && b.statut !== 'brule') {
           console.warn(`brulage : ${b.statut} ${b.raison ?? ''}`);

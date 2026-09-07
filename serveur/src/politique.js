@@ -249,7 +249,7 @@ export function botsAutorises(politique, mise) {
  * `DUEL_TEST` ouvre des « arènes » de deux. Une mise engagée là n'a aucun barème — ni
  * celui de l'arène (seize mises attendues dans le pot), ni celui d'un salon réduit.
  *
- * Vécu en jouant : `npm start` sans `POLITIQUE=`, ticket resté sur ARENA à 2 USDC — la
+ * Vécu en jouant : `npm start` sans `POLITIQUE=`, ticket resté sur ARENA à 2 USDG — la
  * valeur par défaut du lobby —, deux joueurs. La partie se jouait, puis le règlement
  * JETAIT dans le gestionnaire de fin du client : le vainqueur repartait au lobby sans
  * écran ni roue, le perdant restait en course. `diag/franchir-rondin.mjs` le rejoue.

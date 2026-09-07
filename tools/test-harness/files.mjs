@@ -9,7 +9,7 @@
  *      connectés, en file ou non. Un lobby qui ne dit pas où sont les gens est un lobby
  *      qu'on croit vide.
  *
- *   2. LES SUGGESTIONS — « quelqu'un attend en 1v1 à 2 USDC, ta partie y démarrerait
+ *   2. LES SUGGESTIONS — « quelqu'un attend en 1v1 à 2 USDG, ta partie y démarrerait
  *      tout de suite ». Le scénario fondateur : A charge une arène à seize, B attend en
  *      duel, personne ne rejoint A, et A doit se voir proposer le duel — jamais l'inverse,
  *      puisque l'arène de A ne partirait pas pour autant.
@@ -31,7 +31,7 @@ const dit = (ok, texte) => { total++; if (!ok) ko++; console.log(`${ok ? 'OK   '
 const titre = (t) => console.log(`\n\x1b[1m${t}\x1b[0m`);
 const patienter = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const USDC = (n) => n * MICROS;
+const USDG = (n) => n * MICROS;
 const pilote = () => ({ entree: () => ({ x: 0, z: 0, jump: false, dive: false }) });
 const joueur = (nom) => ({ nom, faire: pilote });
 
@@ -79,22 +79,22 @@ titre('1. La présence : neuf files, toujours, même vides');
   dit(p.files.every((f) => f.joueurs === 0 && f.cible > 0 && f.minimum > 0),
     'chacune dit zéro joueur, mais dit aussi sa cible et son minimum');
 
-  const arene = p.files.find((f) => f.mode === 'arena' && f.mise === USDC(2));
-  dit(arene?.cible === 16 && arene?.minimum === 13, `l'arène à 2 USDC annonce ${arene?.cible} places, minimum ${arene?.minimum}`);
+  const arene = p.files.find((f) => f.mode === 'arena' && f.mise === USDG(2));
+  dit(arene?.cible === 16 && arene?.minimum === 13, `l'arène à 2 USDG annonce ${arene?.cible} places, minimum ${arene?.minimum}`);
   // Sous DEV, une arène GRATUITE part à deux mais une arène MISÉE exige trois : la
   // présence doit annoncer le minimum qui vaudra vraiment, avec la mise.
   const dev = banc('DEV').mm.presence().files;
-  dit(dev.find((f) => f.mode === 'arena' && f.mise === USDC(2))?.minimum === 3,
-    'sous DEV, l\'arène à 2 USDC annonce le minimum RELEVÉ à trois — celui qui s\'appliquera');
+  dit(dev.find((f) => f.mode === 'arena' && f.mise === USDG(2))?.minimum === 3,
+    'sous DEV, l\'arène à 2 USDG annonce le minimum RELEVÉ à trois — celui qui s\'appliquera');
 
-  b.mm.rejoindre(joueur('A'), USDC(2), 'arena');
-  const apres = b.mm.presence().files.find((f) => f.mode === 'arena' && f.mise === USDC(2));
+  b.mm.rejoindre(joueur('A'), USDG(2), 'arena');
+  const apres = b.mm.presence().files.find((f) => f.mode === 'arena' && f.mise === USDG(2));
   dit(apres.joueurs === 1, 'un joueur entre : la file passe à 1');
   dit(b.diffuses.length >= 1 && b.diffuses[b.diffuses.length - 1].type === 'files',
     'et TOUS les connectés en sont prévenus aussitôt, sans attendre le battement');
 
   b.mm.quitter('A');
-  const vide = b.mm.presence().files.find((f) => f.mode === 'arena' && f.mise === USDC(2));
+  const vide = b.mm.presence().files.find((f) => f.mode === 'arena' && f.mise === USDG(2));
   dit(vide.joueurs === 0, 'il repart : la file redescend à 0');
 
   // Une file hors catalogue — un banc à mise nulle — reste visible : rien de ce qui
@@ -112,9 +112,9 @@ titre('2. Le scénario fondateur : seul dans l\'arène, quelqu\'un attend en due
   const b = banc('PRODUCTION');
   const delai = POLITIQUES.PRODUCTION.suggererApres;
 
-  b.mm.rejoindre(joueur('A'), USDC(2), 'arena');
+  b.mm.rejoindre(joueur('A'), USDG(2), 'arena');
   b.avancer(5);
-  b.mm.rejoindre(joueur('B'), USDC(2), 'duel');
+  b.mm.rejoindre(joueur('B'), USDG(2), 'duel');
   b.mm.battre();
   dit(b.recus('A', 'suggestion').length === 0 && b.recus('B', 'suggestion').length === 0,
     `avant ${delai} s d'attente, personne ne se voit rien suggérer`);
@@ -122,8 +122,8 @@ titre('2. Le scénario fondateur : seul dans l\'arène, quelqu\'un attend en due
   b.avancer(delai);
   b.mm.battre();
   const sA = b.dernier('A', 'suggestion');
-  dit(sA?.mode === 'duel' && sA?.mise === USDC(2),
-    `à ${delai} s, A (seul en arène) se voit proposer le duel à 2 USDC où B attend`);
+  dit(sA?.mode === 'duel' && sA?.mise === USDG(2),
+    `à ${delai} s, A (seul en arène) se voit proposer le duel à 2 USDG où B attend`);
   dit(sA?.demarre === true && sA?.joueurs === 1 && sA?.cible === 2,
     'la suggestion dit que sa partie DÉMARRERAIT : 1 joueur présent, 2 places');
   dit(typeof sA?.depuis === 'number' && sA.depuis >= delai,
@@ -152,14 +152,14 @@ titre('3. Jamais une mise plus haute');
 // ===========================================================================
 {
   const b = banc('PRODUCTION');
-  b.mm.rejoindre(joueur('pauvre'), USDC(2), 'duel');
-  b.mm.rejoindre(joueur('riche'), USDC(5), 'duel');
+  b.mm.rejoindre(joueur('pauvre'), USDG(2), 'duel');
+  b.mm.rejoindre(joueur('riche'), USDG(5), 'duel');
   b.avancer(POLITIQUES.PRODUCTION.suggererApres + 1);
   b.mm.battre();
   const sPauvre = b.dernier('pauvre', 'suggestion');
   const sRiche = b.dernier('riche', 'suggestion');
   dit(!sPauvre, 'celui qui mise 2 ne se voit pas proposer la table à 5');
-  dit(sRiche?.mode === 'duel' && sRiche?.mise === USDC(2) && sRiche?.demarre,
+  dit(sRiche?.mode === 'duel' && sRiche?.mise === USDG(2) && sRiche?.demarre,
     'celui qui mise 5 se voit proposer la table à 2, où sa partie démarrerait');
   b.mm.arreter();
 }
@@ -230,8 +230,8 @@ titre('6. Basculer : un seul geste, et la partie démarre');
 // ===========================================================================
 {
   const b = banc('PRODUCTION');
-  b.mm.rejoindre(joueur('A'), USDC(2), 'arena');
-  b.mm.rejoindre(joueur('B'), USDC(2), 'duel');
+  b.mm.rejoindre(joueur('A'), USDG(2), 'arena');
+  b.mm.rejoindre(joueur('B'), USDG(2), 'duel');
   b.avancer(POLITIQUES.PRODUCTION.suggererApres + 1);
   b.mm.battre();
   const s = b.dernier('A', 'suggestion');
@@ -240,7 +240,7 @@ titre('6. Basculer : un seul geste, et la partie démarre');
   const r = b.mm.basculer('A', s.mise, s.mode);
   dit(r.accepte === true && r.place === 2 && r.sur === 2, `A bascule et prend la place ${r.place}/${r.sur} du duel`);
   dit(b.mm.salonDe('A') === b.mm.salonDe('B'), 'A et B sont dans le MÊME salon');
-  dit(b.mm.presence().files.find((f) => f.mode === 'arena' && f.mise === USDC(2)).joueurs === 0,
+  dit(b.mm.presence().files.find((f) => f.mode === 'arena' && f.mise === USDG(2)).joueurs === 0,
     'l\'arène qu\'il a quittée est vide');
 
   const partis = b.mm.battre();
@@ -250,10 +250,10 @@ titre('6. Basculer : un seul geste, et la partie démarre');
     'et les deux reçoivent l\'annonce de manche');
 
   // Les refus sont nommés.
-  const hors = b.mm.basculer('personne', USDC(2), 'duel');
+  const hors = b.mm.basculer('personne', USDG(2), 'duel');
   dit(hors.accepte === false && hors.raison === 'PAS_EN_SALON', `basculer sans être en salon : ${hors.raison}`);
-  b.mm.rejoindre(joueur('C'), USDC(2), 'arena');
-  const inconnu = b.mm.basculer('C', USDC(2), 'jackpot');
+  b.mm.rejoindre(joueur('C'), USDG(2), 'arena');
+  const inconnu = b.mm.basculer('C', USDG(2), 'jackpot');
   dit(inconnu.accepte === false && inconnu.raison === 'MODE_INCONNU', `basculer vers un mode inventé : ${inconnu.raison}`);
   dit(b.mm.salonDe('C') !== null,
     'et C est resté dans sa file : un refus ne déplace personne');
@@ -299,12 +299,12 @@ titre('7. Sur le fil : un vrai serveur, de vraies sockets');
   const files = await a.attendre((m) => m.type === 'files');
   dit(files?.files?.length === 9, 'la présence arrive dès la connexion, avant tout choix');
 
-  a.envoyer({ type: 'rejoindre', mise: USDC(2), mode: 'arena', modele: 'char-babytrump' });
+  a.envoyer({ type: 'rejoindre', mise: USDG(2), mode: 'arena', modele: 'char-babytrump' });
   const b2 = await client('B');
   const vue = await b2.attendre((m) => m.type === 'files' && m.files.some((f) => f.mode === 'arena' && f.joueurs === 1));
   dit(Boolean(vue), 'B, qui n\'a rien choisi, voit déjà A attendre dans l\'arène');
 
-  b2.envoyer({ type: 'rejoindre', mise: USDC(2), mode: 'duel', modele: 'char-techtitan' });
+  b2.envoyer({ type: 'rejoindre', mise: USDG(2), mode: 'duel', modele: 'char-techtitan' });
   const sugg = await a.attendre((m) => m.type === 'suggestion' && !m.aucune, 6000);
   dit(sugg?.mode === 'duel' && sugg?.demarre === true, 'A reçoit la suggestion du duel sur le fil');
 

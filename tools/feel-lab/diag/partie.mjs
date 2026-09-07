@@ -33,7 +33,7 @@ await page.waitForFunction(() => {
 }, { timeout: 300000 });
 /* La table la plus basse et le format long : trois manches, et le bareme de reference.
    Les deux sont poses explicitement — une memoire heritee d'une session precedente
-   ferait jouer ce harnais a 10 USDC en duel, et son verdict economique ne voudrait plus
+   ferait jouer ce harnais a 10 USDG en duel, et son verdict economique ne voudrait plus
    rien dire. */
 await page.evaluate(() => {
   localStorage.setItem('tumble-mise', '2');
@@ -147,12 +147,12 @@ console.log('\n--- partie 2 ---');
 const p2 = await jouerUnePartie(2);
 await passerLaRoue();
 
-/* Deux parties gagnees a 2 USDC en arene : -2,00 de mise, +10,00 de gain, deux fois. Le
+/* Deux parties gagnees a 2 USDG en arene : -2,00 de mise, +10,00 de gain, deux fois. Le
    solde doit donc monter de 16,00 exactement — un centieme d'ecart signalerait un arrondi
    fautif.
 
-   Le gain valait 4,50 par USDC mise tant que le rake etait a 15 %, puis 5,00 a 10 %. La
-   table la plus basse est passee de 1 a 2 USDC avec l'ouverture des modes, d'ou 10,00. La
+   Le gain valait 4,50 par USDG mise tant que le rake etait a 15 %, puis 5,00 a 10 %. La
+   table la plus basse est passee de 1 a 2 USDG avec l'ouverture des modes, d'ou 10,00. La
    valeur est posee A LA MAIN et non relue dans `economie.js` : un test qui refait le
    calcul du code teste ne teste rien.
 
@@ -165,7 +165,7 @@ await passerLaRoue();
    jeu doit continuer a tourner entierement sans lui. */
 const soldeApres = await lireSolde();
 const delta = soldeApres - soldeAvant;
-console.log(`\nsolde : ${(soldeAvant / 1e6).toFixed(2)} -> ${(soldeApres / 1e6).toFixed(2)} USDC `
+console.log(`\nsolde : ${(soldeAvant / 1e6).toFixed(2)} -> ${(soldeApres / 1e6).toFixed(2)} USDG `
   + `(${delta >= 0 ? '+' : ''}${(delta / 1e6).toFixed(2)}, attendu +16,00 : 2 x (-2,00 de mise + 10,00 de gain))`);
 if (delta !== 16_000_000) ko++;
 

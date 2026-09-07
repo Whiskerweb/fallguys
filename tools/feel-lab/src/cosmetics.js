@@ -37,7 +37,7 @@ export const MODELS = [
    * PEPE OUVRE LE CATALOGUE, et il est le seul qu'on a en arrivant (decision produit du
    * 5 septembre 2026 : « on commence de base avec Pepe »). Tous les autres sont EN
    * BOUTIQUE : BabyTrump se gagne en publiant un post sur X, les trois suivants
-   * s'achetent en USDC (`boutique.js`). La garde-robe montre donc un personnage porte
+   * s'achetent en USDG (`boutique.js`). La garde-robe montre donc un personnage porte
    * et quatre cadenas — et c'est exactement ce qu'on veut qu'on voie en l'ouvrant.
    *
    * La CONDITION et le PRIX ne sont pas ecrits ici : `boutique.js` les detient, ce

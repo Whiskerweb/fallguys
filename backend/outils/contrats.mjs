@@ -5,8 +5,8 @@
  *   node outils/contrats.mjs --etat     # montre seulement
  *   node outils/contrats.mjs --compiler # recompile d'abord (forge build), puis pareil
  *
- * Trois contrats : Lot (l'executeur atomique), USDCTest (testnet et anvil seulement —
- * sur mainnet, USDC_ADRESSE est le vrai jeton et n'est jamais deploye d'ici), BabyGuy (un
+ * Trois contrats : Lot (l'executeur atomique), USDGTest (testnet et anvil seulement —
+ * sur mainnet, USDG_ADRESSE est le vrai jeton et n'est jamais deploye d'ici), BabyGuy (un
  * milliard, frappe au pool, sans fonction de frappe). Il faut de l'ETH sur la caisse :
  * sur le testnet, https://faucet.testnet.chain.robinhood.com — un geste humain.
  */
@@ -39,7 +39,7 @@ const pool = tresorerie.pool();
 async function etat() {
   const existe = async (a) => (a ? (await co.getCode(a)) !== '0x' : false);
   console.log(`\nContrats sur ${reseau?.nom ?? config.reseau} (chainId ${config.chainId})`);
-  for (const [nom, adresse] of [['Lot', config.lotAdresse], ['USDC', config.usdcAdresse], ['BG', config.bgAdresse]]) {
+  for (const [nom, adresse] of [['Lot', config.lotAdresse], ['USDG', config.usdgAdresse], ['BG', config.bgAdresse]]) {
     console.log(`  ${nom.padEnd(5)} ${adresse ?? '—'}  ${adresse ? ((await existe(adresse)) ? 'deploye' : 'ABSENT SUR LA CHAINE') : 'a deployer'}`);
   }
   if (config.bgAdresse && await existe(config.bgAdresse)) {
@@ -57,10 +57,16 @@ async function etat() {
 await etat();
 if (process.argv.includes('--etat')) process.exit(0);
 
-const manque = !config.lotAdresse || !config.bgAdresse || (!config.usdcAdresse && config.reseau !== 'mainnet');
+/*
+ * `--sans-bg` : on ne deploie PAS BabyGuy. Decision du directeur produit (7 septembre 2026) :
+ * le jeton BG sera cree ailleurs (un lanceur de jetons), et BG_ADRESSE sera renseignee
+ * apres coup. Sans BG, le brulage attend et les frais s'accumulent sur le wallet FRAIS.
+ */
+const sansBg = process.argv.includes('--sans-bg');
+const manque = !config.lotAdresse || (!config.bgAdresse && !sansBg) || (!config.usdgAdresse && config.reseau !== 'mainnet');
 if (!manque) { console.log('\n  Tout est deploye : rien a faire.\n'); process.exit(0); }
-if (config.reseau === 'mainnet' && !config.usdcAdresse) {
-  console.error('\n  Sur mainnet, USDC_ADRESSE doit designer le vrai jeton : on ne deploie pas d\'USDC d\'essai.');
+if (config.reseau === 'mainnet' && !config.usdgAdresse) {
+  console.error('\n  Sur mainnet, USDG_ADRESSE doit designer le vrai jeton : on ne deploie pas d\'USDG d\'essai.');
   process.exit(1);
 }
 
@@ -74,8 +80,8 @@ if (eth < 0.001) {
 console.log('  deploiement…');
 const r = await deployerContrats({
   connexion: co, caisse, pool: pool.address,
-  existants: { lot: config.lotAdresse, usdc: config.usdcAdresse, bg: config.bgAdresse },
-  usdcEssai: config.reseau !== 'mainnet',
+  existants: { lot: config.lotAdresse, usdg: config.usdgAdresse, bg: config.bgAdresse },
+  usdgEssai: config.reseau !== 'mainnet', bg: !sansBg,
 });
 for (const h of r.haches) console.log(`  tx ${h}`);
 
@@ -85,9 +91,9 @@ const poser = (k, v) => {
   contenu = new RegExp(`^${k}=.*$`, 'm').test(contenu) ? contenu.replace(new RegExp(`^${k}=.*$`, 'm'), `${k}=${v}`) : contenu + `\n${k}=${v}`;
 };
 if (!/# ---- Contrats/.test(contenu)) contenu += `\n# ---- Contrats ${config.reseau}, deployes le ${new Date().toISOString().slice(0, 10)} par backend/outils/contrats.mjs ----\n`;
-poser('LOT_ADRESSE', r.lot); poser('USDC_ADRESSE', r.usdc); poser('BG_ADRESSE', r.bg);
+poser('LOT_ADRESSE', r.lot); poser('USDG_ADRESSE', r.usdg); poser('BG_ADRESSE', r.bg);
 writeFileSync(ENV, contenu);
-config.lotAdresse = r.lot; config.usdcAdresse = r.usdc; config.bgAdresse = r.bg;
-console.log('  LOT_ADRESSE, USDC_ADRESSE, BG_ADRESSE ecrites dans le .env');
+config.lotAdresse = r.lot; config.usdgAdresse = r.usdg; config.bgAdresse = r.bg;
+console.log('  LOT_ADRESSE, USDG_ADRESSE, BG_ADRESSE ecrites dans le .env');
 await etat();
 console.log('');

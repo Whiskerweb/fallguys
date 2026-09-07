@@ -12,7 +12,7 @@
  * chaine est REELLE. Chaque hache est imprime avec son lien d'explorateur.
  *
  * Sur le testnet, l'ETH de la caisse vient de https://faucet.testnet.chain.robinhood.com
- * — un geste humain, que ce script ne peut pas faire. L'USDC, lui, est le notre : le
+ * — un geste humain, que ce script ne peut pas faire. L'USDG, lui, est le notre : le
  * script en frappe pour les joueurs d'essai et le pool.
  */
 
@@ -20,7 +20,7 @@ import { spawn } from 'node:child_process';
 
 const local = process.argv.includes('--local');
 /*
- * Le retrait de demonstration porte quelques USDC, pas les 25 du minimum produit : la regle
+ * Le retrait de demonstration porte quelques USDG, pas les 25 du minimum produit : la regle
  * du minimum est prouvee par `test/retraits.mjs`, ce script prouve que la TRANSACTION passe.
  * Ces deux variables ne touchent que ce processus.
  */
@@ -33,7 +33,7 @@ if (local) {
   process.env.ROBINHOOD_CHAIN_ID = '31337';
   // Sur anvil, rien n'existe encore : les contrats sont deployes plus bas, et les
   // variables doivent etre posees AVANT que `config.js` ne soit lu.
-  process.env.USDC_ADRESSE = ''; process.env.BG_ADRESSE = ''; process.env.LOT_ADRESSE = '';
+  process.env.USDG_ADRESSE = ''; process.env.BG_ADRESSE = ''; process.env.LOT_ADRESSE = '';
   // Une tresorerie DE BANC, deterministe et sans valeur : jamais les cles du .env sur anvil.
   const cleDeTest = (octet) => '0x' + Buffer.alloc(32, octet).toString('hex');
   process.env.CAISSE_CLE = cleDeTest(0x11); process.env.FRAIS_CLE = cleDeTest(0x22); process.env.POOL_CLE = cleDeTest(0x33);
@@ -91,11 +91,11 @@ if (eth < 0.001) {
 
 // ---------------------------------------------------------------- les contrats
 if (local) {
-  const r = await deployerContrats({ connexion: co, caisse, pool: pool.address, usdcEssai: true });
-  config.lotAdresse = r.lot; config.usdcAdresse = r.usdc; config.bgAdresse = r.bg;
-  dit(`Lot ${r.lot} · USDC d'essai ${r.usdc} · BG ${r.bg} (1 000 000 000 au pool, sans frappe)`);
+  const r = await deployerContrats({ connexion: co, caisse, pool: pool.address, usdgEssai: true });
+  config.lotAdresse = r.lot; config.usdgAdresse = r.usdg; config.bgAdresse = r.bg;
+  dit(`Lot ${r.lot} · USDG d'essai ${r.usdg} · BG ${r.bg} (1 000 000 000 au pool, sans frappe)`);
 }
-if (!config.bgAdresse || !config.lotAdresse || !config.usdcAdresse) { console.error('\n  contrats absents : node outils/contrats.mjs'); fin(1); }
+if (!config.bgAdresse || !config.lotAdresse || !config.usdgAdresse) { console.error('\n  contrats absents : node outils/contrats.mjs'); fin(1); }
 
 const { db, pglite } = await banc();
 const evenements = [];
@@ -104,18 +104,18 @@ const chaine = chaineMod.creerChaine({ db, surEvenement: (e) => evenements.push(
 // ---------------------------------------------------------------- les joueurs
 /*
  * Les deux joueurs d'essai ont des identifiants FIXES : leurs wallets derives ne changent
- * donc pas d'une execution a l'autre, et l'USDC frappe dessus sert aux suivantes.
+ * donc pas d'une execution a l'autre, et l'USDG frappe dessus sert aux suivantes.
  */
 const alice = await joueur(db, 'alice', '00000000-0000-4000-8000-00000000a11c');
 const bob = await joueur(db, 'bob', '00000000-0000-4000-8000-0000000000b0');
 const wallet = (id) => tresorerie.joueur(id).address;
 
-titre('1. Depots : le robinet frappe des USDC d\'essai, le guetteur les credite');
+titre('1. Depots : le robinet frappe des USDG d\'essai, le guetteur les credite');
 for (const [nom, id] of [['alice', alice], ['bob', bob]]) {
   const avant = await chaine.solde(wallet(id));
   if (avant < 10 * MICROS) {
-    const r = await chaine.executer({ operations: [{ type: 'frappe', vers: wallet(id), mint: 'usdc', montant: 10 * MICROS, objet: 'robinet', ref: `${id}:${Date.now()}` }] });
-    dit(`frappe 10.00 USDC pour ${nom} → ${lien(r.signature)}`);
+    const r = await chaine.executer({ operations: [{ type: 'frappe', vers: wallet(id), mint: 'usdg', montant: 10 * MICROS, objet: 'robinet', ref: `${id}:${Date.now()}` }] });
+    dit(`frappe 10.00 USDG pour ${nom} → ${lien(r.signature)}`);
   }
   const vus = await releverDepots(db, { userId: id, adresse: wallet(id) });
   const sur = await chaine.solde(wallet(id));
@@ -123,22 +123,22 @@ for (const [nom, id] of [['alice', alice], ['bob', bob]]) {
   // (executions precedentes sur le testnet) est dote au livre comme un depot ancien.
   const credite = await solde(db, compte.joueur(id));
   if (credite < sur) await doter(db, id, sur - credite);
-  dit(`${nom} ${wallet(id)} · ${ecrire(sur)} USDC sur la chaine (${vus.length} depot(s) vus par le guetteur), credites au livre`);
+  dit(`${nom} ${wallet(id)} · ${ecrire(sur)} USDG sur la chaine (${vus.length} depot(s) vus par le guetteur), credites au livre`);
 }
-let poolUsdc = await chaine.solde(pool.address, 'usdc');
-if (poolUsdc < 100 * MICROS) {
-  const r = await chaine.executer({ operations: [{ type: 'frappe', vers: pool.address, mint: 'usdc', montant: 100 * MICROS, objet: 'robinet', ref: `pool:${Date.now()}` }] });
-  dit(`frappe 100.00 USDC pour le pool → ${lien(r.signature)}`);
-  poolUsdc = await chaine.solde(pool.address, 'usdc');
+let poolUsdg = await chaine.solde(pool.address, 'usdg');
+if (poolUsdg < 100 * MICROS) {
+  const r = await chaine.executer({ operations: [{ type: 'frappe', vers: pool.address, mint: 'usdg', montant: 100 * MICROS, objet: 'robinet', ref: `pool:${Date.now()}` }] });
+  dit(`frappe 100.00 USDG pour le pool → ${lien(r.signature)}`);
+  poolUsdg = await chaine.solde(pool.address, 'usdg');
 }
-await db.transaction((tx) => poster(tx, { genre: 'dotation', ref: `pool:${Date.now()}`, lignes: [{ compte: compte.entree, montant: -poolUsdc }, { compte: compte.pool, montant: poolUsdc }] }));
-dit(`pool : ${ecrire(poolUsdc)} USDC · ${((await chaine.solde(pool.address, 'bg')) / MICROS).toLocaleString('en-US')} BG`);
+await db.transaction((tx) => poster(tx, { genre: 'dotation', ref: `pool:${Date.now()}`, lignes: [{ compte: compte.entree, montant: -poolUsdg }, { compte: compte.pool, montant: poolUsdg }] }));
+dit(`pool : ${ecrire(poolUsdg)} USDG · ${((await chaine.solde(pool.address, 'bg')) / MICROS).toLocaleString('en-US')} BG`);
 
-titre('2. Un duel a 2 USDC : les deux mises partent vers le pot, en UNE transaction');
+titre('2. Un duel a 2 USDG : les deux mises partent vers le pot, en UNE transaction');
 const partie = `cycle-${Date.now().toString(36)}`;
 const eng = await engagerPartie(db, chaine, { partie, mode: 'duel', mise: 2 * MICROS, joueurs: [{ userId: alice, nom: 'alice' }, { userId: bob, nom: 'bob' }] });
 if (eng.annulee) { console.error('  ANNULEE :', JSON.stringify(eng.refuses)); fin(1); }
-dit(`pot ${eng.adressePot} · ${ecrire(await chaine.solde(eng.adressePot))} USDC`);
+dit(`pot ${eng.adressePot} · ${ecrire(await chaine.solde(eng.adressePot))} USDG`);
 dit(`mises → ${lien(eng.signatures[alice])}`);
 
 titre('3. Le reglement : le pot est vide vers le vainqueur et les frais');
@@ -161,10 +161,10 @@ const marcheAvant = await etatMarche(chaine);
 const b = await racheterEtBruler(db, chaine, { seuil: 1 });
 if (!b || b.statut !== 'brule') { dit(`pas de brulage : ${JSON.stringify(b)}`); }
 else {
-  dit(`${ecrire(b.usdc)} USDC → ${(b.bg / MICROS).toFixed(6)} BG achetes et brules → ${lien(b.signature)}`);
+  dit(`${ecrire(b.usdg)} USDG → ${(b.bg / MICROS).toFixed(6)} BG achetes et brules → ${lien(b.signature)}`);
   const marche = await etatMarche(chaine);
   dit(`offre : ${(marcheAvant.offre / MICROS).toLocaleString('en-US')} → ${(marche.offre / MICROS).toLocaleString('en-US')} BG`);
-  dit(`prix : 1 USDC achete ${(marcheAvant.bgParUsdc / MICROS).toLocaleString('en-US')} → ${(marche.bgParUsdc / MICROS).toLocaleString('en-US')} BG`);
+  dit(`prix : 1 USDG achete ${(marcheAvant.bgParUsdg / MICROS).toLocaleString('en-US')} → ${(marche.bgParUsdg / MICROS).toLocaleString('en-US')} BG`);
 }
 
 titre('6. Un retrait : du wallet de jeu d\'alice vers un wallet externe');
@@ -172,7 +172,7 @@ const externe = Wallet.createRandom().address;
 await db.query(`update public.profiles set wallet = $2, wallet_lie_le = now() - interval '2 days' where id = $1`, [alice, externe]);
 const dem = await demander(db, { userId: alice, montant: Math.min(await solde(db, compte.joueur(alice)), 5 * MICROS) });
 const ex = await executer(db, chaine, dem.id);
-dit(`${ecrire(dem.montant)} USDC → ${externe} · ${ex.statut} → ${ex.signature ? lien(ex.signature) : '—'}`);
+dit(`${ecrire(dem.montant)} USDG → ${externe} · ${ex.statut} → ${ex.signature ? lien(ex.signature) : '—'}`);
 dit(`externe sur la chaine : ${ecrire(await chaine.solde(externe))}`);
 
 titre('7. Livre ↔ chaine, a la fin');

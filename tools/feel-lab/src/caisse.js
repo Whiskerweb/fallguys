@@ -1,7 +1,7 @@
 /**
  * LE PORTEFEUILLE DU JOUEUR — ce que le grand livre dit qu'il a.
  *
- * Depuis le 2 septembre 2026, IL N'Y A PLUS DE RECHARGE. Le prototype se donnait 25 USDC
+ * Depuis le 2 septembre 2026, IL N'Y A PLUS DE RECHARGE. Le prototype se donnait 25 USDG
  * fictifs et un bouton TOP UP les remettait ; c'était un portefeuille sans rien derrière,
  * et le directeur produit a demandé qu'il disparaisse du jeu. Le solde est désormais celui
  * du backend — la somme des lignes du grand livre, adossée à un vrai wallet Robinhood
@@ -21,7 +21,7 @@
  *
  * Les harnais de `diag/` pilotent le jeu contre un serveur SANS backend (politiques
  * `DUEL_TEST`, `DEV`, `BANC`). Ce serveur le dit dans `bienvenue` : pas d'argent derrière,
- * identité facultative. Alors, et seulement alors, un portefeuille de banc de 25 USDC
+ * identité facultative. Alors, et seulement alors, un portefeuille de banc de 25 USDG
  * imaginaires existe dans le navigateur — parce qu'un duel payant doit pouvoir se mesurer
  * sans chaîne. Ce n'est PAS un mode de jeu : un serveur de production ne l'active jamais,
  * et il n'existe aucun bouton pour l'activer soi-même.
@@ -154,7 +154,7 @@ export const caisse = {
     return this.rafraichir();
   },
 
-  /** Va voir si des USDC sont arrivés sur le wallet du joueur. */
+  /** Va voir si des USDG sont arrivés sur le wallet du joueur. */
   async releverDepots() {
     if (!enLigne) return { nouveaux: [] };
     const r = await appeler('/depots/relever', {});
@@ -182,7 +182,7 @@ export const caisse = {
     return r;
   },
 
-  /** Le robinet d'USDC d'essai (testnet seulement) : le backend frappe, puis crédite. */
+  /** Le robinet d'USDG d'essai (testnet seulement) : le backend frappe, puis crédite. */
   async robinet() {
     const r = await appeler('/robinet', {});
     soldeDistant = r.solde;

@@ -20,10 +20,10 @@ const lire = (fichier, nom) => {
   return { abi: j.abi, bytecode: j.bytecode.object };
 };
 const artefacts = {
-  USDCTest: lire('Jetons.sol', 'USDCTest'),
+  USDGTest: lire('Jetons.sol', 'USDGTest'),
   BabyGuy: lire('Jetons.sol', 'BabyGuy'),
   Lot: lire('Lot.sol', 'Lot'),
 };
 writeFileSync(CIBLE,
-  `/**\n * GENERE par outils/contrats-compiler.mjs depuis contrats/src — ne pas editer a la main.\n * ABI et bytecode des trois contrats du jeu (USDC d'essai, BG, Lot), compiles par Foundry.\n */\nexport const ARTEFACTS = ${JSON.stringify(artefacts, null, 1)};\n`);
+  `/**\n * GENERE par outils/contrats-compiler.mjs depuis contrats/src — ne pas editer a la main.\n * ABI et bytecode des trois contrats du jeu (USDG d'essai, BG, Lot), compiles par Foundry.\n */\nexport const ARTEFACTS = ${JSON.stringify(artefacts, null, 1)};\n`);
 for (const [n, a] of Object.entries(artefacts)) console.log(`${n.padEnd(9)} ${a.abi.length} entrees d'ABI · ${(a.bytecode.length - 2) / 2} octets`);

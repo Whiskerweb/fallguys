@@ -2,7 +2,7 @@
  * L'adresse de depot d'un joueur, DERIVEE plutot que stockee.
  *
  * Chaque joueur recoit une adresse Robinhood Chain qui n'appartient qu'a lui. Il y envoie
- * ses USDC ; un guetteur voit l'arrivee et credite le grand livre. Les USDC y RESTENT :
+ * ses USDG ; un guetteur voit l'arrivee et credite le grand livre. Les USDG y RESTENT :
  * c'est son wallet de jeu.
  *
  * Pourquoi une adresse par joueur, et pas les deux autres solutions evidentes :
@@ -12,7 +12,7 @@
  *     jour ;
  *   - « on credite selon l'expediteur » : un depot venu d'un exchange a l'exchange pour
  *     expediteur, donc personne. Or c'est exactement de la que viennent les premiers
- *     USDC d'un joueur.
+ *     USDG d'un joueur.
  *
  * L'adresse dediee attribue a coup sur, quelle que soit la provenance.
  *

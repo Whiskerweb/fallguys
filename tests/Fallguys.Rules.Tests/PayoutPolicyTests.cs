@@ -5,7 +5,7 @@ namespace Fallguys.Rules.Tests;
 
 public class PayoutPolicyTests
 {
-    private static readonly StakeContext OneDollar = StakeContext.Usdc(StakeTier.Micro, 1m);
+    private static readonly StakeContext OneDollar = StakeContext.Usdg(StakeTier.Micro, 1m);
 
     /// <summary>
     /// La table de reference, a 10 % de rake.
@@ -52,7 +52,7 @@ public class PayoutPolicyTests
     [InlineData(0.37)]
     public void Invariant_monetaire_tient_pour_toute_mise(decimal units)
     {
-        var stake = StakeContext.Usdc(StakeTier.Micro, units);
+        var stake = StakeContext.Usdg(StakeTier.Micro, units);
         var table = PayoutPolicy.Compute(MatchConfiguration.Default, stake);
         Assert.Equal(table.Pot, table.TotalDistributed + table.Rake);
     }

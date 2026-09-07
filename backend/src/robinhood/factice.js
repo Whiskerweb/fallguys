@@ -19,11 +19,11 @@ import { trier, marquer, ChaineEchouee, ChaineIncertaine, DECIMALES } from './ch
 export function creerChaineFactice({ db, panne = null, incertaine = null, surEvenement = null } = {}) {
   /** `proprietaire|mint` -> micros */
   const soldes = new Map();
-  const offres = { bg: 1_000_000_000 * 10 ** DECIMALES.bg, usdc: 0 };
+  const offres = { bg: 1_000_000_000 * 10 ** DECIMALES.bg, usdg: 0 };
   /** Haches laisses en suspens par `incertaine`, avec leur sort une fois repris. */
   const suspens = new Map();
 
-  const cle = (p, m) => `${(typeof p === 'string' ? p : p.address).toLowerCase()}|${m ?? 'usdc'}`;
+  const cle = (p, m) => `${(typeof p === 'string' ? p : p.address).toLowerCase()}|${m ?? 'usdg'}`;
   const lire = (p, m) => soldes.get(cle(p, m)) ?? 0;
   const ecrire = (p, m, v) => soldes.set(cle(p, m), v);
 
@@ -32,11 +32,11 @@ export function creerChaineFactice({ db, panne = null, incertaine = null, surEve
     reseau: 'factice',
     soldes,
 
-    solde: async (proprietaire, quoi = 'usdc') => lire(proprietaire, quoi),
-    offre: async (quoi) => ({ offre: offres[quoi], decimales: DECIMALES[quoi], frappable: quoi === 'usdc' }),
+    solde: async (proprietaire, quoi = 'usdg') => lire(proprietaire, quoi),
+    offre: async (quoi) => ({ offre: offres[quoi], decimales: DECIMALES[quoi], frappable: quoi === 'usdg' }),
 
     /** Pour poser une situation de depart : des jetons qui tombent du ciel. Tests seulement. */
-    doter(proprietaire, quoi, micros) { ecrire(proprietaire, quoi, lire(proprietaire, quoi) + micros); if (quoi === 'usdc') offres.usdc += micros; },
+    doter(proprietaire, quoi, micros) { ecrire(proprietaire, quoi, lire(proprietaire, quoi) + micros); if (quoi === 'usdg') offres.usdg += micros; },
 
     async executer({ operations }) {
       const { lignes, restantes } = await trier(db, operations);
@@ -55,7 +55,7 @@ export function creerChaineFactice({ db, panne = null, incertaine = null, surEve
       const lireE = (p, m) => essai.get(cle(p, m)) ?? 0;
       const ecrireE = (p, m, v) => essai.set(cle(p, m), v);
       let brulesBg = 0;
-      let frappesUsdc = 0;
+      let frappesUsdg = 0;
       for (let index = 0; index < operations.length; index++) {
         const op = operations[index];
         if (panne?.(op)) {
@@ -72,8 +72,8 @@ export function creerChaineFactice({ db, panne = null, incertaine = null, surEve
           if (op.type === 'virement') ecrireE(op.vers, op.mint, lireE(op.vers, op.mint) + op.montant);
           else brulesBg += op.montant;
         } else if (op.type === 'frappe') {
-          ecrireE(op.vers, 'usdc', lireE(op.vers, 'usdc') + op.montant);
-          frappesUsdc += op.montant;
+          ecrireE(op.vers, 'usdg', lireE(op.vers, 'usdg') + op.montant);
+          frappesUsdg += op.montant;
         } else {
           throw new Error(`operation inconnue « ${op.type} »`);
         }
@@ -85,9 +85,9 @@ export function creerChaineFactice({ db, panne = null, incertaine = null, surEve
       }
       for (const [k, v] of essai) soldes.set(k, v);
       offres.bg -= brulesBg;
-      offres.usdc += frappesUsdc;
+      offres.usdg += frappesUsdg;
       await marquer(db, ids, 'confirme');
-      surEvenement?.({ signature, operations: operations.map((o) => ({ objet: o.objet, ref: o.ref, montant: o.montant, mint: o.mint ?? 'usdc' })) });
+      surEvenement?.({ signature, operations: operations.map((o) => ({ objet: o.objet, ref: o.ref, montant: o.montant, mint: o.mint ?? 'usdg' })) });
       return { signature, deja: false };
     },
 

@@ -29,10 +29,10 @@ const frais = tresorerie.frais().address;
 const pool = tresorerie.pool().address;
 
 /** Un joueur dote au livre ET sur la chaine, comme apres un vrai depot. */
-async function joueurDote(chaine, nom, usdc) {
+async function joueurDote(chaine, nom, usdg) {
   const id = await joueur(db, nom);
-  await doter(db, id, usdc * MICROS);
-  chaine.doter(adresse(id), 'usdc', usdc * MICROS);
+  await doter(db, id, usdg * MICROS);
+  chaine.doter(adresse(id), 'usdg', usdg * MICROS);
   return id;
 }
 
@@ -94,7 +94,7 @@ const chaine = creerChaineFactice({
   dit(r.annulee === false && r.engages.length === 4, 'quatre mises engagees, partie confirmee');
   dit(new Set(Object.values(r.signatures)).size === 1 && Object.keys(r.signatures).length === 4, 'les quatre mises tiennent dans UNE transaction : un lot, un hache');
   const potAdr = tresorerie.pot(partie).address;
-  dit(await chaine.solde(potAdr) === 8 * MICROS, `le pot detient ${ecrire(8 * MICROS)} USDC sur la chaine`);
+  dit(await chaine.solde(potAdr) === 8 * MICROS, `le pot detient ${ecrire(8 * MICROS)} USDG sur la chaine`);
   dit(await chaine.solde(adresse(gens[0])) === 18 * MICROS && await solde(db, compte.joueur(gens[0])) === 18 * MICROS,
     'chaque joueur a 18.00 au livre ET sur la chaine');
   const m = (await db.query(`select statut, adresse_pot, effectif from public.matches where id = $1`, [partie])).rows[0];
@@ -221,40 +221,40 @@ titre('5. Le brulage : les frais achetent des BG, qui sont detruits');
 // ===========================================================================
 {
   dit(prixAchat(1_000_000_000, 1_000_000_000_000_000, 1_000_000) === 999_000_999_000,
-    'produit constant : 1 USDC dans un pool de 1 000 USDC / 1 000 000 000 BG donne 999 000.999 BG');
+    'produit constant : 1 USDG dans un pool de 1 000 USDG / 1 000 000 000 BG donne 999 000.999 BG');
   dit(prixAchat(0, 1_000_000_000_000_000, 1_000_000) === 1_000_000_000_000_000 - 1_000_000_000_000_000 * 0 && prixAchat(0, 100, 0) === 0,
-    'sans USDC en entree, rien ne sort');
+    'sans USDG en entree, rien ne sort');
 
   chaine.doter(pool, 'bg', 1_000_000_000 * MICROS);
   const fraisAvant = await chaine.solde(frais);
-  // Un pool qui a des BG mais pas d'USDC n'a pas de prix : on ne vend RIEN, surtout pas tout.
+  // Un pool qui a des BG mais pas d'USDG n'a pas de prix : on ne vend RIEN, surtout pas tout.
   const nonAmorce = await racheterEtBruler(db, chaine, { seuil: 1 });
   dit(nonAmorce?.statut === 'pool_non_amorce' && await chaine.solde(pool, 'bg') === 1_000_000_000 * MICROS && await chaine.solde(frais) === fraisAvant,
-    'un pool sans USDC ne vend rien — le produit constant y donnerait tout le pool pour un centime');
-  chaine.doter(pool, 'usdc', 1_000 * MICROS);
+    'un pool sans USDG ne vend rien — le produit constant y donnerait tout le pool pour un centime');
+  chaine.doter(pool, 'usdg', 1_000 * MICROS);
   const offreAvant = (await chaine.offre('bg')).offre;
   const attenduBg = prixAchat(1_000 * MICROS, 1_000_000_000 * MICROS, fraisAvant);
 
   const rien = await racheterEtBruler(db, chaine, { seuil: fraisAvant + 1 });
-  dit(rien === null, `sous le seuil, on ne brule pas (frais : ${ecrire(fraisAvant)} USDC)`);
+  dit(rien === null, `sous le seuil, on ne brule pas (frais : ${ecrire(fraisAvant)} USDG)`);
 
   const b = await racheterEtBruler(db, chaine, { seuil: fraisAvant });
-  dit(b?.statut === 'brule' && b.usdc === fraisAvant && b.bg === attenduBg,
-    `au seuil : ${ecrire(b.usdc)} USDC achetent ${(b.bg / MICROS).toFixed(6)} BG, brules`);
+  dit(b?.statut === 'brule' && b.usdg === fraisAvant && b.bg === attenduBg,
+    `au seuil : ${ecrire(b.usdg)} USDG achetent ${(b.bg / MICROS).toFixed(6)} BG, brules`);
   dit(await chaine.solde(frais) === 0 && await solde(db, compte.rake) === 0, 'les frais sont a zero, au livre et sur la chaine');
-  dit(await chaine.solde(pool, 'usdc') === 1_000 * MICROS + fraisAvant && await solde(db, compte.pool) === fraisAvant,
-    'le pool a recu les USDC ; le livre le sait');
+  dit(await chaine.solde(pool, 'usdg') === 1_000 * MICROS + fraisAvant && await solde(db, compte.pool) === fraisAvant,
+    'le pool a recu les USDG ; le livre le sait');
   dit(await chaine.solde(pool, 'bg') === 1_000_000_000 * MICROS - attenduBg && await chaine.solde(frais, 'bg') === 0,
     'les BG achetes sont sortis du pool et brules dans la meme transaction : aucun BG ne transite par les frais');
   dit((await chaine.offre('bg')).offre === offreAvant - attenduBg, `l'offre de BG a baisse de ${(attenduBg / MICROS).toFixed(6)}`);
   const ligne = (await db.query(`select * from public.burns`)).rows;
   dit(ligne.length === 1 && Number(ligne[0].bg_micros) === attenduBg && ligne[0].signature === b.signature, 'le rachat est consigne, avec son hache');
   const marche = await etatMarche(chaine);
-  dit(marche.bgParUsdc > 0 && marche.offre === offreAvant - attenduBg, `le marche se lit sur la chaine : ${(marche.bgParUsdc / MICROS).toFixed(2)} BG pour 1 USDC`);
+  dit(marche.bgParUsdg > 0 && marche.offre === offreAvant - attenduBg, `le marche se lit sur la chaine : ${(marche.bgParUsdg / MICROS).toFixed(2)} BG pour 1 USDG`);
 
-  // La chaine refuse : rien n'est brule, les frais retrouvent leurs USDC au livre.
+  // La chaine refuse : rien n'est brule, les frais retrouvent leurs USDG au livre.
   const chainePanne = chaine;
-  chaine.doter(frais, 'usdc', 3 * MICROS);
+  chaine.doter(frais, 'usdg', 3 * MICROS);
   panne = (op) => op.type === 'brulage';
   await db.transaction(async (tx) => {
     const { poster } = await import('../src/livre.js');
@@ -263,7 +263,7 @@ titre('5. Le brulage : les frais achetent des BG, qui sont detruits');
   const rate = await racheterEtBruler(db, chainePanne, { seuil: 1 * MICROS });
   panne = null;
   dit(rate.statut === 'echoue' && await solde(db, compte.rake) === 3 * MICROS && await chainePanne.solde(frais) === 3 * MICROS,
-    'si la chaine refuse le brulage, le virement des USDC est annule avec lui : le livre est rendu, les frais n\'ont pas bouge');
+    'si la chaine refuse le brulage, le virement des USDG est annule avec lui : le livre est rendu, les frais n\'ont pas bouge');
   const inv = await verifierInvariant(db);
   dit(inv.total === 0, 'l\'invariant tient a travers les rachats');
 }
@@ -299,15 +299,15 @@ titre('6. Un retrait part du wallet du joueur');
 }
 
 // ===========================================================================
-titre('7. Le robinet d\'essai frappe des USDC que le guetteur voit comme un depot');
+titre('7. Le robinet d\'essai frappe des USDG que le guetteur voit comme un depot');
 // ===========================================================================
 {
   const fred = await joueur(db, 'rob-fred');
-  const r = await chaine.executer({ operations: [{ type: 'frappe', vers: adresse(fred), mint: 'usdc', montant: 20 * MICROS, objet: 'robinet', ref: `${fred}:1` }] });
-  dit(r.deja === false && await chaine.solde(adresse(fred)) === 20 * MICROS, 'la frappe depose 20.00 USDC sur le wallet de jeu');
+  const r = await chaine.executer({ operations: [{ type: 'frappe', vers: adresse(fred), mint: 'usdg', montant: 20 * MICROS, objet: 'robinet', ref: `${fred}:1` }] });
+  dit(r.deja === false && await chaine.solde(adresse(fred)) === 20 * MICROS, 'la frappe depose 20.00 USDG sur le wallet de jeu');
   const ligne = (await db.query(`select user_id, statut from public.chain_tx where objet = 'robinet'`)).rows[0];
   dit(ligne.statut === 'confirme' && ligne.user_id === null, 'elle est journalisee SANS joueur : pour le guetteur, c\'est un depot comme un autre');
-  const bis = await chaine.executer({ operations: [{ type: 'frappe', vers: adresse(fred), mint: 'usdc', montant: 20 * MICROS, objet: 'robinet', ref: `${fred}:1` }] });
+  const bis = await chaine.executer({ operations: [{ type: 'frappe', vers: adresse(fred), mint: 'usdg', montant: 20 * MICROS, objet: 'robinet', ref: `${fred}:1` }] });
   dit(bis.deja === true && await chaine.solde(adresse(fred)) === 20 * MICROS, 'rejouer la meme ref ne frappe pas deux fois');
 }
 

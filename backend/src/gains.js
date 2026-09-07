@@ -21,7 +21,7 @@
 
 import { pointsDeBase } from './argent.js';
 
-/** Les trois tables ouvertes, en USDC. Doublé à l'identique dans `MatchMode.StakeTiers`. */
+/** Les trois tables ouvertes, en USDG. Doublé à l'identique dans `MatchMode.StakeTiers`. */
 export const PALIERS = [2, 5, 10];
 
 // ---------------------------------------------------------------- les modes
@@ -127,13 +127,13 @@ export const NB_FINALISTES = CONFIG.survivants[CONFIG.survivants.length - 2];
  * les dix lignes distribuent EXACTEMENT 90 % du pot : le rake vaut 10 % en moyenne, au
  * micro près, et `verifierRoue` l'exige.
  *
- * Pourquoi pas 10 % à chaque partie, comme avant : à 2 USDC en duel, le pot fait 4,00 et
+ * Pourquoi pas 10 % à chaque partie, comme avant : à 2 USDG en duel, le pot fait 4,00 et
  * 90 % en laissent 3,60 ; en dixièmes de mise il n'existe que sept valeurs entre 2,40 et
  * 3,60, et le directeur produit a vu trois fois « 3.60 » sur la roue. Il veut de petites
  * variations et des cases au-dessus de la moyenne (4,00). Les deux exigent que la part de
  * la maison bouge avec la ligne. C'est un choix produit du 2 septembre 2026.
  *
- * POURQUOI DES VINGTIÈMES : des pas de 0,10 USDC à 2 USDC, assez fins pour dix cases
+ * POURQUOI DES VINGTIÈMES : des pas de 0,10 USDG à 2 USDG, assez fins pour dix cases
  * distinctes. Toute mise du catalogue est divisible par vingt en micro-unités ; une mise
  * qui ne le serait pas laisse son reste de division à la maison, jamais l'inverse.
  *
@@ -163,9 +163,9 @@ const issue = (id, nom, poids, vingtiemes, seuil, xp) => ({ id, nom, poids, ving
 
 export const ISSUES = {
   /**
-   * Le duel. Dix montants distincts pour le vainqueur, de ×1,3 à ×2,0 — à 2 USDC, de 2,60
+   * Le duel. Dix montants distincts pour le vainqueur, de ×1,3 à ×2,0 — à 2 USDG, de 2,60
    * à 4,00, la case 4,00 étant le pot entier. Le perdant récupère un peu de sa mise sur les
-   * trois lignes basses (0,70 à 0,80 USDC à 2 USDC), de l'XP sur les autres.
+   * trois lignes basses (0,70 à 0,80 USDG à 2 USDG), de l'XP sur les autres.
    */
   duel: [
     issue('plat',      'FLAT',     600, [26, 7], 1, [0]),
@@ -182,7 +182,7 @@ export const ISSUES = {
   /**
    * Quatre joueurs, deux places payées, dix montants distincts pour chacune. Le vainqueur
    * va de ×1,5 à ×3,0 — JACKPOT lui donne les trois quarts du pot, le deuxième garde sa
-   * mise. Deux lignes rendent leur mise à un bronze (13 vingtièmes : 0,65 à 1 USDC de mise).
+   * mise. Deux lignes rendent leur mise à un bronze (13 vingtièmes : 0,65 à 1 USDG de mise).
    */
   squad: [
     issue('plat',      'FLAT',     600, [30, 24, 0, 13], 2, [40, 30]),
@@ -359,10 +359,10 @@ export function verifierRoue(modeId) {
  * QUI RESTE : le pot moins ce que la ligne distribue — entre 0 % et 30 % selon la ligne,
  * 10 % en moyenne (`verifierRoue`). Jamais négatif : aucune ligne ne dépasse le pot.
  *
- * @param {number} mise mise d'entrée en micro-USDC
+ * @param {number} mise mise d'entrée en micro-USDG
  * @param {string} [modeId] `duel` | `squad` | `arena`
  * @param {string} [issueId] la ligne tirée par la roue pour CETTE partie
- * @returns {{pot: number, rake: number, parRang: number[], xp: number[]}} argent en micro-USDC
+ * @returns {{pot: number, rake: number, parRang: number[], xp: number[]}} argent en micro-USDG
  */
 export function table(mise, modeId = 'arena', issueId = 'standard') {
   const m = mode(modeId);
@@ -492,9 +492,9 @@ export function configPour(joueurs, rakeBp = 1000) {
  * Règle unique : les survivants de la manche 1 récupèrent leur mise, et ce qui reste après
  * le rake est réparti en bonus entre les finalistes.
  *
- * @param {number} mise mise d'entrée en micro-USDC
+ * @param {number} mise mise d'entrée en micro-USDG
  * @param {number} [joueurs] effectif réel de la partie
- * @returns {{pot: number, rake: number, parRang: number[]}} tout en micro-USDC
+ * @returns {{pot: number, rake: number, parRang: number[]}} tout en micro-USDG
  */
 export function tableEffectif(mise, joueurs = CONFIG.joueurs) {
   const c = joueurs === CONFIG.joueurs ? CONFIG : configPour(joueurs, CONFIG.rakeBp);

@@ -17,9 +17,9 @@ public sealed record MatchConfiguration(
     ///
     /// Les poids de bonus valent [40, 15, 7, 2] et non [35, 15, 5, 1] : ces derniers avaient
     /// été calibrés pour tomber sur des chiffres ronds à 15 % de rake. À 10 %, la même formule
-    /// paie 2,714285 USDC au deuxième — un montant qu'on ne peut ni afficher ni défendre dans
+    /// paie 2,714285 USDG au deuxième — un montant qu'on ne peut ni afficher ni défendre dans
     /// un jeu où l'on engage de l'argent réel. Les poids corrigés redonnent des montants exacts
-    /// (5,00 / 2,50 / 1,70 / 1,20 à la table à 1 USDC) et un reste de division nul.
+    /// (5,00 / 2,50 / 1,70 / 1,20 à la table à 1 USDG) et un reste de division nul.
     ///
     /// Le rake et les poids forment un couple : réviser l'un sans l'autre produit des gains
     /// justes au centime près et illisibles à l'écran.

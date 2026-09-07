@@ -62,7 +62,7 @@ public class MatchModeTests
     [InlineData(10, 18.00)]
     public void Le_duel_paie_1_8_au_vainqueur_par_les_deux_chemins(decimal mise, decimal gain)
     {
-        var stake = StakeContext.Usdc(StakeTier.Micro, mise);
+        var stake = StakeContext.Usdg(StakeTier.Micro, mise);
 
         // Chemin des poids (celui des salons réduits) …
         var poids = PayoutPolicy.Compute(MatchMode.Duel.Config, stake);
@@ -90,7 +90,7 @@ public class MatchModeTests
     }
 
     [Fact]
-    public void Les_mises_ouvertes_sont_2_5_et_10_USDC()
+    public void Les_mises_ouvertes_sont_2_5_et_10_USDG()
     {
         // Doublé à l'identique dans les deux ports JavaScript (`PALIERS`).
         Assert.Equal(new[] { 2m, 5m, 10m }, MatchMode.StakeTiers);
@@ -127,7 +127,7 @@ public class MatchModeTests
         foreach (var mode in MatchMode.All)
         foreach (var mise in MatchMode.StakeTiers)
         {
-            var stake = StakeContext.Usdc(StakeTier.Micro, mise);
+            var stake = StakeContext.Usdg(StakeTier.Micro, mise);
             foreach (var v in PrizeWheel.For(mode))
             {
                 var t = PayoutPolicy.Compute(mode.Config, stake, v);

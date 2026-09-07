@@ -2,7 +2,7 @@
 --  LA CHAINE — le journal de tout ce qui part sur Robinhood Chain, et le brulage
 --
 --  L'argent d'une partie BOUGE SUR LA CHAINE, pas seulement dans le grand livre :
---  chaque joueur detient ses USDC sur un wallet a lui (derive, garde par le
+--  chaque joueur detient ses USDG sur un wallet a lui (derive, garde par le
 --  service), la mise part de ce wallet vers le wallet du POT de la partie, et le
 --  reglement vide le pot vers les gagnants et vers le wallet des FRAIS. Le grand livre reste la comptabilite ; la chaine en
 --  est la preuve, ligne a ligne, et `verifierChaine()` compare les deux.
@@ -28,7 +28,7 @@ create table if not exists public.chain_tx (
   -- Les adresses (0x…), lisibles telles quelles sur l'explorateur.
   de            text,
   vers          text,
-  -- 'usdc' | 'bg' : le jeton concerne.
+  -- 'usdg' | 'bg' : le jeton concerne.
   mint          text,
   montant       bigint not null default 0,
 
@@ -88,7 +88,7 @@ alter table public.matches alter column rake_micros set default 0;
 -- ---------------------------------------------------------------------------
 --  Le brulage — le rachat des BG avec les frais, et leur destruction
 --
---  Une ligne par rachat : combien d'USDC ont ete depenses, combien de BG ont
+--  Une ligne par rachat : combien d'USDG ont ete depenses, combien de BG ont
 --  ete achetes et brules, et ce qu'il restait de l'offre APRES. Le hache est
 --  celui de la transaction unique qui fait les deux gestes (achat, brulage) :
 --  elle est atomique, il n'existe pas d'etat ou les BG sont achetes et pas
@@ -97,7 +97,7 @@ alter table public.matches alter column rake_micros set default 0;
 create table if not exists public.burns (
   id             uuid primary key,
   signature      text unique,
-  usdc_micros    bigint not null check (usdc_micros > 0),
+  usdg_micros    bigint not null check (usdg_micros > 0),
   bg_micros      bigint not null check (bg_micros > 0),
   supply_apres   bigint,
   reseau         text,

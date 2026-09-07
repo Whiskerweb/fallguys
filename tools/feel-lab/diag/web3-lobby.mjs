@@ -40,7 +40,7 @@ titre('1. Sans compte : zéro, et pas de recharge');
 {
   await page.waitForFunction(() => document.getElementById('balance')?.textContent !== '—', null, { timeout: 10_000 });
   const solde = await page.$eval('#balance', (e) => e.textContent);
-  dit(solde === '0.00', `la barre affiche ${solde} USDC (attendu 0.00)`);
+  dit(solde === '0.00', `la barre affiche ${solde} USDG (attendu 0.00)`);
   const bouton = await page.$eval('#recharger', (e) => ({ texte: e.textContent, cache: e.classList.contains('hidden') }));
   dit(bouton.texte === 'SIGN IN' && !bouton.cache, `le bouton de la barre dit « ${bouton.texte} » — plus de TOP UP`);
   const play = await page.$eval('#play', (e) => e.disabled);
@@ -65,11 +65,11 @@ titre('2. Connexion');
   const bouton = await page.$eval('#recharger', (e) => e.textContent);
   dit(bouton === 'WALLET', `connecté, le bouton devient « ${bouton} »`);
   const solde = await page.$eval('#balance', (e) => e.textContent);
-  dit(/^\d+\.\d\d$/.test(solde), `la barre montre le solde du grand livre : ${solde} USDC`);
+  dit(/^\d+\.\d\d$/.test(solde), `la barre montre le solde du grand livre : ${solde} USDG`);
   const note = await page.$eval('#play-note', (e) => e.textContent);
   const play = await page.$eval('#play', (e) => e.disabled);
   const jouable = Number(solde) >= 2;
-  dit(play === !jouable, `PLAY ${play ? 'fermé' : 'ouvert'} avec ${solde} USDC sur une table à 2 : « ${note} »`);
+  dit(play === !jouable, `PLAY ${play ? 'fermé' : 'ouvert'} avec ${solde} USDG sur une table à 2 : « ${note} »`);
 }
 
 titre('3. Le panneau WALLET : dépôt, retrait, historique');
@@ -84,7 +84,7 @@ titre('3. Le panneau WALLET : dépôt, retrait, historique');
   const noteDepot = await page.$eval('#wallet-depot-note', (e) => e.textContent);
   dit(/Robinhood Chain/.test(noteDepot) && /Minimum/.test(noteDepot), `la note dit le réseau et le minimum : « ${noteDepot.slice(0, 60)}… »`);
   const robinet = await page.$eval('#wallet-robinet', (e) => ({ cache: e.classList.contains('hidden'), texte: e.textContent }));
-  dit(!robinet.cache && /TEST USDC/.test(robinet.texte), `le robinet d'essai est offert sur le testnet : « ${robinet.texte} »`);
+  dit(!robinet.cache && /TEST USDG/.test(robinet.texte), `le robinet d'essai est offert sur le testnet : « ${robinet.texte} »`);
   const deposer = await page.$eval('#wallet-deposer', (e) => e.textContent);
   dit(/DEPOSIT FROM WALLET/.test(deposer), 'et le dépôt direct depuis le wallet du joueur est proposé');
   const lie = await page.$eval('#wallet-lie', (e) => e.textContent);
@@ -112,7 +112,7 @@ titre('4. La page de suivi, relayée par le serveur de jeu');
   const s = await r.json();
   dit(r.ok && s.reseau === 'testnet' && s.reseauDetail?.chainId === 46630, `/api/stats répond : réseau ${s.reseau} (chainId ${s.reseauDetail?.chainId}), ${s.parties.reglees} parties, ${s.brulage.rachats} rachats`);
   const etat = await (await fetch(`${BASE}/etat`)).json();
-  dit(etat.chaine?.stable === 'USDC' && etat.chaine?.reseau === 'testnet', `le serveur de jeu dit la chaîne au navigateur : ${etat.chaine?.reseau}, dollar ${etat.chaine?.stable}`);
+  dit(etat.chaine?.stable === 'USDG' && etat.chaine?.reseau === 'testnet', `le serveur de jeu dit la chaîne au navigateur : ${etat.chaine?.reseau}, dollar ${etat.chaine?.stable}`);
   const p = await fetch(`${BASE}/api/suivi`);
   dit(p.ok && /Tumble · on-chain/.test(await p.text()), '/api/suivi sert la page de suivi');
 }

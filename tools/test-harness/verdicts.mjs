@@ -116,7 +116,7 @@ titre('2. L\'attente, et le départ à effectif réduit après un temps de calme
   const annonce = prod.departReduit();
   dit(annonce !== null && annonce.joueurs === 13 && annonce.manques === 3 && annonce.dans === 35,
     `à treize, le départ réduit est annoncé : ${annonce?.joueurs} joueurs, dans ${annonce?.dans} s`);
-  dit(annonce?.pot === 13_000_000, `le pot annoncé est celui des présents : ${annonce?.pot / 1e6} USDC`);
+  dit(annonce?.pot === 13_000_000, `le pot annoncé est celui des présents : ${annonce?.pot / 1e6} USDG`);
   dit(!prod.pretAPartir(), 'mais on ne part pas tout de suite');
   maintenant += 20_000;
   dit(!prod.pretAPartir(), 'ni à 20 s de calme');
@@ -442,7 +442,7 @@ titre('8. Les trois niveaux de bot — mesure, sans verdict');
 titre('9. Trois modes, trois paliers, neuf files qui ne se melangent pas');
 // ===========================================================================
 /*
- * Un joueur qui engage 5 USDC en duel ne doit jamais se retrouver dans le pot d'un joueur
+ * Un joueur qui engage 5 USDG en duel ne doit jamais se retrouver dans le pot d'un joueur
  * qui en a engage 2 en arene. Le pot serait indetermine et la table des gains ne voudrait
  * plus rien dire — c'est la meme raison qui separait deja les paliers, en plus fort : deux
  * modes n'ont ni le meme effectif, ni le meme nombre de manches, ni le meme bareme.
@@ -454,8 +454,8 @@ titre('9. Trois modes, trois paliers, neuf files qui ne se melangent pas');
 
   let n = 0;
   for (const mode of ORDRE_MODES) {
-    for (const usdc of PALIERS) {
-      mm.rejoindre({ nom: `j${n++}` }, usdc * 1_000_000, mode);
+    for (const usdg of PALIERS) {
+      mm.rejoindre({ nom: `j${n++}` }, usdg * 1_000_000, mode);
     }
   }
   const etat = mm.etat();
@@ -482,7 +482,7 @@ titre('9. Trois modes, trois paliers, neuf files qui ne se melangent pas');
  * a effectif deux (`DUEL_TEST`) ouvre pourtant des « arenes » de deux : la partie se
  * jouait, puis le reglement jetait dans le gestionnaire de fin du client — vainqueur
  * renvoye au lobby sans ecran, perdant toujours en course. Vu en jouant, ticket reste sur
- * sa valeur par defaut (ARENA, 2 USDC), serveur lance sans `POLITIQUE=`.
+ * sa valeur par defaut (ARENA, 2 USDG), serveur lance sans `POLITIQUE=`.
  *
  * Les valeurs attendues sont posees a la main, mode par mode.
  */
@@ -491,12 +491,12 @@ titre('9. Trois modes, trois paliers, neuf files qui ne se melangent pas');
   // Gratuit : tout passe, il n'y a rien a regler.
   dit(misePayable(POLITIQUES.DUEL_TEST, 'arena', 0) === true, 'DUEL_TEST, arene GRATUITE : acceptee');
   // DUEL_TEST a effectif deux : seul le duel se paie — complet a deux, au bareme du mode.
-  dit(misePayable(POLITIQUES.DUEL_TEST, 'duel', 2 * M) === true, 'DUEL_TEST, duel a 2 USDC : accepte');
-  dit(misePayable(POLITIQUES.DUEL_TEST, 'arena', 2 * M) === false, 'DUEL_TEST, arene a 2 USDC : REFUSEE — aucun bareme pour une arene de deux');
-  dit(misePayable(POLITIQUES.DUEL_TEST, 'squad', 2 * M) === false, 'DUEL_TEST, squad a 2 USDC : REFUSE');
+  dit(misePayable(POLITIQUES.DUEL_TEST, 'duel', 2 * M) === true, 'DUEL_TEST, duel a 2 USDG : accepte');
+  dit(misePayable(POLITIQUES.DUEL_TEST, 'arena', 2 * M) === false, 'DUEL_TEST, arene a 2 USDG : REFUSEE — aucun bareme pour une arene de deux');
+  dit(misePayable(POLITIQUES.DUEL_TEST, 'squad', 2 * M) === false, 'DUEL_TEST, squad a 2 USDG : REFUSE');
   // PRODUCTION : les trois modes se paient, sans que le format bouge.
   for (const mode of ORDRE_MODES) {
-    dit(misePayable(POLITIQUES.PRODUCTION, mode, 10 * M) === true, `PRODUCTION, ${mode} a 10 USDC : accepte`);
+    dit(misePayable(POLITIQUES.PRODUCTION, mode, 10 * M) === true, `PRODUCTION, ${mode} a 10 USDG : accepte`);
   }
   dit(formatDe(POLITIQUES.PRODUCTION, 'arena', 10 * M).minimum === 13, 'PRODUCTION arene : le minimum reste 13 avec une mise');
   dit(formatDe(POLITIQUES.PRODUCTION, 'duel', 10 * M).minimum === 2, 'PRODUCTION duel : le minimum reste 2 — complet a deux, pas un salon reduit');
@@ -512,7 +512,7 @@ titre('9. Trois modes, trois paliers, neuf files qui ne se melangent pas');
   dit(r.accepte === false && r.raison === 'MISE_IMPAYABLE', `le matchmaking refuse : ${r.raison}`);
   dit(mm.etat().salons.length === 0, 'et n\'ouvre aucune file');
   const d = mm.rejoindre({ nom: 'duelliste' }, 2 * M, 'duel');
-  dit(d.accepte === true, 'le duel a 2 USDC, lui, entre en file');
+  dit(d.accepte === true, 'le duel a 2 USDG, lui, entre en file');
   mm.arreter();
 }
 
@@ -536,7 +536,7 @@ titre('10. La roue tire A LA FIN, sur le serveur, et le salon ne promet plus rie
   const premier = salon.etat();
   dit(premier.variante === undefined, 'le salon n\'annonce aucune variante : rien n\'est tire avant la partie');
   dit(premier.pot === 32_000_000 && premier.mode === 'arena',
-    `il annonce le mode et le pot de la table pleine : ${premier.pot / 1e6} USDC`);
+    `il annonce le mode et le pot de la table pleine : ${premier.pot / 1e6} USDG`);
   dit(ORDRE_MODES.every((id) => ISSUES[id].length === 10), 'dix issues par mode, duel compris');
 
   // La graine de roue, vue du fil : deux duels en parallele, deux graines. Les instances

@@ -8,7 +8,7 @@ pragma solidity ^0.8.24;
  * qui paie le gaz. Or les wallets des joueurs et des pots sont DERIVES et ne detiennent
  * jamais d'ETH — comme sur la version precedente, ou un autre compte payait les frais.
  * Avec `transferWithAuthorization`, le proprietaire SIGNE (hors chaine, gratuit) et la
- * CAISSE soumet la transaction et paie le gaz. USDC de Circle implemente exactement cette
+ * CAISSE soumet la transaction et paie le gaz. USDG de Circle implemente exactement cette
  * interface sur toutes les chaines EVM : le jour du mainnet, le meme code signe les memes
  * autorisations contre le vrai jeton.
  *
@@ -138,17 +138,17 @@ abstract contract JetonAutorise {
 }
 
 /**
- * L'USDC D'ESSAI — sur le testnet seulement.
+ * L'USDG D'ESSAI — sur le testnet seulement.
  *
- * Robinhood Chain Testnet n'a pas d'USDC public : le jeu deploie le sien, six decimales,
+ * Robinhood Chain Testnet n'a pas d'USDG public : le jeu deploie le sien, six decimales,
  * que son PROPRIETAIRE (le contrat Lot, donc la caisse) peut frapper a volonte. C'est ce
- * qui remplace le robinet d'un tiers : `POST /robinet` donne des USDC d'essai a un joueur.
- * Sur mainnet, `USDC_ADRESSE` designe le vrai jeton et ce contrat n'est jamais deploye.
+ * qui remplace le robinet d'un tiers : `POST /robinet` donne des USDG d'essai a un joueur.
+ * Sur mainnet, `USDG_ADRESSE` designe le vrai jeton et ce contrat n'est jamais deploye.
  */
-contract USDCTest is JetonAutorise {
+contract USDGTest is JetonAutorise {
     address public immutable proprietaire;
 
-    constructor(address p) JetonAutorise("USD Coin (test)", "USDC", 6) {
+    constructor(address p) JetonAutorise("Global Dollar (test)", "USDG", 6) {
         proprietaire = p;
     }
 

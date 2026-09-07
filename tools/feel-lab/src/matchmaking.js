@@ -72,7 +72,7 @@ async function trouverServeur() {
     if (r.ok) {
       const etat = await r.json();
       if (etat && Array.isArray(etat.salons)) {
-        // Le serveur dit la chaîne et le nom du dollar (USDC sur le testnet, USDG sur
+        // Le serveur dit la chaîne et le nom du dollar (USDG sur le testnet, USDG sur
         // mainnet) : l'interface se renomme AVANT d'afficher quoi que ce soit d'argent.
         if (etat.chaine) { poserDevise(etat.chaine.stable); poserReseau(etat.chaine); }
         const protocole = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -140,7 +140,7 @@ export async function brancherMatchmaking(jeu) {
     if (!salon) {
       el('file-titre').textContent = 'JOINING…';
       el('file-ligne').textContent = demande
-        ? `${MODES[demande.mode]?.nom ?? demande.mode} · ${montant(demande.mise)} USDC`
+        ? `${MODES[demande.mode]?.nom ?? demande.mode} · ${montant(demande.mise)} USDG`
         : '';
       sieges.innerHTML = '';
       depart.classList.add('hidden');
@@ -150,7 +150,7 @@ export async function brancherMatchmaking(jeu) {
     const config = MODES[salon.mode];
     el('file-titre').textContent = salon.pretAPartir ? 'STARTING…' : 'LOOKING FOR PLAYERS';
     el('file-ligne').textContent =
-      `${config?.nom ?? salon.mode} · ${montant(salon.mise)} USDC · ${salon.humains} / ${salon.cible}`;
+      `${config?.nom ?? salon.mode} · ${montant(salon.mise)} USDG · ${salon.humains} / ${salon.cible}`;
 
     /*
      * UN POINT PAR PLACE. Seize points pour une arène, deux pour un duel : on voit d'un
@@ -176,7 +176,7 @@ export async function brancherMatchmaking(jeu) {
     const d = salon.departReduit;
     depart.classList.toggle('hidden', !d);
     if (d) {
-      depart.textContent = `Starting in ${d.dans} s with ${d.joueurs} players · ${montant(d.pot)} USDC pot`
+      depart.textContent = `Starting in ${d.dans} s with ${d.joueurs} players · ${montant(d.pot)} USDG pot`
         + ' — unless someone joins';
     }
 
@@ -288,7 +288,7 @@ export async function brancherMatchmaking(jeu) {
   function montrerSuggestion(s) {
     suggestion = s;
     const nomMode = MODES[s.mode]?.nom ?? s.mode;
-    const titre = `${s.joueurs} player${s.joueurs > 1 ? 's' : ''} waiting in ${nomMode} · ${montant(s.mise)} USDC`;
+    const titre = `${s.joueurs} player${s.joueurs > 1 ? 's' : ''} waiting in ${nomMode} · ${montant(s.mise)} USDG`;
     const corps = s.demarre
       ? 'Your match would start right now.'
       : `Enough to start with ${s.joueurs + 1} — if everyone there agrees.`;
@@ -376,7 +376,7 @@ export async function brancherMatchmaking(jeu) {
     choisirMode(mode);
     choisirMise(mise / MICROS);
     branche.basculer(mise, mode);
-    dire(`Switching to ${MODES[mode]?.nom ?? mode} · ${montant(mise)} USDC…`, true);
+    dire(`Switching to ${MODES[mode]?.nom ?? mode} · ${montant(mise)} USDG…`, true);
     peindre();
   }
 
@@ -564,9 +564,9 @@ export async function brancherMatchmaking(jeu) {
         DEJA_EN_FILE: 'You are already waiting in a queue.',
         SALON_PLEIN: 'That room just filled up — try again.',
         PARTIE_LANCEE: 'That match just started without you — try again.',
-        NON_AUTHENTIFIE: 'Sign in to play for USDC.',
+        NON_AUTHENTIFIE: 'Sign in to play for USDG.',
         ARGENT_INDISPONIBLE: 'This server has no wallet backend: paid tables are closed.',
-        SOLDE_INSUFFISANT: 'Not enough balance for this table — deposit USDC from WALLET.',
+        SOLDE_INSUFFISANT: 'Not enough balance for this table — deposit USDG from WALLET.',
         MISE_REFUSEE: 'Your stake could not be committed on-chain. Check your balance and try again.',
         PARTIE_ANNULEE: 'A player could not stake, so the match was cancelled — you are back in the queue.',
       };

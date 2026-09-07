@@ -35,13 +35,13 @@ const {
 const { GRADES, nomDuGrade } = await import(pathToFileURL(path.resolve('src/roue.js')).href);
 
 /**
- * TOUT CE QUI SUIT EST POSE A LA MAIN, en USDC.
+ * TOUT CE QUI SUIT EST POSE A LA MAIN, en USDG.
  *
  * Derive du noyau C# (`PrizeWheelTests.cs`), jamais recalcule par la formule testee.
  * STANDARD reste, au dixieme pres, la table historique du depot, et c'est la ligne la
  * plus frequente : la roue ajoute de la variance autour du bareme qui existait.
  */
-const ARENE = {                       // mise 2 USDC · pot 32 · [1er..4e], rake de la ligne, bronze rembourse
+const ARENE = {                       // mise 2 USDG · pot 32 · [1er..4e], rake de la ligne, bronze rembourse
   plat:      [[5.0, 4.4, 3.8, 3.0], 4.4, 15],
   doux:      [[6.2, 4.5, 3.5, 2.7], 4.0, 13],
   partage:   [[7.0, 5.1, 3.1, 2.6], 3.6, 11],
@@ -53,7 +53,7 @@ const ARENE = {                       // mise 2 USDC · pot 32 · [1er..4e], rak
   royale:    [[13.1, 2.6, 2.2, 2.2], 1.9, 16],
   jackpot:   [[15.8, 2.2, 2.0, 2.0], 2.0, 0],
 };
-const SQUAD = {                       // mise 5 USDC · pot 20
+const SQUAD = {                       // mise 5 USDG · pot 20
   plat: [7.5, 6, 0, 3.25], doux: [8.25, 5.25, 3.25, 0], partage: [9.25, 8.25, 0, 0], equilibre: [10.25, 7.75, 0, 0],
   standard: [12.5, 5.5, 0, 0], podium: [11.25, 6.75, 0, 0], pointu: [12, 6.5, 0, 0],
   couronne: [13, 6.25, 0, 0], royale: [14, 5.75, 0, 0], jackpot: [15, 5, 0, 0],
@@ -69,7 +69,7 @@ const dit = (ok, texte) => {
 
 console.log('\n\x1b[1mLes trois modes\x1b[0m');
 dit(String(ORDRE_MODES) === 'duel,squad,arena', `modes ouverts : ${ORDRE_MODES.join(' / ')}`);
-dit(String(PALIERS) === '2,5,10', `tables ouvertes : ${PALIERS.join(' / ')} USDC`);
+dit(String(PALIERS) === '2,5,10', `tables ouvertes : ${PALIERS.join(' / ')} USDG`);
 dit(MODES.duel.joueurs === 2 && String(MODES.duel.survivants) === '1',
   'duel : 2 joueurs, 1 manche — une finale, et rien d\'autre');
 dit(MODES.squad.joueurs === 4 && String(MODES.squad.survivants) === '2,1',
@@ -120,7 +120,7 @@ dit(hachage32(1) === 1_753_845_952 && hachage32(42) === 388_445_122
   dit(bouge === 0 && Math.round(moyenne) === 3.2 * MICROS,
     `quelle que soit la ligne, le pot vaut 32.00 ; le rake va de ${montant(table(2 * MICROS, 'arena', 'plat').rake)} (FLAT) a ${montant(table(2 * MICROS, 'arena', 'royale').rake)} (ROYAL), 3.20 en moyenne`);
   dit(table(2 * MICROS, 'duel', 'jackpot').rake === 0 && table(2 * MICROS, 'duel', 'jackpot').parRang[0] === 4 * MICROS,
-    'JACKPOT en duel a 2 USDC : 4.00 au vainqueur, tout le pot, rake zero sur cette ligne');
+    'JACKPOT en duel a 2 USDG : 4.00 au vainqueur, tout le pot, rake zero sur cette ligne');
 }
 
 console.log('\n\x1b[1mLes tables, rang par rang\x1b[0m');
@@ -133,7 +133,7 @@ for (const [id, [attendu, rakeAttendu, rembourse]] of Object.entries(ARENE)) {
   const ecarts = parRang
     .map((v, i) => ({ rang: i + 1, vu: v, att: Math.round(rangs[i] * MICROS) }))
     .filter((e) => (e.rang >= 5 && e.rang <= 8) ? e.vu < 2 * MICROS : e.vu !== e.att);
-  dit(ecarts.length === 0, `arena/${id.padEnd(9)} a 2 USDC · ${attendu.map((x) => x.toFixed(2)).join(' / ')}`
+  dit(ecarts.length === 0, `arena/${id.padEnd(9)} a 2 USDG · ${attendu.map((x) => x.toFixed(2)).join(' / ')}`
     + (rembourse ? ` · mise rendue au ${rembourse}e` : '')
     + (ecarts.length ? ` — rang ${ecarts[0].rang} : ${montant(ecarts[0].vu)} ≠ ${montant(ecarts[0].att)}` : ''));
   dit(parRang.reduce((a, b) => a + b, 0) + rake === pot,
@@ -142,16 +142,16 @@ for (const [id, [attendu, rakeAttendu, rembourse]] of Object.entries(ARENE)) {
 for (const [id, attendu] of Object.entries(SQUAD)) {
   const { pot, rake, parRang } = table(5 * MICROS, 'squad', id);
   const ok = attendu.every((x, i) => parRang[i] === Math.round(x * MICROS));
-  dit(ok, `squad/${id.padEnd(9)} a 5 USDC · ${attendu.map((x) => x.toFixed(2)).join(' / ')}`);
+  dit(ok, `squad/${id.padEnd(9)} a 5 USDG · ${attendu.map((x) => x.toFixed(2)).join(' / ')}`);
   dit(parRang.reduce((a, b) => a + b, 0) + rake === pot, `squad/${id.padEnd(9)} · le pot boucle`);
 }
 {
   const s = table(10 * MICROS, 'duel', 'standard');
   const p = table(10 * MICROS, 'duel', 'plat');
   dit(s.pot === 20 * MICROS && s.rake === 2 * MICROS && s.parRang[0] === 18 * MICROS && s.parRang[1] === 0,
-    `duel/standard a 10 USDC · ${montant(s.parRang[0])} au vainqueur (×1.8), rien au perdant`);
+    `duel/standard a 10 USDG · ${montant(s.parRang[0])} au vainqueur (×1.8), rien au perdant`);
   dit(p.parRang[0] === 13 * MICROS && p.parRang[1] === 3.5 * MICROS && p.rake === 3.5 * MICROS,
-    `duel/plat a 10 USDC · ${montant(p.parRang[0])} au vainqueur, ${montant(p.parRang[1])} rendus au perdant, ${montant(p.rake)} a la maison`);
+    `duel/plat a 10 USDG · ${montant(p.parRang[0])} au vainqueur, ${montant(p.parRang[1])} rendus au perdant, ${montant(p.rake)} a la maison`);
   // Dix montants DISTINCTS pour le vainqueur, dans les trois modes : la demande du directeur
   // produit devant trois « 3.60 » sur la meme roue.
   for (const id of ORDRE_MODES) {
@@ -187,13 +187,13 @@ console.log('\n\x1b[1mLes paliers, et la roue de chaque rang\x1b[0m');
   dit([1, 2, 3, 4].map((r) => grade('squad', r)).join(',') === 'diamant,or,bronze,bronze', 'squad : ◆ 1 · ★ 2 · ○ 3-4');
   dit([1, 2].map((r) => grade('duel', r)).join(',') === 'diamant,bronze', 'duel : ◆ 1 · ○ 2');
 
-  // La roue du vainqueur en arene a 2 USDC : de 5,60 a 14,80, dix cases, poids a 100 %.
+  // La roue du vainqueur en arene a 2 USDG : de 5,60 a 14,80, dix cases, poids a 100 %.
   const v = roueDe('arena', 1, 2 * MICROS);
   const gains = v.cases.map((c) => c.gain);
   dit(v.grade === 'diamant' && v.cases.length === 10 && v.cases.reduce((s, c) => s + c.poids, 0) === 10_000,
     'la roue du vainqueur : diamant, dix cases, poids a 100 %');
   dit(Math.min(...gains) === 5 * MICROS && Math.max(...gains) === 15.8 * MICROS,
-    `elle va de ${montant(Math.min(...gains))} a ${montant(Math.max(...gains))} USDC`);
+    `elle va de ${montant(Math.min(...gains))} a ${montant(Math.max(...gains))} USDG`);
   dit(v.cases.find((c) => c.issue === 'jackpot').poids === 200, 'la case JACKPOT fait 2 % du disque, pas plus');
 
   // La roue du 9e : neuf cases d'XP et UNE mise rendue, sur la ligne PODIUM (14 %).
@@ -211,7 +211,7 @@ console.log('\n\x1b[1mLes paliers, et la roue de chaque rang\x1b[0m');
   // L'esperance : Σ poids × gain / 10 000, posee a la main.
   const e = esperance(2 * MICROS, 'arena');
   dit(e.parRang[0] === 9_349_000 && e.parRang[1] === 4_259_000,
-    `esperance en arene a 2 USDC : ${montant(e.parRang[0])} au 1er, ${montant(e.parRang[1])} au 2e`);
+    `esperance en arene a 2 USDG : ${montant(e.parRang[0])} au 1er, ${montant(e.parRang[1])} au 2e`);
   dit(e.parRang.reduce((s, x) => s + x, 0) === 28_800_000, 'la somme des esperances vaut le distribuable : le pot boucle en moyenne aussi');
   dit(e.max[0] === 15.8 * MICROS && e.rake === 3_200_000, `au mieux ${montant(e.max[0])} au 1er ; rake moyen ${montant(e.rake)}`);
 }
@@ -245,7 +245,7 @@ console.log('\n\x1b[1mLes salons reduits, inchanges\x1b[0m');
 }
 
 console.log('\n\x1b[1mLes formats\x1b[0m');
-dit(montant(1_700_000) === '1.70', `format : ${montant(1_700_000)} USDC`);
+dit(montant(1_700_000) === '1.70', `format : ${montant(1_700_000)} USDG`);
 dit(facteur(2.5) === '×2.5', `multiplicateur (outil interne) : ${facteur(2.5)}`);
 dit([1, 2, 3, 4, 11, 12, 13, 16].map(ordinal).join(' ') === '1st 2nd 3rd 4th 11th 12th 13th 16th',
   `ordinaux : ${[1, 2, 3, 4, 11, 12, 13, 16].map(ordinal).join(' ')}`);

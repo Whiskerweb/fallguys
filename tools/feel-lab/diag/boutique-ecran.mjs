@@ -90,13 +90,13 @@ await page.click(TUILE('char-techtitan'));
 await page.waitForTimeout(400);
 dit(await page.locator(`${TUILE('char-techtitan')}.on`).count() === 1 && await page.locator(`${TUILE('char-babytrump')}.on`).count() === 0,
   'la vignette BabyMusk prend le cadre, BabyTrump le perd');
-dit(await texte(`${CARTE} .shop-nom`) === 'BabyMusk' && await texte(`${CARTE} .shop-prix`) === '15 USDC',
+dit(await texte(`${CARTE} .shop-nom`) === 'BabyMusk' && await texte(`${CARTE} .shop-prix`) === '15 USDG',
   `le panneau suit : ${await texte(`${CARTE} .shop-nom`)}, ${await texte(`${CARTE} .shop-prix`)}`);
 dit(await texte('#skin-name') === 'BabyMusk' && await visible('#skin-info'), 'la fiche sous le personnage decrit BabyMusk : le plateau le previsualise');
-dit(await texte(`${CARTE} .shop-action`) === 'BUY · 15 USDC', `le bouton dit : ${await texte(`${CARTE} .shop-action`)}`);
+dit(await texte(`${CARTE} .shop-action`) === 'BUY · 15 USDG', `le bouton dit : ${await texte(`${CARTE} .shop-action`)}`);
 await page.click(`${CARTE} .shop-action`);
 await page.waitForTimeout(150);
-dit(await texte(`${CARTE} .shop-action`) === 'CONFIRM 15 USDC', 'un premier clic ARME l\'achat, il ne paie pas');
+dit(await texte(`${CARTE} .shop-action`) === 'CONFIRM 15 USDG', 'un premier clic ARME l\'achat, il ne paie pas');
 await page.click(`${CARTE} .shop-action`);
 await page.waitForFunction((sel) => /Sign in first|BUY/.test(document.querySelector(sel + ' .shop-action')?.textContent ?? '') && !/PAYING/.test(document.querySelector(sel + ' .shop-action')?.textContent ?? ''), CARTE, { timeout: 15000 });
 dit(/Sign in first/.test(await texte(`${CARTE} .shop-note`)), `sans compte, le second clic est refuse en clair : « ${await texte(`${CARTE} .shop-note`)} »`);

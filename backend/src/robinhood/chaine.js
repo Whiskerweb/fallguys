@@ -57,8 +57,8 @@ import { config } from '../config.js';
 import { tresorerie } from './tresorerie.js';
 import { RESEAUX } from './reseaux.js';
 
-/** USDC et BG ont six decimales : la meme echelle que nos micros. */
-export const DECIMALES = { usdc: 6, bg: 6 };
+/** USDG et BG ont six decimales : la meme echelle que nos micros. */
+export const DECIMALES = { usdg: 6, bg: 6 };
 
 /**
  * Au-dela, une transaction devient longue a simuler et chere a soumettre. Un reglement
@@ -117,9 +117,9 @@ export function connexion() {
 
 /** L'adresse du contrat d'une devise, par son nom court. `bg` peut ne pas exister encore. */
 export function contratDe(quoi) {
-  if (quoi === 'usdc') {
-    if (!config.usdcAdresse) throw new Error('USDC_ADRESSE absente : lancez « node outils/contrats.mjs »');
-    return getAddress(config.usdcAdresse);
+  if (quoi === 'usdg') {
+    if (!config.usdgAdresse) throw new Error('USDG_ADRESSE absente : lancez « node outils/contrats.mjs »');
+    return getAddress(config.usdgAdresse);
   }
   if (quoi === 'bg') {
     if (!config.bgAdresse) throw new Error('BG_ADRESSE absente : lancez « node outils/contrats.mjs »');
@@ -136,7 +136,7 @@ export function jeton(quoi) {
 
 /*
  * Le domaine EIP-712 d'un jeton se LIT sur le contrat, et se VERIFIE : le nom vient de
- * `name()`, la version de `version()` quand elle existe (le notre repond « 1 », l'USDC de
+ * `name()`, la version de `version()` quand elle existe (le notre repond « 1 », l'USDG de
  * Circle « 2 ») — mais l'USDG de Paxos n'a pas de `version()`. On calcule donc le
  * separateur de domaine pour chaque version plausible et on garde celle qui redonne
  * `DOMAIN_SEPARATOR()` tel que le contrat le publie. Signer avec un domaine devine
@@ -162,7 +162,7 @@ async function domaineDe(quoi) {
 }
 
 /** Solde en micros. Un compte neuf vaut 0 : c'est l'etat normal, pas une erreur. */
-export async function soldeJetons(proprietaire, quoi = 'usdc') {
+export async function soldeJetons(proprietaire, quoi = 'usdg') {
   if (!isAddress(proprietaire)) return 0;
   return Number(await jeton(quoi).balanceOf(proprietaire));
 }
@@ -171,7 +171,7 @@ export async function soldeJetons(proprietaire, quoi = 'usdc') {
 export async function offreDe(quoi) {
   const j = jeton(quoi);
   const [offre, decimales] = await Promise.all([j.totalSupply(), j.decimals()]);
-  return { offre: Number(offre), decimales: Number(decimales), frappable: quoi === 'usdc' && config.reseau !== 'mainnet' };
+  return { offre: Number(offre), decimales: Number(decimales), frappable: quoi === 'usdg' && config.reseau !== 'mainnet' };
 }
 
 /** Un lien vers l'explorateur, pour les journaux et la page de suivi. `null` sans explorateur (anvil). */
@@ -308,7 +308,7 @@ export function creerChaine({ db, surEvenement = null }) {
 
   /** L'appel (cible, donnees) qui realise une operation — signe par son proprietaire s'il le faut. */
   async function appelDe(op) {
-    const quoi = op.mint ?? 'usdc';
+    const quoi = op.mint ?? 'usdg';
     const cible = contratDe(quoi);
     const montant = BigInt(op.montant);
     const validAfter = 0n;
@@ -329,8 +329,8 @@ export function creerChaine({ db, surEvenement = null }) {
         valeurs.from, montant, validAfter, validBefore, nonce, sig.v, sig.r, sig.s]) };
     }
     if (op.type === 'frappe') {
-      // USDC d'essai seulement : le proprietaire du contrat est le Lot, donc la caisse.
-      if (config.reseau === 'mainnet') throw new ChaineEchouee('on ne frappe pas de vrai USDC');
+      // USDG d'essai seulement : le proprietaire du contrat est le Lot, donc la caisse.
+      if (config.reseau === 'mainnet') throw new ChaineEchouee('on ne frappe pas de vrai USDG');
       return { cible, donnees: interfaceJeton.encodeFunctionData('frapper', [getAddress(op.vers), montant]) };
     }
     throw new Error(`operation inconnue « ${op.type} »`);
@@ -360,7 +360,7 @@ export function creerChaine({ db, surEvenement = null }) {
     reelle: true,
     reseau: config.reseau,
 
-    solde: (proprietaire, quoi = 'usdc') => soldeJetons(proprietaire, quoi),
+    solde: (proprietaire, quoi = 'usdg') => soldeJetons(proprietaire, quoi),
     offre: (quoi) => offreDe(quoi),
 
     /**
@@ -428,7 +428,7 @@ export function creerChaine({ db, surEvenement = null }) {
         }
 
         await marquer(db, ids, 'confirme');
-        surEvenement?.({ signature, operations: operations.map((o) => ({ objet: o.objet, ref: o.ref, montant: o.montant, mint: o.mint ?? 'usdc' })) });
+        surEvenement?.({ signature, operations: operations.map((o) => ({ objet: o.objet, ref: o.ref, montant: o.montant, mint: o.mint ?? 'usdg' })) });
         return { signature, deja: false };
       });
     },

@@ -1,10 +1,10 @@
 /**
- * LA BOUTIQUE — des skins contre des USDC, et chaque USDC part au brulage.
+ * LA BOUTIQUE — des skins contre des USDG, et chaque USDG part au brulage.
  *
  * Decision produit du 5 septembre 2026 : Pepe est le personnage de depart, BabyTrump se
  * gagne toujours en publiant un post (une regle du navigateur, `tools/feel-lab/src/
  * boutique.js`, qui ne touche pas a l'argent), et trois skins s'ACHETENT, entre 10 et
- * 15 USDC. « Tous les revenus lies serviront a buy and burn le token » : un achat est
+ * 15 USDG. « Tous les revenus lies serviront a buy and burn le token » : un achat est
  * donc un VIREMENT du wallet de jeu du joueur vers le wallet FRAIS — le meme que le rake —
  * et le brulage l'y trouve au tour suivant. Rien de special a ecrire pour tenir la
  * promesse : elle est dans la destination du virement, et la page de suivi le montre.
@@ -76,7 +76,7 @@ export async function acheter(db, chaine, { userId, article }) {
     const existante = (await tx.query(`select statut from public.purchases where user_id = $1 and article = $2`, [userId, article])).rows[0];
     if (existante && existante.statut !== 'echoue') return { deja: true, statut: existante.statut };
     const disponible = await solde(tx, compte.joueur(userId));
-    if (disponible < prix) throw refus('SOLDE_INSUFFISANT', `solde ${ecrire(disponible)} USDC, prix ${ecrire(prix)} USDC`);
+    if (disponible < prix) throw refus('SOLDE_INSUFFISANT', `solde ${ecrire(disponible)} USDG, prix ${ecrire(prix)} USDG`);
     const mvt = await poster(tx, {
       genre: 'achat', ref,
       metadata: { userId, article, prix, reseau: config.reseau },
@@ -100,7 +100,7 @@ export async function acheter(db, chaine, { userId, article }) {
   try {
     const r = await chaine.executer({
       operations: [{
-        type: 'virement', de: tresorerie.joueur(userId), vers: tresorerie.frais().address, mint: 'usdc', montant: prix,
+        type: 'virement', de: tresorerie.joueur(userId), vers: tresorerie.frais().address, mint: 'usdg', montant: prix,
         objet: 'achat', ref, userId,
       }],
     });

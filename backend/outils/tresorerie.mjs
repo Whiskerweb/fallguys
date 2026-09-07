@@ -10,9 +10,9 @@
  *                                         # bascule que le jour du passage (README, « Passer en mainnet »)
  *
  * Quatre cles :
- *   CAISSE_CLE       le payeur de gaz, le proprietaire des contrats (Lot, USDC d'essai)
+ *   CAISSE_CLE       le payeur de gaz, le proprietaire des contrats (Lot, USDG d'essai)
  *   FRAIS_CLE        recoit le rake de chaque partie
- *   POOL_CLE         la liquidite BG/USDC du brulage — recoit toute l'offre de BG
+ *   POOL_CLE         la liquidite BG/USDG du brulage — recoit toute l'offre de BG
  *   SERVEUR_CLE      la cle Ed25519 avec laquelle le serveur de jeu SIGNE les resultats
  *   SERVEUR_PUBLIQUE sa moitie publique, que le backend verifie
  *
@@ -72,9 +72,9 @@ function evm(nomEnv, role) {
   };
 }
 
-evm('CAISSE_CLE', 'Caisse : paie le gaz de toutes les transactions ; proprietaire du Lot et de l\'USDC d\'essai. A alimenter en ETH.');
+evm('CAISSE_CLE', 'Caisse : paie le gaz de toutes les transactions ; proprietaire du Lot et de l\'USDG d\'essai. A alimenter en ETH.');
 evm('FRAIS_CLE', 'Frais : recoit le rake (10 % en moyenne) de chaque partie, sur la chaine.');
-evm('POOL_CLE', 'Pool : la liquidite BG/USDC. Recoit le milliard de BG ; les frais y achetent des BG, qui sont brules.');
+evm('POOL_CLE', 'Pool : la liquidite BG/USDG. Recoit le milliard de BG ; les frais y achetent des BG, qui sont brules.');
 
 {
   // La cle du serveur de jeu ne detient rien : elle reste la meme d'un reseau a l'autre.

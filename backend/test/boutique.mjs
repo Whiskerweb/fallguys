@@ -1,5 +1,5 @@
 /**
- * Verdicts sur LA BOUTIQUE — un skin s'achete au livre puis sur la chaine, et chaque USDC
+ * Verdicts sur LA BOUTIQUE — un skin s'achete au livre puis sur la chaine, et chaque USDG
  * finit aux FRAIS, la ou le brulage puise.
  *
  * Usage : node test/boutique.mjs
@@ -23,7 +23,7 @@ const chaine = creerChaineFactice({ db, panne: (op) => Boolean(panne?.(op)), inc
 titre('1. Le catalogue');
 {
   const c = catalogue();
-  dit(c.length === 3 && c.every((a) => a.prix >= 10 * MICROS && a.prix <= 15 * MICROS), `trois skins, entre 10 et 15 USDC : ${c.map((a) => `${a.id} ${a.prix / MICROS}`).join(', ')}`);
+  dit(c.length === 3 && c.every((a) => a.prix >= 10 * MICROS && a.prix <= 15 * MICROS), `trois skins, entre 10 et 15 USDG : ${c.map((a) => `${a.id} ${a.prix / MICROS}`).join(', ')}`);
   dit(ARTICLES['char-techtitan'].prix === 15 * MICROS && ARTICLES['char-diplomate'].prix === 12 * MICROS && ARTICLES['char-captainleeky'].prix === 10 * MICROS, 'Elon 15, Netanyahu 12, CyberLeek 10');
   dit(!('char-grenouille' in ARTICLES) && !('char-babytrump' in ARTICLES), 'Pepe (de depart) et BabyTrump (un post) ne sont pas a vendre');
   dit(LIEN_SUIVI === 'https://play.babyguy.dev/api/suivi', `le lien du suivi en direct : ${LIEN_SUIVI}`);
@@ -31,7 +31,7 @@ titre('1. Le catalogue');
 
 titre('2. Un achat : du wallet du joueur aux frais');
 const alice = await joueur(db, 'bt-alice');
-await doter(db, alice, 30 * MICROS); chaine.doter(adresse(alice), 'usdc', 30 * MICROS);
+await doter(db, alice, 30 * MICROS); chaine.doter(adresse(alice), 'usdg', 30 * MICROS);
 {
   const r = await acheter(db, chaine, { userId: alice, article: 'char-captainleeky' });
   dit(r.statut === 'confirme' && r.prix === 10 * MICROS && r.deja === false, 'CyberLeek achete 10.00, chaine confirmee');
@@ -42,11 +42,11 @@ await doter(db, alice, 30 * MICROS); chaine.doter(adresse(alice), 'usdc', 30 * M
   dit(bis.deja === true && await solde(db, compte.joueur(alice)) === 20 * MICROS, 'racheter le meme skin ne paie rien');
   await refuse(acheter(db, chaine, { userId: alice, article: 'char-inconnu' }), 'un article inconnu est refuse');
   const bob = await joueur(db, 'bt-bob');
-  await doter(db, bob, 5 * MICROS); chaine.doter(adresse(bob), 'usdc', 5 * MICROS);
-  await refuse(acheter(db, chaine, { userId: bob, article: 'char-diplomate' }), 'sans 12.00 USDC, pas de BabyNetan');
+  await doter(db, bob, 5 * MICROS); chaine.doter(adresse(bob), 'usdg', 5 * MICROS);
+  await refuse(acheter(db, chaine, { userId: bob, article: 'char-diplomate' }), 'sans 12.00 USDG, pas de BabyNetan');
   dit(String(await possessions(db, bob)) === '' && await solde(db, compte.joueur(bob)) === 5 * MICROS, 'et bob n\'a rien perdu ni rien recu');
   const b = await bilanBoutique(db);
-  dit(b.ventes === 1 && b.total === 10 * MICROS, 'le suivi compte 1 skin vendu, 10.00 USDC');
+  dit(b.ventes === 1 && b.total === 10 * MICROS, 'le suivi compte 1 skin vendu, 10.00 USDG');
   const v = await verifierChaine(db, chaine);
   dit(v.ok, `livre ↔ chaine apres l'achat : ${v.ecarts.length} ecart`);
 }
@@ -65,7 +65,7 @@ titre('3. La chaine refuse : rembourse, pas de skin');
 titre('4. Le reseau coupe : la possession attend la reprise');
 {
   const carl = await joueur(db, 'bt-carl');
-  await doter(db, carl, 20 * MICROS); chaine.doter(adresse(carl), 'usdc', 20 * MICROS);
+  await doter(db, carl, 20 * MICROS); chaine.doter(adresse(carl), 'usdg', 20 * MICROS);
   couper = null;
   // La cle porte la tentative : on coupe sur TOUT achat de carl, quelle que soit la cle.
   const chaineCoupee = { ...chaine, executer: (p) => { couper = p.operations[0].ref; return chaine.executer(p); } };

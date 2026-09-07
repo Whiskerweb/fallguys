@@ -23,7 +23,7 @@
  *   B. Un salon de DEUX en mode ARENA, avec une mise. C'est ce que produisait la politique
  *      par défaut du serveur — `npm start` sans `POLITIQUE=` donne DUEL_TEST, dont le
  *      `cible: 2` à la racine s'applique à TOUS les modes — dès que le ticket du lobby
- *      était resté sur ARENA à 2 USDC, c'est-à-dire SA VALEUR PAR DÉFAUT. Le client
+ *      était resté sur ARENA à 2 USDG, c'est-à-dire SA VALEUR PAR DÉFAUT. Le client
  *      réglait alors « une arène partie à deux », un salon réduit sous le minimum de
  *      trois : `tableEffectif` jetait. Le serveur refuse désormais cette mise à
  *      l'inscription (`MISE_IMPAYABLE`), et le lobby dit pourquoi.
@@ -224,7 +224,7 @@ titre('B. Un salon de DEUX en mode ARENA, avec une mise : le serveur REFUSE');
 // ===========================================================================
 /*
  * C'est la configuration d'un `npm start` sans `POLITIQUE=PRODUCTION`, ticket resté sur
- * ARENA à 2 USDC — la valeur par défaut. Aucun barème ne paie une arène de deux ; plutôt
+ * ARENA à 2 USDG — la valeur par défaut. Aucun barème ne paie une arène de deux ; plutôt
  * que de jouer une partie qu'on ne saura pas régler, le serveur refuse la mise à
  * l'inscription, et le lobby explique quoi faire.
  */

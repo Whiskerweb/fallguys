@@ -1,9 +1,9 @@
 /**
  * LE GUETTEUR — il regarde arriver les depots et les inscrit au grand livre.
  *
- * Boucle simple : lire les evenements `Transfer` du contrat USDC vers les wallets de nos
+ * Boucle simple : lire les evenements `Transfer` du contrat USDG vers les wallets de nos
  * joueurs, crediter ceux qu'on n'a pas encore vus. C'est tout — ON NE BALAIE PAS : les
- * USDC restent sur le wallet du joueur, qui est son compte de jeu. Ses mises en partent,
+ * USDG restent sur le wallet du joueur, qui est son compte de jeu. Ses mises en partent,
  * ses gains y reviennent, et n'importe qui peut relire son solde sur l'explorateur.
  *
  * Deux proprietes non negociables :
@@ -42,7 +42,7 @@ async function transferts(de, a, vers = null) {
   for (let debut = de; debut <= a; debut += PAS) {
     const fin = Math.min(a, debut + PAS - 1);
     const lot = await co.getLogs({
-      address: contratDe('usdc'), fromBlock: debut, toBlock: fin,
+      address: contratDe('usdg'), fromBlock: debut, toBlock: fin,
       topics: [SUJET_TRANSFERT, null, vers ? zeroPadValue(vers, 32) : null],
     });
     for (const l of lot) {
@@ -123,12 +123,12 @@ async function crediter(db, { userId, signature, micros, bloc, expediteur }) {
 }
 
 /**
- * Un tour de guet : tous les transferts USDC depuis le curseur, croises avec les adresses
+ * Un tour de guet : tous les transferts USDG depuis le curseur, croises avec les adresses
  * de nos joueurs.
  *
  * Un tour coute O(blocs ecoules / PAS) appels RPC, quel que soit le nombre de joueurs :
  * c'est le contraire de l'ancienne version, qui interrogeait chaque adresse. Sur un
- * mainnet ou l'USDC circule beaucoup, chaque requete rend plus d'evenements, et un jour
+ * mainnet ou l'USDG circule beaucoup, chaque requete rend plus d'evenements, et un jour
  * il faudra un RPC paye avec un abonnement WebSocket — pas le probleme d'aujourd'hui.
  */
 export async function unTour(db) {

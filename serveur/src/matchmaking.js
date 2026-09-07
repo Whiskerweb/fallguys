@@ -15,7 +15,7 @@
  *
  * ─── POURQUOI DES SALONS SÉPARÉS PAR MODE ET PAR PALIER ─────────────────────
  *
- * On ne mélange pas les mises. Un joueur qui engage 5 USDC ne peut pas se retrouver dans
+ * On ne mélange pas les mises. Un joueur qui engage 5 USDG ne peut pas se retrouver dans
  * le pot d'un joueur qui en a engagé 2 : le pot serait indéterminé et la table des gains
  * ne voudrait plus rien dire. Le mode sépare pour la même raison, en plus fort : un duel et
  * une arène n'ont ni le même effectif, ni le même nombre de manches, ni le même barème.
@@ -174,7 +174,7 @@ export function creerMatchmaking({
       });
     };
     for (const mode of ORDRE_MODES) {
-      for (const usdc of PALIERS) decrire(mode, usdc * MICROS, cleDe(mode, usdc * MICROS));
+      for (const usdg of PALIERS) decrire(mode, usdg * MICROS, cleDe(mode, usdg * MICROS));
     }
     for (const cle of salonsOuverts.keys()) {
       if (vues.has(cle)) continue;
@@ -499,7 +499,7 @@ export function creerMatchmaking({
      * ne viderait jamais, et un salon dont personne ne connaîtrait la forme.
      *
      * @param {{nom: string, faire?: Function}} joueur
-     * @param {number} mise en micro-USDC
+     * @param {number} mise en micro-USDG
      * @param {string} [mode] `duel` | `squad` | `arena`
      */
     rejoindre(joueur, mise = 0, mode = 'arena') { return entrer(joueur, mise, mode); },

@@ -88,7 +88,7 @@
   }
   #profil { position:relative; }
 
-  /* Portefeuille. Une seule monnaie : l'USDC est ce qu'on mise et ce qu'on gagne.
+  /* Portefeuille. Une seule monnaie : l'USDG est ce qu'on mise et ce qu'on gagne.
      Un deuxième compteur sans usage ferait croire à une économie qui n'existe pas. */
   #solde {
     display:flex; align-items:center; gap:10px; height:48px; padding:0 18px 0 11px;
@@ -233,7 +233,7 @@
   /* Une table qu'on n'a pas les moyens de jouer se dit, elle ne se cache pas. */
   .palier.mort { opacity:.32; cursor:not-allowed; }
 
-  /* LE GAIN, EN UNE LIGNE : « 1ST PLACE WINS 2.60–4.00 USDC ».
+  /* LE GAIN, EN UNE LIGNE : « 1ST PLACE WINS 2.60–4.00 USDG ».
      Plus de pot, plus de barème rang par rang, plus de gemmes. Le directeur produit a
      demandé une chose simple et vraie (4 septembre 2026) : ce qu'on peut gagner, du pire
      au meilleur des dix tirages. La fourchette vient de la roue elle-même (`roueDe`), donc
@@ -1588,7 +1588,7 @@
   .dp-tete p { margin:5px 0 0; color:rgba(255,255,255,.55); font-size:12.5px; font-weight:700; line-height:1.45; }
   .dp-label { display:flex; align-items:baseline; gap:10px; margin:12px 0 7px; font-size:10px; font-weight:900; letter-spacing:2.4px; color:rgba(255,255,255,.5); }
   .dp-label span { font-weight:700; letter-spacing:.2px; color:rgba(255,255,255,.4); font-size:11px; text-transform:none; }
-  /* Le testnet en tête : c'est LE chemin quand on y est, et personne n'y a d'USDC dans MetaMask. */
+  /* Le testnet en tête : c'est LE chemin quand on y est, et personne n'y a d'USDG dans MetaMask. */
   #depot-testnet { margin:0 0 6px; padding:12px 14px; border-radius:16px; background:rgba(204,255,0,.07); box-shadow:inset 0 0 0 2px rgba(204,255,0,.22); display:grid; gap:8px; }
   #depot-testnet.hidden { display:none; }
   #depot-testnet p { margin:0; font-size:11.5px; font-weight:700; color:rgba(255,255,255,.62); line-height:1.45; }
@@ -1679,14 +1679,14 @@
   <div id="porte-cadre">
     <div id="porte-pitch">
       <img class="logo" src="/icons/logo-babyguy.png" alt="Baby Guy">
-      <h1>Run. Tumble. <b>Win USDC.</b></h1>
-      <p>Obstacle races against real players. Pick a table, stake USDC on Robinhood Chain, and the winner is paid on-chain the second the match ends.</p>
+      <h1>Run. Tumble. <b>Win USDG.</b></h1>
+      <p>Obstacle races against real players. Pick a table, stake USDG on Robinhood Chain, and the winner is paid on-chain the second the match ends.</p>
       <ul>
         <li><i><img src="/icons/icon-play.png" alt=""></i>1v1, Squad of 4 or a 16-player Arena</li>
-        <li><i><img src="/icons/icon-usdc.png" alt=""></i>Your own Robinhood Chain wallet — every deposit and payout verifiable on-chain</li>
+        <li><i><img src="/icons/icon-usdg.png" alt=""></i>Your own Robinhood Chain wallet — every deposit and payout verifiable on-chain</li>
         <li><i>🔥</i>Every fee buys and burns BG, the Baby Guy token</li>
       </ul>
-      <div id="porte-tables"><span>2 USDC</span><span>5 USDC</span><span>10 USDC</span><small>TABLES</small></div>
+      <div id="porte-tables"><span>2 USDG</span><span>5 USDG</span><span>10 USDG</span><small>TABLES</small></div>
       <div id="porte-chaine"><span class="rh-badge"><img src="/icons/robinhood-plume.png" alt="">BUILT ON ROBINHOOD CHAIN</span></div>
     </div>
     <div id="porte-boite">
@@ -1716,7 +1716,7 @@
       <div id="porte-wallets" class="hidden"></div>
       <button id="porte-oublie" type="button">Forgot password?</button>
       <div id="porte-msg"></div>
-      <p id="porte-pied"><span class="testnet"><img src="/icons/robinhood-plume-vert.png" alt="">ROBINHOOD CHAIN TESTNET · TEST USDC</span><span>18+</span><span>SKILL COMPETITION</span><span>STAKES COMMITTED AT LAUNCH</span></p>
+      <p id="porte-pied"><span class="testnet"><img src="/icons/robinhood-plume-vert.png" alt="">ROBINHOOD CHAIN TESTNET · TEST USDG</span><span>18+</span><span>SKILL COMPETITION</span><span>STAKES COMMITTED AT LAUNCH</span></p>
     </div>
   </div>
 </div>
@@ -1738,10 +1738,10 @@
     </button>
     <div class="spacer"></div>
     <div id="solde" title="Spendable balance">
-      <img src="/icons/icon-usdc.png" alt="">
-      <span id="balance">—</span><small>USDC</small><!-- rempli par majBarre() : un chiffre en dur ici serait un solde inventé -->
-      <img class="rh" src="/icons/robinhood-plume-vert.png" alt="" title="USDC on Robinhood Chain">
-      <button id="recharger" class="hidden" title="Sign in to deposit USDC and play">SIGN IN</button>
+      <img src="/icons/icon-usdg.png" alt="">
+      <span id="balance">—</span><small>USDG</small><!-- rempli par majBarre() : un chiffre en dur ici serait un solde inventé -->
+      <img class="rh" src="/icons/robinhood-plume-vert.png" alt="" title="USDG on Robinhood Chain">
+      <button id="recharger" class="hidden" title="Sign in to deposit USDG and play">SIGN IN</button>
     </div>
     <!-- La liaison au serveur de jeu. Pas un bouton : il n'y a rien à ouvrir, on est
          toujours en ligne ou en train de l'être. La pastille dit lequel. -->
@@ -1785,31 +1785,31 @@
            et un bouton qu'on ne trouve pas n'existe pas. -->
       <button id="wallet-sortir" title="Sign out of this account">SIGN OUT</button>
       <header id="wallet-tete">
-        <img src="/icons/icon-usdc.png" alt="">
+        <img src="/icons/icon-usdg.png" alt="">
         <div>
           <div class="tk-label">YOUR WALLET <span class="rh-badge"><img src="/icons/robinhood-plume.png" alt="">ROBINHOOD CHAIN</span></div>
-          <div id="wallet-solde-val">—<small>USDC</small></div>
+          <div id="wallet-solde-val">—<small>USDG</small></div>
           <p class="wallet-note" id="wallet-solde">—</p>
         </div>
       </header>
       <div id="wallet-grille">
         <section class="wallet-carte" id="wallet-depot">
-          <div class="wallet-carte-tete"><i class="wallet-ico">↓</i><h4>DEPOSIT USDC</h4></div>
-          <!-- Le chemin guidé (depot.js) : USDC, USDG ou ETH, en trois étapes. Le reste de
+          <div class="wallet-carte-tete"><i class="wallet-ico">↓</i><h4>DEPOSIT USDG</h4></div>
+          <!-- Le chemin guidé (depot.js) : USDG, USDG ou ETH, en trois étapes. Le reste de
                la carte est le chemin expert, qui ne bouge pas. -->
-          <div class="wallet-ligne"><button id="wallet-guide" class="primaire">ADD FUNDS · USDC / USDG / ETH</button></div>
+          <div class="wallet-ligne"><button id="wallet-guide" class="primaire">ADD FUNDS · USDG / USDG / ETH</button></div>
           <a id="wallet-adresse" target="_blank" rel="noopener">—</a>
           <div class="wallet-ligne"><button id="wallet-copier">COPY ADDRESS</button><button id="wallet-relever">CHECK DEPOSITS</button></div>
           <!-- Le chemin court : un transfert signe dans le wallet du joueur, reseau ajoute
                d'office. Et le robinet d'essai, que seul le testnet montre (lobbyui.js). -->
-          <div class="wallet-ligne"><input id="wallet-depot-montant" type="number" min="0" step="0.01" placeholder="USDC"><button id="wallet-deposer" class="primaire">DEPOSIT FROM WALLET</button></div>
-          <div class="wallet-ligne"><button id="wallet-robinet" class="hidden">GET TEST USDC</button></div>
+          <div class="wallet-ligne"><input id="wallet-depot-montant" type="number" min="0" step="0.01" placeholder="USDG"><button id="wallet-deposer" class="primaire">DEPOSIT FROM WALLET</button></div>
+          <div class="wallet-ligne"><button id="wallet-robinet" class="hidden">GET TEST USDG</button></div>
           <p class="wallet-note" id="wallet-depot-note"></p>
         </section>
         <section class="wallet-carte" id="wallet-retrait">
           <div class="wallet-carte-tete"><i class="wallet-ico">↑</i><h4>WITHDRAW</h4></div>
           <div id="wallet-lie"></div>
-          <div class="wallet-ligne"><input id="wallet-montant" type="number" min="0" step="0.01" placeholder="Amount (USDC)"><button id="wallet-retirer" class="primaire">WITHDRAW</button></div>
+          <div class="wallet-ligne"><input id="wallet-montant" type="number" min="0" step="0.01" placeholder="Amount (USDG)"><button id="wallet-retirer" class="primaire">WITHDRAW</button></div>
           <p class="wallet-note" id="wallet-retrait-note"></p>
         </section>
       </div>
@@ -1914,7 +1914,7 @@
       <button id="btn-retour-boutique" title="Back to the lobby (Esc)">← BACK</button>
       <div>
         <h1>SHOP</h1>
-        <div class="sub" id="shop-sub">Start with Pepe. Earn BabyTrump with a post, buy the others from 10 USDC.</div>
+        <div class="sub" id="shop-sub">Start with Pepe. Earn BabyTrump with a post, buy the others from 10 USDG.</div>
       </div>
     </div>
 
@@ -1928,7 +1928,7 @@
     -->
     <div class="shop-section"><h3>FEATURED ITEM</h3><span id="shop-section-une">FREE WITH A POST</span></div>
     <div id="shop-tuiles-une" class="shop-tuiles"></div>
-    <div class="shop-section"><h3>SKINS</h3><span>FROM 10 USDC · 100% BUY &amp; BURN</span></div>
+    <div class="shop-section"><h3>SKINS</h3><span>FROM 10 USDG · 100% BUY &amp; BURN</span></div>
     <div id="shop-tuiles" class="shop-tuiles"></div>
     <div id="shop-detail">
       <div class="shop-detail-tete">
@@ -2113,7 +2113,7 @@
     <button id="depot-fermer" type="button" title="Close">×</button>
     <div id="depot-etapes"><span class="dp-etape on" data-n="1">1 · CHOOSE</span><span class="dp-etape" data-n="2">2 · CONFIRM</span><span class="dp-etape" data-n="3">3 · PLAY</span></div>
     <header class="dp-tete">
-      <img src="/icons/icon-usdc.png" alt="">
+      <img src="/icons/icon-usdg.png" alt="">
       <div>
         <div class="tk-label">ADD FUNDS <span class="rh-badge"><img src="/icons/robinhood-plume.png" alt="">ROBINHOOD CHAIN</span></div>
         <h2 id="depot-titre">Fund your game wallet</h2>
@@ -2129,13 +2129,13 @@
     <div id="depot-formulaire">
       <section id="depot-1">
         <div id="depot-testnet" class="hidden">
-          <p><b>TESTNET</b> · Nobody has test USDC in their wallet yet. Grab free ones here — USDG and ETH open on mainnet.</p>
-          <button id="depot-robinet" class="dp-primaire vert" type="button">GET TEST USDC · FREE</button>
+          <p><b>TESTNET</b> · Nobody has test USDG in their wallet yet. Grab free ones here — USDG and ETH open on mainnet.</p>
+          <button id="depot-robinet" class="dp-primaire vert" type="button">GET TEST USDG · FREE</button>
         </div>
         <div class="dp-label">PAY WITH <span id="depot-wallet-etat"></span></div>
         <div id="depot-jetons"></div>
         <div class="dp-label">HOW MUCH</div>
-        <div id="depot-montants"><label><input id="depot-montant" type="number" min="0" step="0.01" placeholder="Other"><span>USDC</span></label></div>
+        <div id="depot-montants"><label><input id="depot-montant" type="number" min="0" step="0.01" placeholder="Other"><span>USDG</span></label></div>
         <div id="depot-recu"></div>
         <button id="depot-go" class="dp-primaire" type="button">DEPOSIT</button>
         <p id="depot-note"></p>

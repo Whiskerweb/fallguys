@@ -18,7 +18,7 @@ import { ordinal } from '../economie.js';
  * @param {object} p
  * @param {string} p.url    `ws://127.0.0.1:8080`
  * @param {string} p.nom
- * @param {number} [p.mise] en micro-USDC. Zéro = partie gratuite.
+ * @param {number} [p.mise] en micro-USDG. Zéro = partie gratuite.
  * @param {string} [p.mode] `duel` | `squad` | `arena`
  * @param {string} [p.modele] l'identifiant du personnage choisi, pour que les AUTRES le
  *   voient tel qu'il est. Sans lui, chacun se voyait juste et voyait les autres au hasard.
@@ -217,7 +217,7 @@ export function brancherEnLigne(jeu, { url, nom, jeton = null, mise: miseInitial
      * Annuler `jeu.enligne` ne coupe pas que l'envoi : à l'image suivante, `main.js` ne se
      * sait plus en ligne et retombe dans SES conditions de fin de manche. Le vainqueur est
      * encore posé au-delà de la ligne d'arrivée, donc `pos.z <= finishZ` est vrai, donc
-     * `finishRace()` partait — écrasant le verdict « VICTORY! · +X USDC » par un
+     * `finishRace()` partait — écrasant le verdict « VICTORY! · +X USDG » par un
      * « QUALIFIED! », puis renvoyant au lobby 3,2 s plus tard, roue comprise.
      *
      * C'est `jeu._fin`, posé par `ecranDeFin` juste en dessous, qui retient ces règles.

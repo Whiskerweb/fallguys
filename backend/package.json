@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Comptes, grand livre, depots et retraits USDC sur Robinhood Chain. Le jeu ne connait aucun solde ; ce service est le seul a en tenir.",
+  "description": "Comptes, grand livre, depots et retraits USDG sur Robinhood Chain. Le jeu ne connait aucun solde ; ce service est le seul a en tenir.",
   "engines": {
     "node": ">=22"
   },

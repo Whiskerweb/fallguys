@@ -116,7 +116,7 @@ export function majBarre() {
   } else {
     bouton.classList.remove('hidden');
     bouton.textContent = caisse.enLigne ? 'WALLET' : 'SIGN IN';
-    bouton.title = caisse.enLigne ? 'Deposit, withdraw, history' : 'Sign in to deposit USDC and play';
+    bouton.title = caisse.enLigne ? 'Deposit, withdraw, history' : 'Sign in to deposit USDG and play';
   }
 }
 
@@ -165,15 +165,15 @@ export function buildTicket(onJouer) {
   const boiteMises = el('paliers');
   boiteMises.innerHTML = '';
 
-  for (const usdc of PALIERS) {
+  for (const usdg of PALIERS) {
     const b = document.createElement('button');
     b.className = 'palier';
-    b.dataset.usdc = String(usdc);
-    b.innerHTML = '<b></b><i>USDC</i><em class="attente hidden"></em>';
-    b.querySelector('b').textContent = String(usdc);
+    b.dataset.usdg = String(usdg);
+    b.innerHTML = '<b></b><i>USDG</i><em class="attente hidden"></em>';
+    b.querySelector('b').textContent = String(usdg);
     b.addEventListener('click', () => {
       if (b.classList.contains('mort')) return;
-      choisirMise(usdc);
+      choisirMise(usdg);
       sfx.click();
     });
     boiteMises.appendChild(b);
@@ -210,8 +210,8 @@ export function buildTicket(onJouer) {
  * Un seul composant, deux tailles — c'est ce qui garantit qu'aucune seconde
  * représentation ne dérivera de la première.
  *
- * AUCUN MULTIPLICATEUR ICI, ni nulle part ailleurs devant le joueur. Il mise des USDC et
- * il gagne des USDC ; le facteur est notre outil de calcul, pas son unité de compte.
+ * AUCUN MULTIPLICATEUR ICI, ni nulle part ailleurs devant le joueur. Il mise des USDG et
+ * il gagne des USDG ; le facteur est notre outil de calcul, pas son unité de compte.
  */
 function dessinerRoue(modeId, tiree, mise) {
   const dit = el('roue-dit');
@@ -230,7 +230,7 @@ function dessinerRoue(modeId, tiree, mise) {
     bloc.classList.add('fige');
     el('roue-titre').textContent = 'FIXED PAYOUT';
     const gain = echelle(mise, modeId, variante)[0].gain;
-    dit.innerHTML = `<b>WINNER TAKES ${montant(gain)} USDC</b>`
+    dit.innerHTML = `<b>WINNER TAKES ${montant(gain)} USDG</b>`
       + 'No wheel — one paying place, nothing to redistribute.';
     return;
   }
@@ -242,7 +242,7 @@ function dessinerRoue(modeId, tiree, mise) {
     const v = catalogue.find((x) => x.id === tiree) ?? catalogue[0];
     const haut = echelle(mise, modeId, tiree)[0].gain;
     dit.innerHTML = `<b>${v.nom} ${'★'.repeat(v.etoiles)}</b>`
-      + `This table pays ${montant(haut)} USDC to the winner · ${v.rareteBp / 100}% of tables`;
+      + `This table pays ${montant(haut)} USDG to the winner · ${v.rareteBp / 100}% of tables`;
   } else {
     // Dix lignes, UNE tirée à la fin : le ticket montre l'espérance, jamais une certitude.
     dit.innerHTML = `<b>${catalogue.length} POSSIBLE OUTCOMES</b>`
@@ -277,23 +277,23 @@ export function rafraichirTicket() {
   dessinerRoue(mode, tiree, mise);
 
   for (const b of document.querySelectorAll('.palier')) {
-    const usdc = Number(b.dataset.usdc);
-    b.classList.toggle('on', usdc * MICROS === mise);
+    const usdg = Number(b.dataset.usdg);
+    b.classList.toggle('on', usdg * MICROS === mise);
     // Une table hors de portée reste visible mais inerte : la masquer donnerait
     // l'impression que le jeu en propose moins qu'il n'en propose.
-    b.classList.toggle('mort', usdc * MICROS > solde);
-    b.title = usdc * MICROS > solde ? 'Not enough balance for this table' : `${usdc} USDC table`;
+    b.classList.toggle('mort', usdg * MICROS > solde);
+    b.title = usdg * MICROS > solde ? 'Not enough balance for this table' : `${usdg} USDG table`;
   }
 
   /*
-   * LE GAIN EN FOURCHETTE — « 1ST PLACE WINS 2.60–4.00 USDC ».
+   * LE GAIN EN FOURCHETTE — « 1ST PLACE WINS 2.60–4.00 USDG ».
    *
    * Le ticket disait le pot, le rake, et un barème rang par rang avec ses gemmes. Le
    * directeur produit a demandé une chose simple (4 septembre 2026) : ce qu'on gagne, du
    * minimum au maximum. Les deux bornes sont lues sur LA ROUE du vainqueur (`roueDe`), dix
    * cases, une par ligne du tableau : le ticket ne peut donc pas annoncer un montant que
-   * la roue ne paierait pas. Aucun multiplicateur, aucun pot : le joueur mise des USDC et
-   * lit des USDC.
+   * la roue ne paierait pas. Aucun multiplicateur, aucun pot : le joueur mise des USDG et
+   * lit des USDG.
    *
    * Quand le mode peut partir RÉDUIT — l'arène part dès treize quand plus personne
    * n'arrive (`salon.js`) — la borne basse descend jusqu'au gain du vainqueur d'une table
@@ -308,7 +308,7 @@ export function rafraichirTicket() {
   const gains = roueDe(mode, 1, mise).cases.map((c) => c.gain);
   if (reduit) gains.push(tableEffectif(mise, minimum).parRang[0]);
   const payes = table(mise, mode, variante).parRang.filter((g) => g > 0).length;
-  el('pot-val').innerHTML = `${montant(Math.min(...gains))}–${montant(Math.max(...gains))}<small>USDC</small>`;
+  el('pot-val').innerHTML = `${montant(Math.min(...gains))}–${montant(Math.max(...gains))}<small>USDG</small>`;
   el('pot-sub').textContent =
     `${reduit ? `${minimum}–${config.joueurs}` : config.joueurs} players · `
     + (payes === 1 ? 'winner takes all' : `top ${payes} paid`);
@@ -354,7 +354,7 @@ export function rafraichirTicket() {
     play.disabled = true;
     txt.textContent = 'PLAY';
     note.classList.add('alerte');
-    note.textContent = CONFIGURE ? 'Sign in to play for USDC' : 'No account backend — paid tables are closed';
+    note.textContent = CONFIGURE ? 'Sign in to play for USDG' : 'No account backend — paid tables are closed';
   } else {
     play.disabled = !jouable;
     txt.textContent = 'PLAY';
@@ -558,7 +558,7 @@ export function wireEcrans(onEcran, onChangePerso) {
  * `cosmetics.js` : la boutique ne redécrit jamais un personnage.
  *
  * L'ACHAT demande une confirmation — le premier clic arme le bouton, le second paie — puis
- * appelle le backend, qui débite le wallet de jeu vers les frais : chaque USDC dépensé ici
+ * appelle le backend, qui débite le wallet de jeu vers les frais : chaque USDG dépensé ici
  * brûle du BG, et le pied de l'écran renvoie au suivi en direct.
  */
 
@@ -645,7 +645,7 @@ async function agirBoutique(onChange) {
     sfx.click();
   } else if (article.condition === 'achat') {
     /*
-     * ACHETER, EN DEUX CLICS. Le premier arme le bouton (« CONFIRM 15 USDC ») pendant six
+     * ACHETER, EN DEUX CLICS. Le premier arme le bouton (« CONFIRM 15 USDG ») pendant six
      * secondes ; le second paie. De l'argent réel part sur un clic : un seul clic, c'est
      * un clic de trop. Le backend débite et dit ce qu'on possède ; on équipe aussitôt —
      * la récompense, c'est le personnage sur le plateau, pas un message.
@@ -665,7 +665,7 @@ async function agirBoutique(onChange) {
     } catch (e) {
       const RAISONS = {
         NON_AUTHENTIFIE: 'Sign in first — the skin is paid from your game wallet.',
-        SOLDE_INSUFFISANT: `Not enough USDC in your game wallet for ${article.prix}. Deposit first.`,
+        SOLDE_INSUFFISANT: `Not enough USDG in your game wallet for ${article.prix}. Deposit first.`,
         CHAINE_REFUS: 'The payment was refused on-chain. Nothing was charged — try again in a moment.',
         ARTICLE_INCONNU: 'This skin is not for sale.',
       };
@@ -743,7 +743,7 @@ export function majBoutique(onChange, { bloquee = null, enCours = null, erreur =
     pied.innerHTML = porte ? 'EQUIPPED'
       : possede ? '✓ OWNED'
         : article.condition === 'post' ? 'FREE · POST'
-          : article.condition === 'achat' ? `<img src="/icons/icon-usdc.png" alt="">${article.prix.replace(' USDC', '')}`
+          : article.condition === 'achat' ? `<img src="/icons/icon-usdg.png" alt="">${article.prix.replace(' USDG', '')}`
             : article.prix;
   }
 
@@ -785,7 +785,7 @@ export function majBoutique(onChange, { bloquee = null, enCours = null, erreur =
       ? 'Unlocked for good. Thanks for the post — see you on the course.'
       : article.condition === 'cadeau'
         ? 'Your welcome gift. Yours for good — see you on the course.'
-        : 'Yours for good. Your USDC went to the fee wallet and burns BG.';
+        : 'Yours for good. Your USDG went to the fee wallet and burns BG.';
   } else if (article.condition === 'cadeau') {
     // La boîte n'a pas encore été ouverte (ou a été remise à plus tard) : on la rouvre
     // (`agirBoutique` envoie `tumble-cadeau-ouvrir`, `cadeau.js` l'écoute).
@@ -972,8 +972,8 @@ let ouvrirPortefeuille = () => {};
  *     vers l'explorateur. Une adresse 0x ne se recopie pas à la main sans faute de
  *     frappe, et une faute envoie les fonds dans le vide : le bouton COPY n'est pas un
  *     confort, c'est la seule façon sûre de la transmettre. Et le chemin court : DEPOSIT
- *     FROM WALLET fait signer un transfert USDC au wallet du joueur (MetaMask…), réseau
- *     ajouté d'office ; sur le testnet, GET TEST USDC demande au robinet du backend ;
+ *     FROM WALLET fait signer un transfert USDG au wallet du joueur (MetaMask…), réseau
+ *     ajouté d'office ; sur le testnet, GET TEST USDG demande au robinet du backend ;
  *   - RETRAIT : vers le wallet LIÉ uniquement, prouvé par signature du wallet. Le montant
  *     est le seul paramètre ; la destination n'en est jamais un ;
  *   - HISTORIQUE : chaque ligne du grand livre avec, quand elle existe, la transaction
@@ -999,17 +999,17 @@ export function buildPortefeuille(onChangement) {
   async function peindre() {
     const p = caisse.profil;
     if (!p) { dire('Sign in first.'); return; }
-    el('wallet-solde-val').innerHTML = `${montant(portefeuille.solde)}<small>USDC</small>`;
+    el('wallet-solde-val').innerHTML = `${montant(portefeuille.solde)}<small>USDG</small>`;
     el('wallet-solde').textContent = 'Available to play'
-      + (p.retraitsEnAttente ? ` · ${montant(p.retraitsEnAttente)} USDC on its way out` : '');
+      + (p.retraitsEnAttente ? ` · ${montant(p.retraitsEnAttente)} USDG on its way out` : '');
     el('wallet-adresse').textContent = p.adresseDepot ?? '—';
     el('wallet-adresse').href = p.adresseDepot ? explorateur(p.adresseDepot) : '#';
     el('wallet-depot-note').textContent =
-      `Send USDC on ${p.chaine?.nom ?? p.reseau} to this address, or deposit straight from your wallet. Minimum ${montant(p.depotMinimum)} USDC. `
+      `Send USDG on ${p.chaine?.nom ?? p.reseau} to this address, or deposit straight from your wallet. Minimum ${montant(p.depotMinimum)} USDG. `
       + 'It is your own game wallet: stakes leave it, winnings come back to it.';
     // Le robinet n'existe que sur le testnet, et c'est le backend qui le dit.
     el('wallet-robinet').classList.toggle('hidden', !p.chaine?.robinet);
-    if (p.chaine?.robinet) el('wallet-robinet').textContent = `GET ${montant(p.chaine.robinetMicros)} TEST USDC`;
+    if (p.chaine?.robinet) el('wallet-robinet').textContent = `GET ${montant(p.chaine.robinetMicros)} TEST USDG`;
 
     const lie = el('wallet-lie');
     if (p.wallet) {
@@ -1028,7 +1028,7 @@ export function buildPortefeuille(onChangement) {
       } catch (e) { dire(messageErreur(e)); }
     }));
     el('wallet-retrait-note').textContent =
-      `Minimum ${montant(p.retraitMinimum)} USDC · first withdrawal ${p.delaiPremierRetraitHeures} h after linking a wallet · sent from your game wallet.`;
+      `Minimum ${montant(p.retraitMinimum)} USDG · first withdrawal ${p.delaiPremierRetraitHeures} h after linking a wallet · sent from your game wallet.`;
 
     el('wallet-stats').href = `${API}/suivi`;
 
@@ -1054,7 +1054,7 @@ export function buildPortefeuille(onChangement) {
     try { await travail(); } finally { for (const b of boutons) { const e = el(b); if (e) e.disabled = false; } }
   }
 
-  // ADD FUNDS : le guide (`depot.js`), USDC, USDG ou ETH en trois étapes. Le panneau se
+  // ADD FUNDS : le guide (`depot.js`), USDG ou ETH en trois étapes. Le panneau se
   // ferme derrière — deux fenêtres l'une sur l'autre pour le même geste, c'est une de trop.
   el('wallet-guide')?.addEventListener('click', () => {
     sfx.click();
@@ -1080,18 +1080,18 @@ export function buildPortefeuille(onChangement) {
     } catch (e) { dire(e.message); }
   }));
   /*
-   * DÉPÔT DEPUIS LE WALLET : le joueur signe un transfert USDC dans MetaMask, vers son
+   * DÉPÔT DEPUIS LE WALLET : le joueur signe un transfert USDG dans MetaMask, vers son
    * wallet de jeu. Le réseau est ajouté au wallet s'il ne le connaît pas. Le crédit suit
    * quand le guetteur voit la transaction — CHECK DEPOSITS l'accélère.
    */
   el('wallet-deposer').addEventListener('click', () => pendant(async () => {
     sfx.click();
     const p = caisse.profil;
-    const usdc = Number(el('wallet-depot-montant').value);
-    if (!(usdc > 0)) { dire('Enter an amount in USDC.'); return; }
+    const usdg = Number(el('wallet-depot-montant').value);
+    if (!(usdg > 0)) { dire('Enter an amount in USDG.'); return; }
     dire('Confirm the network and the transfer in your wallet…');
     try {
-      const hache = await deposerDepuisWallet({ chaine: p.chaine, adresseDepot: p.adresseDepot, micros: Math.round(usdc * MICROS) });
+      const hache = await deposerDepuisWallet({ chaine: p.chaine, adresseDepot: p.adresseDepot, micros: Math.round(usdg * MICROS) });
       el('wallet-depot-montant').value = '';
       dire(`Transfer sent (${hache.slice(0, 10)}…). It is credited as soon as it is confirmed — click CHECK DEPOSITS in a moment.`, true);
     } catch (e) { dire(messageErreur(e)); }
@@ -1101,7 +1101,7 @@ export function buildPortefeuille(onChangement) {
     dire('Asking the faucet…');
     try {
       const r = await caisse.robinet();
-      dire(`${montant(r.montant)} test USDC credited.`, true);
+      dire(`${montant(r.montant)} test USDG credited.`, true);
       await caisse.rafraichir();
       await peindre();
       majBarre();
@@ -1112,12 +1112,12 @@ export function buildPortefeuille(onChangement) {
   el('wallet-depot-montant').addEventListener('keyup', (e) => e.stopPropagation());
   el('wallet-retirer').addEventListener('click', () => pendant(async () => {
     sfx.click();
-    const usdc = Number(el('wallet-montant').value);
-    if (!(usdc > 0)) { dire('Enter an amount in USDC.'); return; }
+    const usdg = Number(el('wallet-montant').value);
+    if (!(usdg > 0)) { dire('Enter an amount in USDG.'); return; }
     dire('Requesting…');
     try {
-      const r = await caisse.retirer(Math.round(usdc * MICROS));
-      dire(`Withdrawal of ${montant(r.montant)} USDC queued — it leaves your game wallet within a minute.`, true);
+      const r = await caisse.retirer(Math.round(usdg * MICROS));
+      dire(`Withdrawal of ${montant(r.montant)} USDG queued — it leaves your game wallet within a minute.`, true);
       el('wallet-montant').value = '';
       await caisse.rafraichir();
       await peindre();
@@ -1126,7 +1126,7 @@ export function buildPortefeuille(onChangement) {
     } catch (e) {
       const RAISONS = {
         WALLET_ABSENT: 'Link a wallet first.',
-        SOUS_LE_MINIMUM: `Minimum withdrawal is ${montant(caisse.profil?.retraitMinimum ?? 0)} USDC.`,
+        SOUS_LE_MINIMUM: `Minimum withdrawal is ${montant(caisse.profil?.retraitMinimum ?? 0)} USDG.`,
         DELAI_PREMIER_RETRAIT: `Your first withdrawal opens ${caisse.profil?.delaiPremierRetraitHeures} h after linking your wallet.`,
         SOLDE_INSUFFISANT: 'Not enough balance.',
       };
@@ -1242,7 +1242,7 @@ export function majFiles(files) {
   };
   for (const b of document.querySelectorAll('.mode')) poser(b, parMode.get(b.dataset.mode) ?? 0);
   for (const b of document.querySelectorAll('.palier')) {
-    const mise = Number(b.dataset.usdc) * MICROS;
+    const mise = Number(b.dataset.usdg) * MICROS;
     poser(b, dernieresFiles.find((f) => f.mode === mode && f.mise === mise)?.joueurs ?? 0);
   }
 }

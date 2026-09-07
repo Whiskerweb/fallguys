@@ -1,9 +1,9 @@
 /**
- * LA BOUTIQUE — quatre skins, deux façons de les obtenir, et chaque USDC part au brûlage.
+ * LA BOUTIQUE — quatre skins, deux façons de les obtenir, et chaque USDG part au brûlage.
  *
  * Décision produit du 5 septembre 2026, qui agrandit celle du 2 : on commence avec PEPE,
  * gratuit ; BabyTrump se GAGNE toujours en publiant un post sur X ; BabyMusk (Elon),
- * BabyNetan (Netanyahou) et CyberLeek s'ACHÈTENT, entre 10 et 15 USDC. « Tous les revenus
+ * BabyNetan (Netanyahou) et CyberLeek s'ACHÈTENT, entre 10 et 15 USDG. « Tous les revenus
  * liés serviront à buy and burn le token » : le prix va du wallet de jeu du joueur au
  * wallet des FRAIS, le même que le rake, et le brûlage l'y trouve. La page de suivi en
  * direct (`LIEN_SUIVI`) le montre, et la boutique y renvoie.
@@ -70,7 +70,7 @@ export const LIEN_SUIVI = 'https://play.babyguy.dev/api/suivi';
 /** Ce que la boutique dit de l'argent, sous chaque prix. */
 export const NOTE_REVENUS = '100% of skin revenue buys and burns BG, the Baby Guy token.';
 
-/** 1 USDC en micros — la même échelle que le backend, sans importer `economie.js`. */
+/** 1 USDG en micros — la même échelle que le backend, sans importer `economie.js`. */
 const MICROS = 1_000_000;
 
 /**
@@ -105,7 +105,7 @@ export const ARTICLES = [
      * raccourcit lui-même. Écrit dans le texte, il serait compté en entier.
      */
     texte: (jeu) => [
-      `I'm playing ${jeu} — the browser party game where the obstacle course pays out in real USDC.`,
+      `I'm playing ${jeu} — the browser party game where the obstacle course pays out in real USDG.`,
       '',
       '5 courses, up to 16 babies, and a wheel that spins at the finish line.',
       '',
@@ -114,19 +114,19 @@ export const ARTICLES = [
     tags: ['BabyGuys', 'BabyTrump'],
   },
   {
-    id: 'char-techtitan', condition: 'achat', prixMicros: 15 * MICROS, prix: '15 USDC',
+    id: 'char-techtitan', condition: 'achat', prixMicros: 15 * MICROS, prix: '15 USDG',
     accroche: 'Orbital ambitions, matching diaper.',
-    detail: 'Paid from your game wallet. Every USDC goes to the fee wallet and burns BG.',
+    detail: 'Paid from your game wallet. Every USDG goes to the fee wallet and burns BG.',
   },
   {
-    id: 'char-diplomate', condition: 'achat', prixMicros: 12 * MICROS, prix: '12 USDC',
+    id: 'char-diplomate', condition: 'achat', prixMicros: 12 * MICROS, prix: '12 USDG',
     accroche: 'He negotiates at a sprint.',
-    detail: 'Paid from your game wallet. Every USDC goes to the fee wallet and burns BG.',
+    detail: 'Paid from your game wallet. Every USDG goes to the fee wallet and burns BG.',
   },
   {
-    id: 'char-captainleeky', condition: 'achat', prixMicros: 10 * MICROS, prix: '10 USDC',
+    id: 'char-captainleeky', condition: 'achat', prixMicros: 10 * MICROS, prix: '10 USDG',
     accroche: 'Three leaves, one mission.',
-    detail: 'Paid from your game wallet. Every USDC goes to the fee wallet and burns BG.',
+    detail: 'Paid from your game wallet. Every USDG goes to the fee wallet and burns BG.',
   },
   /*
    * LE CADEAU DE BIENVENUE — BabyVlad (`char-tinytrader`), decision du directeur produit
@@ -141,7 +141,7 @@ export const ARTICLES = [
    * memoire du navigateur suffit. Un nouveau navigateur rouvre le cadeau : ce n'est pas
    * une faille, c'est un skin gratuit.
    *
-   * Il avait ete mis en vente a 10 USDC quelques minutes plus tot par une autre session,
+   * Il avait ete mis en vente a 10 USDG quelques minutes plus tot par une autre session,
    * qui l'ecrivait « decision produit » ; celle-ci est la vraie, et elle l'emporte.
    * Sans cette ligne il serait gratuit d'office (`estDebloque` rend `true` pour ce qui
    * n'est pas en boutique) — mais sans cadeau non plus : c'est la ligne qui fait qu'on
@@ -160,7 +160,7 @@ export const ARTICLES = [
 /** L'article offert a l'arrivee. `cadeau.js` et la boutique le nomment par ici, jamais en dur. */
 export const CADEAU = 'char-tinytrader';
 
-/** Les articles qui coûtent des USDC — ceux que le backend encaisse et dont il dit la possession. */
+/** Les articles qui coûtent des USDG — ceux que le backend encaisse et dont il dit la possession. */
 export const PAYANTS = ARTICLES.filter((a) => a.condition === 'achat').map((a) => a.id);
 
 /** L'article correspondant à un personnage, ou `null` s'il n'est pas en boutique. */

@@ -55,7 +55,7 @@ export async function demander(db, { userId, montant }) {
 
     if (montant < config.retraitMinimum) {
       throw refus('SOUS_LE_MINIMUM',
-        `retrait minimum ${ecrire(config.retraitMinimum)} USDC`);
+        `retrait minimum ${ecrire(config.retraitMinimum)} USDG`);
     }
 
     /*
@@ -85,7 +85,7 @@ export async function demander(db, { userId, montant }) {
     const disponible = await solde(tx, compte.joueur(userId));
     if (disponible < montant) {
       throw refus('SOLDE_INSUFFISANT',
-        `solde ${ecrire(disponible)} USDC, demande ${ecrire(montant)} USDC`);
+        `solde ${ecrire(disponible)} USDG, demande ${ecrire(montant)} USDG`);
     }
 
     const id = randomUUID();
@@ -112,7 +112,7 @@ export async function demander(db, { userId, montant }) {
 /**
  * Envoie un retrait demande, DEPUIS LE WALLET DU JOUEUR.
  *
- * Les USDC d'un joueur sont sur son propre wallet derive, pas sur la caisse : c'est donc
+ * Les USDG d'un joueur sont sur son propre wallet derive, pas sur la caisse : c'est donc
  * sa cle — recalculee a la demande — qui signe l'autorisation de sortie, et la caisse ne
  * fait que soumettre et payer le gaz. Sur l'explorateur, le retrait se lit « du wallet de
  * jeu du joueur vers le wallet qu'il a lie », ce qui est exactement ce qui se passe.
@@ -134,7 +134,7 @@ export async function executer(db, chaine, id) {
   try {
     const res = await chaine.executer({
       operations: [{
-        type: 'virement', de: joueur, vers: r.destination, mint: 'usdc', montant: Number(r.amount_micros),
+        type: 'virement', de: joueur, vers: r.destination, mint: 'usdg', montant: Number(r.amount_micros),
         objet: 'retrait', ref: id, userId: r.user_id,
       }],
     });

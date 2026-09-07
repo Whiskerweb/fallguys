@@ -1,7 +1,7 @@
 # Tumble — party game à mises réelles
 
 Un jeu de parcours d'obstacles façon Fall Guys, jouable **dans un navigateur**, avec entrée
-payante en USDC et redistribution aux gagnants. La mise est la proposition de valeur : on
+payante en USDG et redistribution aux gagnants. La mise est la proposition de valeur : on
 ne bat pas Fall Guys en qualité de jeu, on occupe un créneau vide.
 
 Le design complet est dans [`docs/superpowers/specs/`](docs/superpowers/specs/) — lisez les
@@ -70,7 +70,7 @@ Le lobby ouvre **neuf tables** : trois formes de partie × trois mises.
 | **SQUAD 4** | 4 | 2 | 2 | ×1,9 à ×2,6 |
 | **ARENA 16** | 16 | 3 | 8 | ×2,9 à ×7,4 |
 
-Mises : **2 / 5 / 10 USDC**. Rake 10 %, toujours.
+Mises : **2 / 5 / 10 USDG**. Rake 10 %, toujours.
 
 Le duel et le squad existent d'abord pour le **démarrage à froid** : réunir seize personnes
 prêtes à miser la même somme au même instant est difficile le premier jour ; deux, non.
@@ -80,7 +80,7 @@ Des parties plus courtes, plus de vainqueurs par minute.
 
 En squad et en arène, une roue tire la **forme** du barème avant chaque partie. Le pot ne
 change pas — ce que la roue donne au vainqueur, elle le retire au reste du haut de tableau.
-En arène, à 2 USDC de mise :
+En arène, à 2 USDG de mise :
 
 | Variante | Rareté | 1er | 2e | 3e | 4e | 5e–8e |
 |---|---|---|---|---|---|---|
@@ -116,7 +116,7 @@ Elle ne tire rien — le barème était connu avant la mise. Elle révèle où l
 a mis, et le montant monte de zéro jusqu'à sa valeur. Ensuite **rien ne se ferme tout
 seul** : LOBBY ou REJOUER, c'est le joueur qui décide.
 
-Nulle part le joueur ne voit de `×`. Il mise des USDC et il gagne des USDC ; le
+Nulle part le joueur ne voit de `×`. Il mise des USDG et il gagne des USDG ; le
 multiplicateur est notre outil de calcul, pas son unité de compte.
 
 **Elle tourne AVANT le départ**, à la création du salon, et s'affiche pendant qu'il se
@@ -137,7 +137,7 @@ implémentations. N'importe qui peut le refaire et vérifier.
 |---|---|
 | [`tools/feel-lab/`](tools/feel-lab/) | **Le jeu.** Three.js + Rapier, cinq épreuves, le lobby, l'économie affichée. C'est aussi lui que le serveur exécute. |
 | [`serveur/`](serveur/) | **Le serveur de jeu**, autoritatif. Il arbitre les parties et n'a accès à aucun solde. |
-| [`backend/`](backend/) | **L'argent.** Comptes Supabase, grand livre en partie double, dépôts et retraits USDC sur Robinhood Chain (testnet). |
+| [`backend/`](backend/) | **L'argent.** Comptes Supabase, grand livre en partie double, dépôts et retraits USDG sur Robinhood Chain (testnet). |
 | [`src/Fallguys.Rules/`](src/Fallguys.Rules/) | **Le noyau de règles** en C# : la table des gains, sans Unity ni dépendance. |
 
 Le serveur de jeu **importe les vrais modules du jeu**, pas une réécriture. Une simulation

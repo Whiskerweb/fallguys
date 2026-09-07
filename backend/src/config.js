@@ -61,50 +61,49 @@ export const config = {
    * Les CONTRATS. Trois adresses, toutes en variables et jamais en constantes : le
    * mainnet ne doit demander qu'un changement ici.
    *
-   *   - USDC_ADRESSE : le jeton dans lequel on mise. Sur le testnet, c'est NOTRE jeton
-   *     d'essai (`USDCTest`, frappable) ; sur mainnet, le vrai ;
+   *   - USDG_ADRESSE : le jeton dans lequel on mise. Sur le testnet, c'est NOTRE jeton
+   *     d'essai (`USDGTest`, frappable) ; sur mainnet, le vrai ;
    *   - BG_ADRESSE   : Baby Guy, cree par `outils/contrats.mjs` : 1 milliard, sans frappe ;
    *   - LOT_ADRESSE  : l'executeur de lot, qui rend un reglement atomique.
    */
-  usdcAdresse: lire('USDC_ADRESSE'),
+  usdgAdresse: lire('USDG_ADRESSE'),
   bgAdresse: lire('BG_ADRESSE'),
   lotAdresse: lire('LOT_ADRESSE'),
 
   /**
-   * LE NOM DU DOLLAR. Le jeu est ecrit en « USDC » ; sur Robinhood Chain mainnet, le dollar
+   * LE NOM DU DOLLAR. Le jeu est ecrit en « USDG » ; sur Robinhood Chain mainnet, le dollar
    * natif est l'USDG de Paxos (« Global Dollar », six decimales, EIP-3009 — on l'a
-   * verifie sur son contrat), et c'est lui que `USDC_ADRESSE` designe alors. Le symbole
+   * verifie sur son contrat), et c'est lui que `USDG_ADRESSE` designe alors. Le symbole
    * part vers le navigateur, qui renomme ce qu'il affiche : on ne fait pas miser des
-   * USDG a quelqu'un en lui ecrivant USDC.
+   * USDG a quelqu'un en lui ecrivant USDG.
    */
-  stableSymbole: lire('STABLE_SYMBOLE', reseau === 'mainnet' ? 'USDG' : 'USDC'),
+  stableSymbole: lire('STABLE_SYMBOLE', 'USDG'),
 
   /**
    * LES AUTRES PORTES D'ENTREE DE L'ARGENT (5 septembre 2026) : USDG, et l'ETH du wallet.
    *
-   * Demande du directeur produit : un joueur qui n'a que des USDG (le dollar de Paxos,
-   * dont Robinhood est membre du reseau) ou que de l'ETH ne doit pas aller chercher des
-   * USDC ailleurs avant de jouer. Le grand livre, lui, reste en USDC et rien d'autre : le
-   * wallet de jeu doit detenir des USDC pour que la mise parte (EIP-3009 sur le contrat
-   * USDC). Le CHANGE se fait donc dans le wallet DU JOUEUR, avant que l'argent arrive :
+   * Demande du directeur produit : un joueur qui n'a que de l'ETH ne doit pas aller
+   * chercher des USDG ailleurs avant de jouer. Le grand livre, lui, reste en USDG et rien
+   * d'autre : le wallet de jeu doit detenir des USDG pour que la mise parte (EIP-3009
+   * sur le contrat USDG). Le CHANGE se fait donc dans le wallet DU JOUEUR, avant que
+   * l'argent arrive :
    * le navigateur appelle un routeur de DEX (interface Uniswap V2) avec l'adresse de
-   * depot comme DESTINATION du swap, et le guetteur voit arriver des USDC ordinaires.
+   * depot comme DESTINATION du swap, et le guetteur voit arriver des USDG ordinaires.
    * Aucun chemin nouveau ici, aucune reserve a tenir, aucun risque de change pour la
    * maison. Voir `tools/feel-lab/src/compte.js:deposerParSwap`.
    *
-   * Trois adresses, publiees au navigateur par `GET /moi` → `chaine.usdg` et
-   * `chaine.swap`. VIDES sur le testnet : il n'y a ni USDG ni marche ETH/USDC sur
-   * Robinhood Chain testnet, et le guide de depot le dit au lieu de proposer un bouton
-   * qui echouerait. Le jour du mainnet, les renseigner suffit.
+   * Deux adresses, publiees au navigateur par `GET /moi` → `chaine.swap`. VIDES sur le
+   * testnet : il n'y a pas de marche ETH/USDG sur Robinhood Chain testnet, et le guide
+   * de depot le dit au lieu de proposer un bouton qui echouerait. Sur mainnet, les
+   * renseigner suffit (un routeur a l'interface Uniswap V2 et son WETH).
    */
-  usdgAdresse: lire('USDG_ADRESSE'),
   swapRouteur: lire('SWAP_ROUTEUR_ADRESSE'),
   swapWeth: lire('SWAP_WETH_ADRESSE'),
 
   /**
    * Cle de la CAISSE, en hexadecimal (0x…, 32 octets) : le payeur de GAZ de toutes les
    * transactions du service, et le proprietaire des contrats. Elle ne detient pas les
-   * USDC des joueurs — chacun les garde sur son propre wallet derive — mais elle soumet
+   * USDG des joueurs — chacun les garde sur son propre wallet derive — mais elle soumet
    * chaque transaction et paie chaque frais : elle reste LE secret.
    */
   caisseCle: lire('CAISSE_CLE'),
@@ -115,7 +114,7 @@ export const config = {
    *
    *   - FRAIS : recoit le rake de chaque partie, sur la chaine. C'est le wallet que la
    *     page de suivi montre comme « frais », et celui que le brulage vide ;
-   *   - POOL  : la liquidite BG/USDC. Sur le testnet il n'existe aucun marche pour un
+   *   - POOL  : la liquidite BG/USDG. Sur le testnet il n'existe aucun marche pour un
    *     jeton neuf, donc le service tient lui-meme une reserve a produit constant, dont
    *     les soldes ON-CHAIN fixent le prix. Sur mainnet, ce wallet s'efface derriere un
    *     routeur de DEX et une vraie paire : voir `robinhood/brulage.js`.
@@ -131,7 +130,7 @@ export const config = {
   serveurPublique: lire('SERVEUR_PUBLIQUE'),
 
   /**
-   * Le brulage : des que le wallet des frais detient au moins `brulageSeuil` USDC, on
+   * Le brulage : des que le wallet des frais detient au moins `brulageSeuil` USDG, on
    * achete des BG avec et on les brule. Le seuil evite de payer une transaction pour
    * quelques centimes ; l'intervalle est celui de la boucle de fond.
    */
@@ -139,10 +138,10 @@ export const config = {
   brulageActif: lire('BRULAGE', '1') !== '0',
 
   /**
-   * LE ROBINET — testnet seulement. `POST /robinet` frappe des USDC d'essai sur le wallet
-   * de jeu du joueur, parce que personne ne vend d'USDC de test et que le directeur
+   * LE ROBINET — testnet seulement. `POST /robinet` frappe des USDG d'essai sur le wallet
+   * de jeu du joueur, parce que personne ne vend d'USDG de test et que le directeur
    * produit doit pouvoir jouer sans un tiers. Interdit sur mainnet par construction : le
-   * vrai USDC n'a pas de fonction de frappe.
+   * vrai USDG n'a pas de fonction de frappe.
    */
   robinetMicros: Number(lire('ROBINET_MICROS', String(20 * MICROS))),
   robinetDelaiMinutes: Number(lire('ROBINET_DELAI_MINUTES', '60')),
@@ -165,7 +164,7 @@ export const config = {
 
   // ---- reglages economiques ----
   /**
-   * Depot minimum ANNONCE : 20 USDC.
+   * Depot minimum ANNONCE : 20 USDG.
    *
    * Annonce, et non impose. On ne peut pas refuser un virement deja arrive sur la chaine :
    * les seules options seraient de le garder (c'est du vol) ou de le renvoyer (ce qui
@@ -178,7 +177,7 @@ export const config = {
    * Retrait minimum, et delai sur le premier retrait d'un compte.
    *
    * C'est la doctrine anti-bot de la spec section 2 : la friction est a la SORTIE, pas a
-   * l'entree. Un bot qui doit d'abord gagner 25 USDC puis attendre un jour coute plus
+   * l'entree. Un bot qui doit d'abord gagner 25 USDG puis attendre un jour coute plus
    * cher a fabriquer qu'il ne rapporte — et pendant ce temps le web reste ouvert en
    * grand a l'inscription, ce qui est exactement ce qu'on veut pour l'acquisition.
    */

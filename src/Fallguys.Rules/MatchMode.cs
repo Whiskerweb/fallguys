@@ -71,7 +71,7 @@ public sealed record MatchMode(string Id, string Nom, MatchConfiguration Config)
     }
 
     /// <summary>
-    /// Les mises ouvertes, en unités USDC. Doublé à l'identique dans les deux ports
+    /// Les mises ouvertes, en unités USDG. Doublé à l'identique dans les deux ports
     /// JavaScript (`PALIERS`), et vérifié par le service qui paie avant tout débit.
     /// </summary>
     public static IReadOnlyList<decimal> StakeTiers { get; } = new[] { 2m, 5m, 10m };
