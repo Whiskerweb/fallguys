@@ -241,6 +241,13 @@ export class Character {
     this.vChute = 0;
     /** Impact du dernier atterrissage (m/s, positif), lisible IMPACT_FENETRE durant. */
     this.impact = 0;
+    /**
+     * La carte accepte-t-elle qu'une secousse nous envoie en culbute ? Renseigné par la
+     * scène à chaque image (`culbute: false` dans L'Hexagone, où rien n'est fait pour
+     * déstabiliser et où les seules secousses viennent du terrain). Le plongeon, lui,
+     * reste un choix du joueur et n'est pas concerné.
+     */
+    this.culbute = true;
     /** Secondes depuis le dernier vrai atterrissage. Voir TUNING.jumpLanding. */
     this.depuisAtterrissage = Infinity;
     this._sonde = new THREE.Vector3();
@@ -489,7 +496,7 @@ export class Character {
       // La secousse doit venir de l'exterieur : on soustrait ce que le joueur pouvait
       // produire lui-meme en un pas, sinon un simple demi-tour declencherait la culbute.
       const selfMax = T.groundAccel * dt * 1.35;
-      if (jolt > Math.max(T.tumbleJolt, selfMax)) this.enterTumble();
+      if (this.culbute && jolt > Math.max(T.tumbleJolt, selfMax)) this.enterTumble();
     }
     this.prevVx = vx0 - sx;
     this.prevVz = vz0 - sz;

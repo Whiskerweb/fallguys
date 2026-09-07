@@ -191,7 +191,25 @@ const ETAGE_H = 17.00;
  * le joueur n'a aucun signal pour minuter son départ.
  */
 const SURSIS = 1.00;
-const ENFONCE = 0.12;         // profondeur de l'enfoncement, en mètres
+/*
+ * ENFONCEMENT DE 3 CM, PAS 12 — mesuré, pas choisi (6 septembre 2026).
+ *
+ * « Des fois on prend des collisions en marchant sur les plaques, on tombe, alors qu'on
+ * doit rester debout » (directeur produit). Reproduit sans navigateur : le collider SUIT
+ * l'enfoncement, donc une tuile touchée est 12 cm plus bas que ses voisines pendant une
+ * demi-seconde, et en sortir à la course, c'est monter une marche de 12 cm à 7,6 m/s. Le
+ * solveur encaisse la marche d'un coup : secousse de 5 à 9 m/s en un pas, au-dessus du
+ * seuil de culbute (5,2), ou au mieux un joueur qui tombe à 3,9 m/s sans comprendre
+ * pourquoi. Vitesse la plus basse conservée en quittant une tuile enfoncée à fond,
+ * douze directions : 3,9 m/s à 12 cm, 4,9 à 4 cm, 5,8 à 3 cm, 6,6 sans enfoncement
+ * (l'accélération du joueur lui-même). Trois centimètres est le genou de la courbe.
+ *
+ * On garde la hitbox SUR le visuel (la règle de cette carte) et on réduit les deux : le
+ * blanchiment porte l'essentiel du signal de timing, le rebond n'en est que la nuance.
+ * Décorréler — visuel à 12, collider à 3 — aurait fait flotter le personnage neuf
+ * centimètres au-dessus d'une tuile enfoncée, ce qui se voit.
+ */
+const ENFONCE = 0.03;         // profondeur de l'enfoncement, en mètres
 const EVAPORATION = 0.22;     // durée de la disparition, une fois le collider retiré
 
 /**
@@ -927,6 +945,16 @@ export function buildHexagone(RAPIER, assets, { seed = 1 } = {}) {
      * aucune liste d'identifiants, et une carte de survie de plus n'aura rien à y ajouter.
      */
     survie: { duree: DUREE },
+    /*
+     * PAS DE CULBUTE SUR CETTE CARTE. Rien n'y est fait pour déstabiliser : pas de
+     * rouleau, pas de marteau, pas de porte. Les seules secousses qu'on y prend viennent
+     * du TERRAIN — la marche d'une tuile enfoncée, ou le flanc d'une voisine qu'on frôle
+     * en tombant dans un trou (mesuré : 24 culbutes sur 168 essais rien qu'en tombant
+     * dans des trous, avant même l'enfoncement). Tomber dans un trou est le jeu ;
+     * s'y étaler n'en fait pas partie. Le contrôleur lit ce drapeau à chaque image
+     * (`tick.js`, `main.js`), comme `glisseAt` et `surfaceAt`.
+     */
+    culbute: false,
     objectif: 'STAY ABOVE THE SLIME!',
     killY: KILL_Y,
     /*

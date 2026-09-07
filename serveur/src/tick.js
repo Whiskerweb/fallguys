@@ -92,6 +92,8 @@ export function avancerTick(monde, acteurs, elapsed, dt, enJeu, { apresSousPas =
     // chaque épreuve libre de dessiner ses zones sans rien changer au personnage.
     a.perso.glisse = arene.glisseAt?.(pos) ?? 0;
     a.perso.surface = arene.surfaceAt?.(pos) ?? null;
+    // Et si la carte refuse la culbute (L'Hexagone : rien n'y déstabilise, voir la scène).
+    a.perso.culbute = arene.culbute !== false;
 
     if (a.perso.grounded) {
       for (const c of arene.conveyors ?? []) {

@@ -1533,6 +1533,8 @@ class Game {
     // sa circonference. La scene renvoie donc directement la vitesse sous les pieds,
     // et le controleur s'en sert comme repere plutot que d'encaisser une poussee.
     this.character.surface = this.arena.surfaceAt?.(pos) ?? null;
+    // Et si la carte refuse la culbute (L'Hexagone : rien n'y destabilise, voir la scene).
+    this.character.culbute = this.arena.culbute !== false;
 
     if (this.character.grounded) {
       for (const c of this.arena.conveyors) {

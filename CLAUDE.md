@@ -726,6 +726,24 @@ d'un étage est le jeu). Un saut culmine à 2,15 m, aucune marche ne descend de 
 disque : à 100 % de translation, sa tête dépassait en bas du lobby — « ce truc en bas
 de l'écran ». `visibility` bascule après la descente, sans délai à la montée.
 
+**L'HEXAGONE NE CULBUTE PAS, ET SES TUILES NE S'ENFONCENT QUE DE 3 CM (6 septembre
+2026).** « Des fois on prend des collisions en marchant sur les plaques, on tombe, alors
+qu'on doit rester debout » (directeur produit). Reproduit SANS NAVIGATEUR, avec un
+personnage posé sur l'étage du haut qui zigzague (`serveur/src/monde.js` + `tick.js`) :
+57 culbutes sur 168 essais. Deux causes. La tuile touchée s'enfonçait de 12 cm, collider
+compris, et en sortir à la course c'était monter une marche de 12 cm à 7,6 m/s :
+secousse de 5 à 9 m/s en un pas, au-dessus du seuil de culbute (5,2) — ou, sans
+culbute, un joueur ralenti à 3,9 m/s. Et en tombant dans un trou, on frôle le flanc
+d'une voisine : 24 culbutes sur 168 rien que par là, avant tout enfoncement. Deux
+réponses : `ENFONCE = 0.03` (mesuré : 5,8 m/s conservés contre 6,6 sans enfoncement,
+la hitbox reste SUR le visuel), et la scène déclare `culbute: false`, que `tick.js` et
+`main.js` recopient sur le personnage à chaque image comme `glisseAt` — rien sur cette
+carte n'est fait pour déstabiliser, le terrain ne doit pas le faire à leur place. Les
+autres cartes gardent la culbute : une porte condamnée des Portes DOIT coucher celui qui
+fonce dedans. Le premier probe avait conclu à tort en mesurant depuis le SOCLE de
+départ : en tomber dans certaines directions frappe le flanc d'un socle voisin, et c'est
+cette culbute-là qu'il comptait. Poser le marcheur là où le joueur se plaint.
+
 **L'Hexagone est à R = 1,95 m et 17 m entre étages** (1,80 et 14 avant), demande du
 directeur produit qui trouvait la tour serrée. Un trou d'un hexagone fait 6,75 m : hors du
 saut, dans le plongeon même épuisé (7,29 m). À 2,00 m la marge tombait à 36 cm et
@@ -739,8 +757,9 @@ saut, dans le plongeon même épuisé (7,29 m). À 2,00 m la marge tombait à 36
 dotnet test                                   # 120 — modes, dix issues, roue par rang (PATH=$HOME/.dotnet)
 cd backend            && npm test             # 190 — grand livre, RLS, retraits, tirage, la CHAÎNE (factice) : mises en lot, annulation, reprise, brûlage, robinet, et la BOUTIQUE
 cd backend            && npm run cycle:local  # le cycle COMPLET sur anvil (lancé par le script) : contrats, dépôt, mise, gain, brûlage, retrait — EIP-3009 réel
-cd tools/test-harness && npm test             # 309 — serveur, files, graine de roue, réseau, entrées, tampon, GIGUE, mises, DALLES
+cd tools/test-harness && npm test             # 311 — serveur, files, graine de roue, réseau, entrées, tampon, GIGUE, mises, DALLES
 cd tools/test-harness && node dalles.mjs      #   7 — les trois règles des Dalles et les deux exploits fermés, sans navigateur
+cd tools/test-harness && node hex-debout.mjs  #   2 — L'Hexagone : zéro culbute en zigzaguant sur les tuiles, et sortir d'une tuile enfoncée garde 5,5 m/s
 cd tools/test-harness && node marche.mjs rondin 7 # un RAPPORT : un personnage court tout droit sans sauter, où tombe-t-il ?
 cd tools/test-harness && node gigue.mjs       #   8 — le netcode à 240 ms d'aller-retour et une coupure de 300 ms toutes les 2 s
 cd tools/feel-lab     && node diag/economie.mjs #  87 — les dix lignes, les roues, l'espérance, sans navigateur
